@@ -1,103 +1,139 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import MainLayout from '@/components/layout/MainLayout';
+import ClienteTable from '@/components/ClienteTable';
+import ClienteModal from '@/components/ClienteModal';
+import { useClientes } from '@/hooks/useClientes';
+import { Cliente, NovoCliente } from '@/types/crm';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const {
+    clientes,
+    loading,
+    adicionarCliente,
+    editarCliente,
+    excluirCliente,
+    estatisticas
+  } = useClientes();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [clienteEditando, setClienteEditando] = useState<Cliente | undefined>();
+
+  const handleSubmitForm = async (dadosCliente: NovoCliente) => {
+    if (clienteEditando) {
+      await editarCliente(clienteEditando.id!, dadosCliente);
+      setClienteEditando(undefined);
+    } else {
+      await adicionarCliente(dadosCliente);
+    }
+    setMostrarModal(false);
+  };
+
+  const handleEditarCliente = (cliente: Cliente) => {
+    setClienteEditando(cliente);
+    setMostrarModal(true);
+  };
+
+  const handleFecharModal = () => {
+    setMostrarModal(false);
+    setClienteEditando(undefined);
+  };
+
+  const formatarValor = (valor: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valor);
+  };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-theme-bodycolor dark:text-themedark-bodycolor">Carregando clientes...</p>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-theme-headings dark:text-themedark-headings">
+              CRM Charbelle - Gestão de Clientes
+            </h1>
+            <p className="text-theme-bodycolor dark:text-themedark-bodycolor">
+              Gerencie seus clientes e acompanhe o progresso dos orçamentos
+            </p>
+          </div>
+
+          <button
+            onClick={() => setMostrarModal(true)}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Novo Cliente
+          </button>
+        </div>
+
+        {/* Estatísticas */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="card">
+            <div className="card-body text-center">
+              <div className="text-2xl font-bold text-primary">{estatisticas.total}</div>
+              <div className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Total de Clientes</div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-body text-center">
+              <div className="text-2xl font-bold text-success">{estatisticas.vendas}</div>
+              <div className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Vendas</div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-body text-center">
+              <div className="text-2xl font-bold text-warning">{estatisticas.emProcesso}</div>
+              <div className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Em Processo</div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-body text-center">
+              <div className="text-2xl font-bold text-danger">{estatisticas.naoVenda}</div>
+              <div className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Não Venda</div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-body text-center">
+              <div className="text-2xl font-bold text-success">{formatarValor(estatisticas.valorTotal)}</div>
+              <div className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Valor Total</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabela */}
+        <ClienteTable
+          clientes={clientes}
+          onEdit={handleEditarCliente}
+          onDelete={excluirCliente}
+        />
+
+        {/* Modal do Cliente */}
+        <ClienteModal
+          isOpen={mostrarModal}
+          onClose={handleFecharModal}
+          onSave={handleSubmitForm}
+          cliente={clienteEditando}
+        />
+      </div>
+    </MainLayout>
   );
 }
