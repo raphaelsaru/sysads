@@ -19,6 +19,7 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const startX = useRef(0);
   const currentX = useRef(0);
@@ -38,30 +39,43 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
   }, [swipeOffset]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault(); // Previne scroll da página
-    setIsDragging(true);
+    setIsDragging(false); // Reset dragging state
     startX.current = e.touches[0].clientX;
+    currentX.current = startX.current;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    e.preventDefault(); // Previne scroll da página
-
     currentX.current = e.touches[0].clientX;
-    const diffX = startX.current - currentX.current;
+    const diffX = Math.abs(startX.current - currentX.current);
 
-    // Permite swipe para esquerda (abrir) e direita (fechar)
-    if (diffX > 0) {
-      // Swipe para esquerda - abre as ações
-      setSwipeOffset(Math.min(diffX, 80));
-    } else if (diffX < 0 && swipeOffset > 0) {
-      // Swipe para direita - fecha as ações (só se já estiver aberto)
-      setSwipeOffset(Math.max(0, swipeOffset + diffX));
+    // Se moveu mais de 10px, considera como dragging
+    if (diffX > 10) {
+      setIsDragging(true);
+      e.preventDefault(); // Previne scroll da página
+      e.stopPropagation(); // Para propagação do evento
+
+      const moveX = startX.current - currentX.current;
+
+      // Permite swipe para esquerda (abrir) e direita (fechar)
+      if (moveX > 0) {
+        // Swipe para esquerda - abre as ações
+        setSwipeOffset(Math.min(moveX, 80));
+      } else if (moveX < 0 && swipeOffset > 0) {
+        // Swipe para direita - fecha as ações (só se já estiver aberto)
+        setSwipeOffset(Math.max(0, swipeOffset + moveX));
+      }
+    } else {
+      // Mesmo para movimentos pequenos, previne o scroll horizontal
+      const moveX = startX.current - currentX.current;
+      if (Math.abs(moveX) > 2) {
+        e.preventDefault();
+      }
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    e.preventDefault();
+    const wasDragging = isDragging;
+    const finalOffset = swipeOffset;
     setIsDragging(false);
 
     // Se swipou mais de 40px para esquerda, mantém aberto
@@ -70,6 +84,11 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
       setSwipeOffset(80);
     } else {
       setSwipeOffset(0);
+    }
+
+    // Se foi apenas um toque (não arrastou), abre modal de detalhes
+    if (!wasDragging && finalOffset === 0) {
+      setShowDetailsModal(true);
     }
   };
 
@@ -95,12 +114,21 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
 
   const handleMouseUp = (e: React.MouseEvent) => {
     e.preventDefault();
+    const wasDragging = isDragging;
+    const finalOffset = swipeOffset;
     setIsDragging(false);
 
     if (swipeOffset > 40) {
       setSwipeOffset(80);
     } else {
       setSwipeOffset(0);
+    }
+
+    // Se não arrastou e não tem ações abertas, abre modal de detalhes (para desktop testing)
+    if (!wasDragging && finalOffset < 10) {
+      setTimeout(() => {
+        setShowDetailsModal(true);
+      }, 100);
     }
   };
 
@@ -120,6 +148,16 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
     setShowDeleteModal(false);
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Previne que o click seja processado se houve touch events
+    if (e.type === 'click' && e.detail === 0) return;
+
+    // Só abre o modal se não estiver fazendo swipe e não há ações abertas
+    if (!isDragging && swipeOffset === 0) {
+      setShowDetailsModal(true);
+    }
+  };
+
   const getStatusBadge = (resultado: string) => {
     const baseClasses = "badge text-xs font-medium px-2 py-1 rounded-full";
     switch (resultado) {
@@ -134,6 +172,20 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
     }
   };
 
+  const getQualidadeBadge = (qualidade: string) => {
+    const baseClasses = "badge text-xs font-medium px-2 py-1 rounded-full";
+    switch (qualidade) {
+      case 'Bom':
+        return `${baseClasses} bg-green-500 text-white`;
+      case 'Regular':
+        return `${baseClasses} bg-yellow-500 text-white`;
+      case 'Ruim':
+        return `${baseClasses} bg-red-500 text-white`;
+      default:
+        return `${baseClasses} bg-gray-500 text-white`;
+    }
+  };
+
   return (
     <div
       ref={cardRef}
@@ -141,7 +193,7 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
     >
       {/* Card Content - sempre fixo */}
       <div
-        className="relative bg-white dark:bg-themedark-cardbg p-4 rounded-lg touch-pan-y"
+        className="relative bg-white dark:bg-themedark-cardbg p-4 rounded-lg cursor-pointer"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -149,7 +201,11 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
         onMouseMove={isDragging ? handleMouseMove : undefined}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        style={{ touchAction: 'pan-y' }}
+        style={{
+          touchAction: 'manipulation',
+          overflowX: 'hidden',
+          position: 'relative'
+        }}
       >
         <div className="flex justify-between items-center">
           {/* Nome sempre visível à esquerda */}
@@ -179,7 +235,7 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
       {/* Actions Overlay - aparece por cima quando swipe > 0 */}
       {swipeOffset > 0 && (
         <div
-          className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-red-50 dark:bg-red-900/20 transition-all duration-200 rounded-r-lg"
+          className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-red-50 dark:bg-red-900 transition-all duration-200 rounded-r-lg"
           style={{
             width: `${Math.min(swipeOffset * 1.5, 120)}px`,
             opacity: Math.min(swipeOffset / 50, 1)
@@ -253,6 +309,127 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
           </div>
         </div>
       )}
+
+      {/* Modal de Detalhes do Cliente */}
+      {showDetailsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-themedark-cardbg rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-themedark-cardbg border-b border-theme-border dark:border-themedark-border p-4 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-theme-headings dark:text-themedark-headings">
+                  Detalhes do Cliente
+                </h3>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="p-1 text-theme-bodycolor dark:text-themedark-bodycolor hover:text-theme-headings dark:hover:text-themedark-headings"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Nome */}
+              <div>
+                <label className="text-sm font-medium text-theme-bodycolor dark:text-themedark-bodycolor">Nome</label>
+                <p className="text-theme-headings dark:text-themedark-headings font-medium">{cliente.nome}</p>
+              </div>
+
+              {/* Data de Contato */}
+              <div>
+                <label className="text-sm font-medium text-theme-bodycolor dark:text-themedark-bodycolor">Data de Contato</label>
+                <p className="text-theme-headings dark:text-themedark-headings">{cliente.dataContato}</p>
+              </div>
+
+              {/* Contato */}
+              <div>
+                <label className="text-sm font-medium text-theme-bodycolor dark:text-themedark-bodycolor">WhatsApp / Instagram</label>
+                <p className="text-theme-headings dark:text-themedark-headings text-blue-600">{cliente.whatsappInstagram}</p>
+              </div>
+
+              {/* Origem */}
+              <div>
+                <label className="text-sm font-medium text-theme-bodycolor dark:text-themedark-bodycolor">Origem</label>
+                <p className="text-theme-headings dark:text-themedark-headings">{cliente.origem}</p>
+              </div>
+
+              {/* Orçamento Enviado */}
+              <div>
+                <label className="text-sm font-medium text-theme-bodycolor dark:text-themedark-bodycolor">Orçamento Enviado</label>
+                <div className="mt-1">
+                  <span className={`badge ${cliente.orcamentoEnviado === 'Sim' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'} text-xs px-2 py-1 rounded`}>
+                    {cliente.orcamentoEnviado}
+                  </span>
+                </div>
+              </div>
+
+              {/* Status/Resultado */}
+              <div>
+                <label className="text-sm font-medium text-theme-bodycolor dark:text-themedark-bodycolor">Status</label>
+                <div className="mt-1">
+                  <span className={getStatusBadge(cliente.resultado)}>
+                    {cliente.resultado}
+                  </span>
+                </div>
+              </div>
+
+              {/* Qualidade do Contato */}
+              {cliente.qualidadeContato && (
+                <div>
+                  <label className="text-sm font-medium text-theme-bodycolor dark:text-themedark-bodycolor">Qualidade do Contato</label>
+                  <div className="mt-1">
+                    <span className={getQualidadeBadge(cliente.qualidadeContato)}>
+                      {cliente.qualidadeContato}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Valor Fechado */}
+              {cliente.valorFechado && (
+                <div>
+                  <label className="text-sm font-medium text-theme-bodycolor dark:text-themedark-bodycolor">Valor Fechado</label>
+                  <p className="text-theme-headings dark:text-themedark-headings font-bold text-success text-lg">{cliente.valorFechado}</p>
+                </div>
+              )}
+
+              {/* Observações */}
+              {cliente.observacao && (
+                <div>
+                  <label className="text-sm font-medium text-theme-bodycolor dark:text-themedark-bodycolor">Observações</label>
+                  <p className="text-theme-headings dark:text-themedark-headings text-sm bg-gray-50 dark:bg-gray-700 p-3 rounded-md mt-1">{cliente.observacao}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="sticky bottom-0 bg-white dark:bg-themedark-cardbg border-t border-theme-border dark:border-themedark-border p-4 rounded-b-lg">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    if (onEdit) onEdit(cliente);
+                  }}
+                  className="flex-1 btn btn-primary flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Editar
+                </button>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-theme-headings dark:text-themedark-headings bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -315,7 +492,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete }: ClienteTabl
             Deslize para a esquerda para ver as ações
           </p>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-3" style={{ overflowX: 'hidden' }}>
           {clientes.map((cliente, index) => (
             <SwipeCard
               key={cliente.id || index}

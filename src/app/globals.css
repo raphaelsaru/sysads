@@ -104,6 +104,14 @@ body {
   @apply w-full px-3 py-2 border border-theme-inputborder dark:border-themedark-inputborder rounded-md bg-theme-inputbg dark:bg-themedark-inputbg text-theme-headings dark:text-themedark-headings placeholder-theme-bodycolor dark:placeholder-themedark-bodycolor;
 }
 
+/* Fix date picker width */
+input[type="date"].form-control {
+  @apply max-w-none;
+  width: 100% !important;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .form-control:focus {
   @apply outline-none ring-2 ring-primary ring-opacity-50 border-primary;
 }

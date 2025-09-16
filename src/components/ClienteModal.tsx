@@ -122,12 +122,11 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
                 <input
                   id="dataContato"
                   name="dataContato"
-                  type="text"
+                  type="date"
                   required
                   className="form-control"
                   value={formData.dataContato}
                   onChange={handleInputChange}
-                  placeholder="DD/MM"
                 />
               </div>
 
@@ -186,17 +185,25 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
                 <label htmlFor="orcamentoEnviado" className="form-label">
                   Orçamento Enviado *
                 </label>
-                <select
-                  id="orcamentoEnviado"
-                  name="orcamentoEnviado"
-                  required
-                  className="form-control"
-                  value={formData.orcamentoEnviado}
-                  onChange={handleInputChange}
-                >
-                  <option value="Sim">Sim</option>
-                  <option value="Não">Não</option>
-                </select>
+                <div className="flex items-center mt-2">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      id="orcamentoEnviado"
+                      name="orcamentoEnviado"
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={formData.orcamentoEnviado === 'Sim'}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        orcamentoEnviado: e.target.checked ? 'Sim' : 'Não'
+                      }))}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    <span className="ml-3 text-sm font-medium text-theme-headings dark:text-themedark-headings">
+                      {formData.orcamentoEnviado === 'Sim' ? 'Sim' : 'Não'}
+                    </span>
+                  </label>
+                </div>
               </div>
 
               <div>
@@ -242,11 +249,14 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
                 <input
                   id="valorFechado"
                   name="valorFechado"
-                  type="text"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  inputMode="decimal"
                   className="form-control"
                   value={formData.valorFechado}
                   onChange={handleInputChange}
-                  placeholder="R$ 1.000,00"
+                  placeholder="1000.00"
                 />
               </div>
             </div>
