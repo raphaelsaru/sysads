@@ -11,8 +11,14 @@ interface ClienteFormProps {
 }
 
 export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = false }: ClienteFormProps) {
+  // Função para obter a data de hoje no formato YYYY-MM-DD
+  const getToday = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
   const [formData, setFormData] = useState<NovoCliente>({
-    dataContato: cliente?.dataContato || '',
+    dataContato: cliente?.dataContato || getToday(),
     nome: cliente?.nome || '',
     whatsappInstagram: cliente?.whatsappInstagram || '',
     origem: cliente?.origem || 'Orgânico / Pefil',
@@ -28,12 +34,39 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
     onSubmit(formData);
   };
 
+  const formatValor = (value: string) => {
+    // Remove tudo exceto números
+    const numericValue = value.replace(/[^\d]/g, '');
+
+    if (!numericValue) return '';
+
+    // Converte para número e adiciona duas casas decimais
+    const numberValue = parseInt(numericValue);
+
+    // Formata com duas casas decimais: 100 -> 100,00
+    return numberValue.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+
+    if (name === 'valorFechado') {
+      const formattedValue = formatValor(value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   return (
@@ -49,12 +82,11 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
             <div>
               <label className="form-label">Data de Contato</label>
               <input
-                type="text"
+                type="date"
                 name="dataContato"
                 value={formData.dataContato}
                 onChange={handleChange}
                 className="form-control"
-                placeholder="DD/MM"
                 required
               />
             </div>
@@ -153,7 +185,7 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
                 value={formData.valorFechado}
                 onChange={handleChange}
                 className="form-control"
-                placeholder="R$ 1.000,00"
+                placeholder="Digite apenas números"
               />
             </div>
           </div>

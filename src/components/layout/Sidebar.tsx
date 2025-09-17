@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -30,10 +29,11 @@ const menuItems = [
 interface SidebarProps {
   isMobileOpen: boolean;
   setIsMobileOpen: (open: boolean) => void;
+  isCollapsed: boolean;
+  setIsCollapsed: (collapsed: boolean) => void;
 }
 
-export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+export default function Sidebar({ isMobileOpen, setIsMobileOpen, isCollapsed, setIsCollapsed }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -54,9 +54,11 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
         {/* Logo/Brand */}
         <div className="m-header flex items-center py-4 px-6 h-header-height border-b border-theme-border/20 dark:border-themedark-border/20">
           <Link href="/" className="b-brand flex items-center gap-3 text-theme-sidebarcaption dark:text-themedark-sidebarcaption">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold">
-              C
-            </div>
+            {!isCollapsed && (
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold">
+                C
+              </div>
+            )}
             {!isCollapsed && <span className="text-lg font-semibold">CRM Charbelle</span>}
           </Link>
 
@@ -69,7 +71,9 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
                 setIsCollapsed(!isCollapsed);
               }
             }}
-            className="ml-auto p-1 rounded-md text-theme-sidebarcolor dark:text-themedark-sidebarcolor hover:bg-white/10 transition-colors"
+            className={`p-1 rounded-md text-theme-sidebarcolor dark:text-themedark-sidebarcolor hover:bg-white/10 transition-colors ${
+              isCollapsed ? 'ml-0' : 'ml-auto'
+            }`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />

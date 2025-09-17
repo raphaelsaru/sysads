@@ -1,13 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   onToggleMobileSidebar?: () => void;
+  isCollapsed?: boolean;
 }
 
-export default function Header({ onToggleMobileSidebar }: HeaderProps) {
+export default function Header({ onToggleMobileSidebar, isCollapsed = false }: HeaderProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const { userProfile, signOut } = useAuth();
 
   const toggleTheme = () => {
     const newTheme = !isDarkMode;
@@ -23,7 +27,9 @@ export default function Header({ onToggleMobileSidebar }: HeaderProps) {
   };
 
   return (
-    <header className="pc-header fixed top-0 right-0 lg:left-sidebar-width left-0 h-header-height bg-theme-headerbg dark:bg-themedark-headerbg backdrop-blur-sm border-b border-theme-border dark:border-themedark-border z-30">
+    <header className={`pc-header fixed top-0 right-0 h-header-height bg-theme-headerbg dark:bg-themedark-headerbg backdrop-blur-sm border-b border-theme-border dark:border-themedark-border z-30 transition-all duration-300 ${
+      isCollapsed ? 'lg:left-sidebar-collapsed-width' : 'lg:left-sidebar-width'
+    } left-0`}>
       <div className="flex items-center justify-between h-full px-4 lg:px-6">
         {/* Mobile Menu Button & Title */}
         <div className="flex items-center gap-4">
@@ -60,18 +66,51 @@ export default function Header({ onToggleMobileSidebar }: HeaderProps) {
           </button>
 
           {/* User Menu */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-medium text-sm">
-              CB
-            </div>
-            <div className="hidden md:block">
-              <p className="text-sm font-medium text-theme-headings dark:text-themedark-headings">
-                Charbelle
-              </p>
-              <p className="text-xs text-theme-bodycolor dark:text-themedark-bodycolor">
-                Administrador
-              </p>
-            </div>
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-3 p-2 rounded-md hover:bg-theme-activebg dark:hover:bg-themedark-activebg transition-colors"
+            >
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-medium text-sm">
+                {userProfile?.company_name?.charAt(0) || 'U'}
+              </div>
+              <div className="hidden md:block text-left">
+                <p className="text-sm font-medium text-theme-headings dark:text-themedark-headings">
+                  {userProfile?.company_name || 'Usuário'}
+                </p>
+                <p className="text-xs text-theme-bodycolor dark:text-themedark-bodycolor">
+                  {userProfile?.role === 'admin' ? 'Administrador' : 'Usuário'}
+                </p>
+              </div>
+              <svg className="w-4 h-4 text-theme-bodycolor dark:text-themedark-bodycolor" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Dropdown Menu */}
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-themedark-sidebar rounded-md shadow-lg border border-theme-border dark:border-themedark-border z-50">
+                <div className="p-4 border-b border-theme-border dark:border-themedark-border">
+                  <p className="text-sm font-medium text-theme-headings dark:text-themedark-headings">
+                    {userProfile?.email}
+                  </p>
+                  <p className="text-xs text-theme-bodycolor dark:text-themedark-bodycolor">
+                    Moeda: {userProfile?.currency || 'BRL'}
+                  </p>
+                </div>
+                <div className="p-2">
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setShowUserMenu(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                  >
+                    Sair
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

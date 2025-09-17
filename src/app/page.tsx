@@ -4,10 +4,21 @@ import { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import ClienteTable from '@/components/ClienteTable';
 import ClienteModal from '@/components/ClienteModal';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useClientes } from '@/hooks/useClientes';
+import { useAuth } from '@/contexts/AuthContext';
 import { Cliente, NovoCliente } from '@/types/crm';
 
 export default function Home() {
+  return (
+    <ProtectedRoute>
+      <HomePage />
+    </ProtectedRoute>
+  );
+}
+
+function HomePage() {
+  const { userProfile } = useAuth();
   const {
     clientes,
     loading,
@@ -41,9 +52,12 @@ export default function Home() {
   };
 
   const formatarValor = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
+    const currency = userProfile?.currency || 'BRL';
+    const locale = currency === 'USD' ? 'en-US' : currency === 'EUR' ? 'de-DE' : 'pt-BR';
+
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency: 'BRL'
+      currency: currency
     }).format(valor);
   };
 
@@ -67,7 +81,7 @@ export default function Home() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-theme-headings dark:text-themedark-headings">
-              CRM Charbelle - Gestão de Clientes
+              CRM {userProfile?.company_name || 'Sistema'} - Gestão de Clientes
             </h1>
             <p className="text-theme-bodycolor dark:text-themedark-bodycolor">
               Gerencie seus clientes e acompanhe o progresso dos orçamentos
@@ -86,35 +100,41 @@ export default function Home() {
         </div>
 
         {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="card">
             <div className="card-body text-center">
-              <div className="text-2xl font-bold text-primary">{estatisticas.total}</div>
-              <div className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Total de Clientes</div>
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-primary break-words">{estatisticas.total}</div>
+              <div className="text-xs sm:text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Total de Clientes</div>
             </div>
           </div>
           <div className="card">
             <div className="card-body text-center">
-              <div className="text-2xl font-bold text-success">{estatisticas.vendas}</div>
-              <div className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Vendas</div>
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-success break-words">{estatisticas.vendas}</div>
+              <div className="text-xs sm:text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Vendas</div>
             </div>
           </div>
           <div className="card">
             <div className="card-body text-center">
-              <div className="text-2xl font-bold text-warning">{estatisticas.emProcesso}</div>
-              <div className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Em Processo</div>
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-warning break-words">{estatisticas.emProcesso}</div>
+              <div className="text-xs sm:text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Em Processo</div>
             </div>
           </div>
           <div className="card">
             <div className="card-body text-center">
-              <div className="text-2xl font-bold text-danger">{estatisticas.naoVenda}</div>
-              <div className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Não Venda</div>
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-danger break-words">{estatisticas.naoVenda}</div>
+              <div className="text-xs sm:text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Não Venda</div>
             </div>
           </div>
           <div className="card">
             <div className="card-body text-center">
-              <div className="text-2xl font-bold text-success">{formatarValor(estatisticas.valorTotal)}</div>
-              <div className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Valor Total</div>
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-warning break-words">{formatarValor(estatisticas.valorEmProcesso)}</div>
+              <div className="text-xs sm:text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Valor em Processo</div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-body text-center">
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-success break-words">{formatarValor(estatisticas.valorVendido)}</div>
+              <div className="text-xs sm:text-sm text-theme-bodycolor dark:text-themedark-bodycolor">Valor Vendido</div>
             </div>
           </div>
         </div>

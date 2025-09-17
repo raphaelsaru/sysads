@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { NovoCliente, Cliente } from '@/types/crm';
+import MoneyInput from './MoneyInput';
+import { getTodayBR, formatDateISO } from '@/lib/dateUtils';
 
 interface ClienteModalProps {
   isOpen: boolean;
@@ -11,8 +13,9 @@ interface ClienteModalProps {
 }
 
 export default function ClienteModal({ isOpen, onClose, onSave, cliente }: ClienteModalProps) {
+
   const [formData, setFormData] = useState<NovoCliente>({
-    dataContato: '',
+    dataContato: getTodayBR(),
     nome: '',
     whatsappInstagram: '',
     origem: 'Orgânico / Pefil',
@@ -38,9 +41,17 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
         valorFechado: cliente.valorFechado || '',
         observacao: cliente.observacao || '',
       });
+
+      // Extrair valor numérico do valor formatado para o MoneyInput
+      if (cliente.valorFechado) {
+        const numeroLimpo = cliente.valorFechado.replace(/[^\d,]/g, '').replace(',', '.');
+        setValorNumerico(parseFloat(numeroLimpo) || undefined);
+      } else {
+        setValorNumerico(undefined);
+      }
     } else {
       setFormData({
-        dataContato: '',
+        dataContato: getTodayBR(),
         nome: '',
         whatsappInstagram: '',
         origem: 'Orgânico / Pefil',
@@ -50,8 +61,11 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
         valorFechado: '',
         observacao: '',
       });
+      setValorNumerico(undefined);
     }
   }, [cliente, isOpen]);
+
+  const [valorNumerico, setValorNumerico] = useState<number | undefined>();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -61,13 +75,30 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
     }));
   };
 
+  const handleValorChange = (valor: number | undefined) => {
+    setValorNumerico(valor);
+    // Converte o valor numérico para string formatada para armazenar no formData
+    const valorFormatado = valor ? `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
+    setFormData(prev => ({
+      ...prev,
+      valorFechado: valorFormatado
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
       await new Promise(resolve => setTimeout(resolve, 500)); // Simular delay
-      onSave(formData);
+
+      // Converte a data para formato ISO antes de enviar
+      const dataParaEnvio = {
+        ...formData,
+        dataContato: formatDateISO(formData.dataContato)
+      };
+
+      onSave(dataParaEnvio);
       onClose();
     } catch (error) {
       console.error('Erro ao salvar cliente:', error);
@@ -78,7 +109,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
 
   const handleCancel = () => {
     setFormData({
-      dataContato: '',
+      dataContato: getTodayBR(),
       nome: '',
       whatsappInstagram: '',
       origem: 'Orgânico / Pefil',
@@ -88,6 +119,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
       valorFechado: '',
       observacao: '',
     });
+    setValorNumerico(undefined);
     onClose();
   };
 
@@ -125,7 +157,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
                   type="date"
                   required
                   className="form-control"
-                  value={formData.dataContato}
+                  value={formatDateISO(formData.dataContato)}
                   onChange={handleInputChange}
                 />
               </div>
@@ -246,17 +278,13 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
                 <label htmlFor="valorFechado" className="form-label">
                   Valor Fechado
                 </label>
-                <input
+                <MoneyInput
                   id="valorFechado"
                   name="valorFechado"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  inputMode="decimal"
                   className="form-control"
-                  value={formData.valorFechado}
-                  onChange={handleInputChange}
-                  placeholder="1000.00"
+                  value={valorNumerico}
+                  onChangeValue={handleValorChange}
+                  placeholder="R$ 0,00"
                 />
               </div>
             </div>

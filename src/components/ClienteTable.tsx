@@ -22,7 +22,10 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const startX = useRef(0);
+  const startY = useRef(0);
   const currentX = useRef(0);
+  const currentY = useRef(0);
+  const isValidTap = useRef(true);
 
   // Fechar ações quando clicar fora
   useEffect(() => {
@@ -38,23 +41,34 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
     }
   }, [swipeOffset]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setIsDragging(false); // Reset dragging state
-    startX.current = e.touches[0].clientX;
+  const handlePointerDown = (e: React.PointerEvent) => {
+    setIsDragging(false);
+    startX.current = e.clientX;
+    startY.current = e.clientY;
     currentX.current = startX.current;
+    currentY.current = startY.current;
+    isValidTap.current = true;
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    currentX.current = e.touches[0].clientX;
-    const diffX = Math.abs(startX.current - currentX.current);
+  const handlePointerMove = (e: React.PointerEvent) => {
+    currentX.current = e.clientX;
+    currentY.current = e.clientY;
 
-    // Se moveu mais de 10px, considera como dragging
+    const moveX = startX.current - currentX.current;
+    const moveY = Math.abs(startY.current - currentY.current);
+    const diffX = Math.abs(moveX);
+
+    // Se moveu mais de 10px verticalmente, não é um tap válido
+    if (moveY > 10) {
+      isValidTap.current = false;
+      return;
+    }
+
+    // Se moveu mais de 10px horizontalmente, considera como dragging
     if (diffX > 10) {
       setIsDragging(true);
-      e.preventDefault(); // Previne scroll da página
-      e.stopPropagation(); // Para propagação do evento
-
-      const moveX = startX.current - currentX.current;
+      e.preventDefault();
+      e.stopPropagation();
 
       // Permite swipe para esquerda (abrir) e direita (fechar)
       if (moveX > 0) {
@@ -66,16 +80,16 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
       }
     } else {
       // Mesmo para movimentos pequenos, previne o scroll horizontal
-      const moveX = startX.current - currentX.current;
-      if (Math.abs(moveX) > 2) {
+      if (diffX > 2) {
         e.preventDefault();
       }
     }
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handlePointerUp = () => {
     const wasDragging = isDragging;
     const finalOffset = swipeOffset;
+    const validTap = isValidTap.current;
     setIsDragging(false);
 
     // Se swipou mais de 40px para esquerda, mantém aberto
@@ -86,51 +100,12 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
       setSwipeOffset(0);
     }
 
-    // Se foi apenas um toque (não arrastou), abre modal de detalhes
-    if (!wasDragging && finalOffset === 0) {
+    // Só abre modal se foi um tap válido (não arrastou e movimento vertical < 10px)
+    if (!wasDragging && finalOffset === 0 && validTap) {
       setShowDetailsModal(true);
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-    startX.current = e.clientX;
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    e.preventDefault();
-
-    currentX.current = e.clientX;
-    const diffX = startX.current - currentX.current;
-
-    if (diffX > 0) {
-      setSwipeOffset(Math.min(diffX, 80));
-    } else if (diffX < 0 && swipeOffset > 0) {
-      setSwipeOffset(Math.max(0, swipeOffset + diffX));
-    }
-  };
-
-  const handleMouseUp = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const wasDragging = isDragging;
-    const finalOffset = swipeOffset;
-    setIsDragging(false);
-
-    if (swipeOffset > 40) {
-      setSwipeOffset(80);
-    } else {
-      setSwipeOffset(0);
-    }
-
-    // Se não arrastou e não tem ações abertas, abre modal de detalhes (para desktop testing)
-    if (!wasDragging && finalOffset < 10) {
-      setTimeout(() => {
-        setShowDetailsModal(true);
-      }, 100);
-    }
-  };
 
   const handleDeleteClick = () => {
     setShowDeleteModal(true);
@@ -148,15 +123,6 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
     setShowDeleteModal(false);
   };
 
-  const handleCardClick = (e: React.MouseEvent) => {
-    // Previne que o click seja processado se houve touch events
-    if (e.type === 'click' && e.detail === 0) return;
-
-    // Só abre o modal se não estiver fazendo swipe e não há ações abertas
-    if (!isDragging && swipeOffset === 0) {
-      setShowDetailsModal(true);
-    }
-  };
 
   const getStatusBadge = (resultado: string) => {
     const baseClasses = "badge text-xs font-medium px-2 py-1 rounded-full";
@@ -194,15 +160,12 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
       {/* Card Content - sempre fixo */}
       <div
         className="relative bg-white dark:bg-themedark-cardbg p-4 rounded-lg cursor-pointer"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleMouseDown}
-        onMouseMove={isDragging ? handleMouseMove : undefined}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
         style={{
-          touchAction: 'manipulation',
+          touchAction: 'pan-y',
           overflowX: 'hidden',
           position: 'relative'
         }}
@@ -435,6 +398,27 @@ function SwipeCard({ cliente, onEdit, onDelete }: SwipeCardProps) {
 }
 
 export default function ClienteTable({ clientes, onEdit, onDelete }: ClienteTableProps) {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null);
+
+  const handleDeleteClick = (cliente: Cliente) => {
+    setClienteParaExcluir(cliente);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = () => {
+    if (onDelete && clienteParaExcluir?.id) {
+      onDelete(clienteParaExcluir.id);
+    }
+    setShowDeleteModal(false);
+    setClienteParaExcluir(null);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setClienteParaExcluir(null);
+  };
+
   const getStatusBadge = (resultado: string) => {
     const baseClasses = "badge text-xs font-medium px-2 py-1 rounded-full";
     switch (resultado) {
@@ -569,7 +553,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete }: ClienteTabl
                         )}
                         {onDelete && cliente.id && (
                           <button
-                            onClick={() => onDelete(cliente.id!)}
+                            onClick={() => handleDeleteClick(cliente)}
                             className="p-1 text-danger hover:bg-danger hover:text-white rounded transition-colors"
                             title="Excluir"
                           >
@@ -587,6 +571,45 @@ export default function ClienteTable({ clientes, onEdit, onDelete }: ClienteTabl
           </div>
         </div>
       </div>
+
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteModal && clienteParaExcluir && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-themedark-cardbg rounded-lg shadow-lg max-w-sm w-full">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0 w-10 h-10 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-medium text-theme-headings dark:text-themedark-headings mb-2">
+                  Confirmar Exclusão
+                </h3>
+                <p className="text-sm text-theme-bodycolor dark:text-themedark-bodycolor mb-6">
+                  Tem certeza que deseja excluir o cliente <strong>{clienteParaExcluir.nome}</strong>? Esta ação não pode ser desfeita.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelDelete}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-theme-headings dark:text-themedark-headings bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                >
+                  Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
