@@ -1,21 +1,33 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { NovoCliente, Cliente } from '@/types/crm';
+import { useState } from 'react'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { NovoCliente, Cliente } from '@/types/crm'
 
 interface ClienteFormProps {
-  onSubmit: (cliente: NovoCliente) => void;
-  onCancel?: () => void;
-  cliente?: Cliente;
-  isEditing?: boolean;
+  onSubmit: (cliente: NovoCliente) => void
+  onCancel?: () => void
+  cliente?: Cliente
+  isEditing?: boolean
 }
 
 export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = false }: ClienteFormProps) {
-  // Função para obter a data de hoje no formato YYYY-MM-DD
   const getToday = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  }
 
   const [formData, setFormData] = useState<NovoCliente>({
     dataContato: cliente?.dataContato || getToday(),
@@ -27,200 +39,169 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
     qualidadeContato: cliente?.qualidadeContato || 'Regular',
     valorFechado: cliente?.valorFechado || '',
     observacao: cliente?.observacao || '',
-  });
+  })
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
+    e.preventDefault()
+    onSubmit(formData)
+  }
 
-  const formatValor = (value: string) => {
-    // Remove tudo exceto números
-    const numericValue = value.replace(/[^\d]/g, '');
-
-    if (!numericValue) return '';
-
-    // Converte para número e adiciona duas casas decimais
-    const numberValue = parseInt(numericValue);
-
-    // Formata com duas casas decimais: 100 -> 100,00
-    return numberValue.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-
-    if (name === 'valorFechado') {
-      const formattedValue = formatValor(value);
-      setFormData(prev => ({
-        ...prev,
-        [name]: formattedValue
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-  };
+  const handleChange = (
+    field: keyof NovoCliente,
+    value: string
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <h3 className="text-lg font-semibold text-theme-headings dark:text-themedark-headings">
-          {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
-        </h3>
-      </div>
-      <div className="card-body">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="form-label">Data de Contato</label>
-              <input
+    <Card className="border-border/70 bg-card/80 shadow-soft">
+      <CardHeader>
+        <CardTitle>{isEditing ? 'Editar cliente' : 'Novo cliente'}</CardTitle>
+        <CardDescription>
+          Organize os dados essenciais para acompanhar o relacionamento e acelerar suas conversões.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="dataContato">Data de contato</Label>
+              <Input
+                id="dataContato"
                 type="date"
-                name="dataContato"
                 value={formData.dataContato}
-                onChange={handleChange}
-                className="form-control"
+                onChange={(event) => handleChange('dataContato', event.target.value)}
                 required
               />
             </div>
 
-            <div>
-              <label className="form-label">Nome do Cliente</label>
-              <input
-                type="text"
-                name="nome"
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome do cliente</Label>
+              <Input
+                id="nome"
                 value={formData.nome}
-                onChange={handleChange}
-                className="form-control"
+                onChange={(event) => handleChange('nome', event.target.value)}
                 placeholder="Nome completo"
                 required
               />
             </div>
 
-            <div>
-              <label className="form-label">WhatsApp / Instagram</label>
-              <input
-                type="text"
-                name="whatsappInstagram"
+            <div className="space-y-2">
+              <Label htmlFor="whatsappInstagram">WhatsApp / Instagram</Label>
+              <Input
+                id="whatsappInstagram"
                 value={formData.whatsappInstagram}
-                onChange={handleChange}
-                className="form-control"
+                onChange={(event) => handleChange('whatsappInstagram', event.target.value)}
                 placeholder="@usuario ou telefone"
                 required
               />
             </div>
 
-            <div>
-              <label className="form-label">Origem</label>
-              <select
-                name="origem"
+            <div className="space-y-2">
+              <Label htmlFor="origem">Origem</Label>
+              <Select
                 value={formData.origem}
-                onChange={handleChange}
-                className="form-control"
-                required
+                onValueChange={(value) => handleChange('origem', value)}
               >
-                <option value="Indicação">Indicação</option>
-                <option value="Orgânico / Pefil">Orgânico / Pefil</option>
-                <option value="Anúncio">Anúncio</option>
-                <option value="Cliente antigo">Cliente antigo</option>
-              </select>
+                <SelectTrigger id="origem">
+                  <SelectValue placeholder="Selecione a origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Indicação">Indicação</SelectItem>
+                  <SelectItem value="Orgânico / Pefil">Orgânico / Pefil</SelectItem>
+                  <SelectItem value="Anúncio">Anúncio</SelectItem>
+                  <SelectItem value="Cliente antigo">Cliente antigo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div>
-              <label className="form-label">Orçamento Enviado</label>
-              <select
-                name="orcamentoEnviado"
+            <div className="space-y-2">
+              <Label htmlFor="orcamentoEnviado">Orçamento enviado</Label>
+              <Select
                 value={formData.orcamentoEnviado}
-                onChange={handleChange}
-                className="form-control"
-                required
+                onValueChange={(value) => handleChange('orcamentoEnviado', value)}
               >
-                <option value="Sim">Sim</option>
-                <option value="Não">Não</option>
-              </select>
+                <SelectTrigger id="orcamentoEnviado">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Sim">Sim</SelectItem>
+                  <SelectItem value="Não">Não</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div>
-              <label className="form-label">Resultado</label>
-              <select
-                name="resultado"
+            <div className="space-y-2">
+              <Label htmlFor="resultado">Resultado</Label>
+              <Select
                 value={formData.resultado}
-                onChange={handleChange}
-                className="form-control"
-                required
+                onValueChange={(value) => handleChange('resultado', value)}
               >
-                <option value="Venda">Venda</option>
-                <option value="Orçamento em Processo">Orçamento em Processo</option>
-                <option value="Não Venda">Não Venda</option>
-              </select>
+                <SelectTrigger id="resultado">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Venda">Venda</SelectItem>
+                  <SelectItem value="Orçamento em Processo">Orçamento em Processo</SelectItem>
+                  <SelectItem value="Não Venda">Não Venda</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div>
-              <label className="form-label">Qualidade do Contato</label>
-              <select
-                name="qualidadeContato"
+            <div className="space-y-2">
+              <Label htmlFor="qualidadeContato">Qualidade do contato</Label>
+              <Select
                 value={formData.qualidadeContato}
-                onChange={handleChange}
-                className="form-control"
-                required
+                onValueChange={(value) => handleChange('qualidadeContato', value)}
               >
-                <option value="Bom">Bom</option>
-                <option value="Regular">Regular</option>
-                <option value="Ruim">Ruim</option>
-              </select>
+                <SelectTrigger id="qualidadeContato">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Bom">Bom</SelectItem>
+                  <SelectItem value="Regular">Regular</SelectItem>
+                  <SelectItem value="Ruim">Ruim</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div>
-              <label className="form-label">Valor Fechado</label>
-              <input
-                type="text"
-                name="valorFechado"
+            <div className="space-y-2">
+              <Label htmlFor="valorFechado">Valor fechado</Label>
+              <Input
+                id="valorFechado"
                 value={formData.valorFechado}
-                onChange={handleChange}
-                className="form-control"
-                placeholder="Digite apenas números"
+                onChange={(event) => handleChange('valorFechado', event.target.value)}
+                placeholder="R$ 0,00"
               />
             </div>
           </div>
 
-          <div>
-            <label className="form-label">Observações</label>
-            <textarea
-              name="observacao"
+          <div className="space-y-2">
+            <Label htmlFor="observacao">Observações</Label>
+            <Textarea
+              id="observacao"
               value={formData.observacao}
-              onChange={handleChange}
-              className="form-control"
+              onChange={(event) => handleChange('observacao', event.target.value)}
               rows={3}
               placeholder="Observações sobre o cliente ou atendimento"
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              className="btn btn-primary px-6 py-2"
-            >
-              {isEditing ? 'Atualizar Cliente' : 'Adicionar Cliente'}
-            </button>
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             {onCancel && (
-              <button
-                type="button"
-                onClick={onCancel}
-                className="btn btn-secondary px-6 py-2"
-              >
+              <Button type="button" variant="outline" onClick={onCancel} className="sm:min-w-[160px]">
                 Cancelar
-              </button>
+              </Button>
             )}
+            <Button type="submit" className="sm:min-w-[200px]">
+              {isEditing ? 'Atualizar cliente' : 'Adicionar cliente'}
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
-  );
+      </CardContent>
+    </Card>
+  )
 }

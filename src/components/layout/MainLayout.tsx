@@ -1,42 +1,46 @@
-'use client';
+'use client'
 
-import { ReactNode, useState } from 'react';
-import Sidebar from './Sidebar';
-import Header from './Header';
+import { ReactNode, useState } from 'react'
+
+import { cn } from '@/lib/utils'
+import Sidebar from './Sidebar'
+import Header from './Header'
 
 interface MainLayoutProps {
-  children: ReactNode;
+  children: ReactNode
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  const toggleMobileSidebar = () => {
-    setIsMobileSidebarOpen(!isMobileSidebarOpen);
-  };
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
-    <div className="min-h-screen bg-theme-bodybg dark:bg-themedark-bodybg">
+    <div className="relative min-h-screen bg-background">
       <Sidebar
-        isMobileOpen={isMobileSidebarOpen}
-        setIsMobileOpen={setIsMobileSidebarOpen}
-        isCollapsed={isCollapsed}
-        setIsCollapsed={setIsCollapsed}
-      />
-      <Header
-        onToggleMobileSidebar={toggleMobileSidebar}
-        isCollapsed={isCollapsed}
+        collapsed={isCollapsed}
+        onCollapsedChange={setIsCollapsed}
+        mobileOpen={isMobileSidebarOpen}
+        onMobileOpenChange={setIsMobileSidebarOpen}
       />
 
-      {/* Main Content */}
-      <main className={`pc-container pt-header-height transition-all duration-300 ${
-        isCollapsed ? 'lg:ml-sidebar-collapsed-width' : 'lg:ml-sidebar-width'
-      } ml-0`}>
-        <div className="pc-content p-4 lg:p-6">
-          {children}
-        </div>
-      </main>
+      <div
+        className={cn(
+          'min-h-screen transition-[padding] duration-300 lg:pl-[280px]',
+          isCollapsed && 'lg:pl-[108px]'
+        )}
+      >
+        <Header
+          collapsed={isCollapsed}
+          onToggleCollapsed={() => setIsCollapsed((prev) => !prev)}
+          onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
+        />
+
+        <main className="px-4 pb-12 pt-24 sm:px-6 lg:px-10">
+          <div className="mx-auto max-w-6xl space-y-8">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
-  );
+  )
 }

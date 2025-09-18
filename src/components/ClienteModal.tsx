@@ -1,34 +1,66 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { NovoCliente, Cliente } from '@/types/crm';
-import MoneyInput from './MoneyInput';
-import { getTodayBR, formatDateISO } from '@/lib/dateUtils';
+import { useEffect, useMemo, useState } from 'react'
+
+import { getTodayBR, formatDateISO } from '@/lib/dateUtils'
+import { Cliente, NovoCliente } from '@/types/crm'
+import { cn } from '@/lib/utils'
+import MoneyInput from './MoneyInput'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 
 interface ClienteModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (cliente: NovoCliente) => void;
-  cliente?: Cliente;
+  isOpen: boolean
+  onClose: () => void
+  onSave: (cliente: NovoCliente) => void
+  cliente?: Cliente
 }
 
+const ORIGENS: NovoCliente['origem'][] = ['Indicação', 'Orgânico / Pefil', 'Anúncio', 'Cliente antigo']
+const RESULTADOS: NovoCliente['resultado'][] = ['Venda', 'Orçamento em Processo', 'Não Venda']
+const QUALIDADES: NovoCliente['qualidadeContato'][] = ['Bom', 'Regular', 'Ruim']
+
 export default function ClienteModal({ isOpen, onClose, onSave, cliente }: ClienteModalProps) {
+  const baseState: NovoCliente = useMemo(
+    () => ({
+      dataContato: getTodayBR(),
+      nome: '',
+      whatsappInstagram: '',
+      origem: 'Orgânico / Pefil',
+      orcamentoEnviado: 'Não',
+      resultado: 'Orçamento em Processo',
+      qualidadeContato: 'Regular',
+      valorFechado: '',
+      observacao: '',
+    }),
+    []
+  )
 
-  const [formData, setFormData] = useState<NovoCliente>({
-    dataContato: getTodayBR(),
-    nome: '',
-    whatsappInstagram: '',
-    origem: 'Orgânico / Pefil',
-    orcamentoEnviado: 'Não',
-    resultado: 'Orçamento em Processo',
-    qualidadeContato: 'Regular',
-    valorFechado: '',
-    observacao: '',
-  });
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState<NovoCliente>(baseState)
+  const [valorNumerico, setValorNumerico] = useState<number | undefined>()
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
+    if (!isOpen) return
+
     if (cliente) {
       setFormData({
         dataContato: cliente.dataContato,
@@ -40,302 +72,237 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
         qualidadeContato: cliente.qualidadeContato,
         valorFechado: cliente.valorFechado || '',
         observacao: cliente.observacao || '',
-      });
+      })
 
-      // Extrair valor numérico do valor formatado para o MoneyInput
       if (cliente.valorFechado) {
-        const numeroLimpo = cliente.valorFechado.replace(/[^\d,]/g, '').replace(',', '.');
-        setValorNumerico(parseFloat(numeroLimpo) || undefined);
+        const numeroLimpo = cliente.valorFechado
+          .replace(/[^\d,]/g, '')
+          .replace(',', '.')
+        setValorNumerico(numeroLimpo ? parseFloat(numeroLimpo) : undefined)
       } else {
-        setValorNumerico(undefined);
+        setValorNumerico(undefined)
       }
     } else {
-      setFormData({
-        dataContato: getTodayBR(),
-        nome: '',
-        whatsappInstagram: '',
-        origem: 'Orgânico / Pefil',
-        orcamentoEnviado: 'Não',
-        resultado: 'Orçamento em Processo',
-        qualidadeContato: 'Regular',
-        valorFechado: '',
-        observacao: '',
-      });
-      setValorNumerico(undefined);
+      setFormData(baseState)
+      setValorNumerico(undefined)
     }
-  }, [cliente, isOpen]);
+  }, [cliente, isOpen, baseState])
 
-  const [valorNumerico, setValorNumerico] = useState<number | undefined>();
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
+  const handleChange = (
+    field: keyof NovoCliente,
+    value: string
+  ) => {
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
-    }));
-  };
+      [field]: value,
+    }))
+  }
 
   const handleValorChange = (valor: number | undefined) => {
-    setValorNumerico(valor);
-    // Converte o valor numérico para string formatada para armazenar no formData
-    const valorFormatado = valor ? `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
-    setFormData(prev => ({
+    setValorNumerico(valor)
+    const valorFormatado = valor
+      ? `R$ ${valor.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`
+      : ''
+
+    setFormData((prev) => ({
       ...prev,
-      valorFechado: valorFormatado
-    }));
-  };
+      valorFechado: valorFormatado,
+    }))
+  }
+
+  const resetAndClose = () => {
+    setFormData(baseState)
+    setValorNumerico(undefined)
+    onClose()
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+    e.preventDefault()
+    setIsSubmitting(true)
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simular delay
-
-      // Converte a data para formato ISO antes de enviar
-      const dataParaEnvio = {
+      const payload: NovoCliente = {
         ...formData,
-        dataContato: formatDateISO(formData.dataContato)
-      };
+        dataContato: formatDateISO(formData.dataContato),
+      }
 
-      onSave(dataParaEnvio);
-      onClose();
+      await onSave(payload)
+      resetAndClose()
     } catch (error) {
-      console.error('Erro ao salvar cliente:', error);
+      console.error('Erro ao salvar cliente:', error)
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
-
-  const handleCancel = () => {
-    setFormData({
-      dataContato: getTodayBR(),
-      nome: '',
-      whatsappInstagram: '',
-      origem: 'Orgânico / Pefil',
-      orcamentoEnviado: 'Não',
-      resultado: 'Orçamento em Processo',
-      qualidadeContato: 'Regular',
-      valorFechado: '',
-      observacao: '',
-    });
-    setValorNumerico(undefined);
-    onClose();
-  };
-
-  if (!isOpen) return null;
+  }
 
   return (
-    <div className="modal">
-      <div className="modal-backdrop" onClick={handleCancel}></div>
-      <div className="modal-content">
-        <form onSubmit={handleSubmit}>
-          <div className="modal-header">
-            <h3 className="text-xl font-semibold text-theme-headings dark:text-themedark-headings">
-              {cliente ? 'Editar Cliente' : 'Novo Cliente'}
-            </h3>
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="p-1 text-theme-bodycolor dark:text-themedark-bodycolor hover:text-theme-headings dark:hover:text-themedark-headings"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) resetAndClose() }}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto pt-10 sm:pt-12">
+        <DialogHeader className="space-y-2 text-left">
+          <DialogTitle className="text-2xl font-semibold text-foreground">
+            {cliente ? 'Atualizar cliente' : 'Adicionar novo cliente'}
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+            Preencha os dados essenciais para acompanhar a jornada do seu cliente e potencializar as próximas interações.
+          </DialogDescription>
+        </DialogHeader>
 
-          <div className="modal-body space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="dataContato" className="form-label">
-                  Data de Contato *
-                </label>
-                <input
-                  id="dataContato"
-                  name="dataContato"
-                  type="date"
-                  required
-                  className="form-control"
-                  value={formatDateISO(formData.dataContato)}
-                  onChange={handleInputChange}
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="dataContato">Data de contato *</Label>
+              <Input
+                id="dataContato"
+                name="dataContato"
+                type="date"
+                required
+                value={formatDateISO(formData.dataContato)}
+                onChange={(event) => handleChange('dataContato', event.target.value)}
+              />
+            </div>
 
-              <div>
-                <label htmlFor="nome" className="form-label">
-                  Nome do Cliente *
-                </label>
-                <input
-                  id="nome"
-                  name="nome"
-                  type="text"
-                  required
-                  className="form-control"
-                  value={formData.nome}
-                  onChange={handleInputChange}
-                  placeholder="Nome completo"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome do cliente *</Label>
+              <Input
+                id="nome"
+                name="nome"
+                placeholder="Nome completo"
+                required
+                value={formData.nome}
+                onChange={(event) => handleChange('nome', event.target.value)}
+              />
+            </div>
 
-              <div>
-                <label htmlFor="whatsappInstagram" className="form-label">
-                  WhatsApp / Instagram *
-                </label>
-                <input
-                  id="whatsappInstagram"
-                  name="whatsappInstagram"
-                  type="text"
-                  required
-                  className="form-control"
-                  value={formData.whatsappInstagram}
-                  onChange={handleInputChange}
-                  placeholder="@usuario ou telefone"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="whatsappInstagram">WhatsApp / Instagram *</Label>
+              <Input
+                id="whatsappInstagram"
+                name="whatsappInstagram"
+                placeholder="@usuario ou telefone"
+                required
+                value={formData.whatsappInstagram}
+                onChange={(event) => handleChange('whatsappInstagram', event.target.value)}
+              />
+            </div>
 
-              <div>
-                <label htmlFor="origem" className="form-label">
-                  Origem *
-                </label>
-                <select
-                  id="origem"
-                  name="origem"
-                  required
-                  className="form-control"
-                  value={formData.origem}
-                  onChange={handleInputChange}
-                >
-                  <option value="Indicação">Indicação</option>
-                  <option value="Orgânico / Pefil">Orgânico / Pefil</option>
-                  <option value="Anúncio">Anúncio</option>
-                  <option value="Cliente antigo">Cliente antigo</option>
-                </select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="origem">Origem *</Label>
+              <Select
+                value={formData.origem}
+                onValueChange={(value) => handleChange('origem', value)}
+              >
+                <SelectTrigger id="origem">
+                  <SelectValue placeholder="Selecione a origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORIGENS.map((origem) => (
+                    <SelectItem key={origem} value={origem}>
+                      {origem}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div>
-                <label htmlFor="orcamentoEnviado" className="form-label">
-                  Orçamento Enviado *
-                </label>
-                <div className="flex items-center mt-2">
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      id="orcamentoEnviado"
-                      name="orcamentoEnviado"
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={formData.orcamentoEnviado === 'Sim'}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        orcamentoEnviado: e.target.checked ? 'Sim' : 'Não'
-                      }))}
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                    <span className="ml-3 text-sm font-medium text-theme-headings dark:text-themedark-headings">
-                      {formData.orcamentoEnviado === 'Sim' ? 'Sim' : 'Não'}
-                    </span>
-                  </label>
+            <div className="space-y-2">
+              <Label>Orçamento enviado *</Label>
+              <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Enviar orçamento</p>
+                  <p className="text-xs text-muted-foreground">
+                    Marque como &quot;Sim&quot; quando o orçamento foi remetido ao cliente.
+                  </p>
                 </div>
-              </div>
-
-              <div>
-                <label htmlFor="resultado" className="form-label">
-                  Resultado *
-                </label>
-                <select
-                  id="resultado"
-                  name="resultado"
-                  required
-                  className="form-control"
-                  value={formData.resultado}
-                  onChange={handleInputChange}
-                >
-                  <option value="Venda">Venda</option>
-                  <option value="Orçamento em Processo">Orçamento em Processo</option>
-                  <option value="Não Venda">Não Venda</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="qualidadeContato" className="form-label">
-                  Qualidade do Contato *
-                </label>
-                <select
-                  id="qualidadeContato"
-                  name="qualidadeContato"
-                  required
-                  className="form-control"
-                  value={formData.qualidadeContato}
-                  onChange={handleInputChange}
-                >
-                  <option value="Bom">Bom</option>
-                  <option value="Regular">Regular</option>
-                  <option value="Ruim">Ruim</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="valorFechado" className="form-label">
-                  Valor Fechado
-                </label>
-                <MoneyInput
-                  id="valorFechado"
-                  name="valorFechado"
-                  className="form-control"
-                  value={valorNumerico}
-                  onChangeValue={handleValorChange}
-                  placeholder="R$ 0,00"
+                <Switch
+                  checked={formData.orcamentoEnviado === 'Sim'}
+                  onCheckedChange={(checked) =>
+                    handleChange('orcamentoEnviado', checked ? 'Sim' : 'Não')
+                  }
                 />
               </div>
             </div>
 
-            <div>
-              <label htmlFor="observacao" className="form-label">
-                Observações
-              </label>
-              <textarea
-                id="observacao"
-                name="observacao"
-                rows={3}
-                className="form-control"
-                value={formData.observacao}
-                onChange={handleInputChange}
-                placeholder="Observações sobre o cliente ou atendimento"
+            <div className="space-y-2">
+              <Label htmlFor="resultado">Resultado *</Label>
+              <Select
+                value={formData.resultado}
+                onValueChange={(value) => handleChange('resultado', value)}
+              >
+                <SelectTrigger id="resultado">
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {RESULTADOS.map((resultado) => (
+                    <SelectItem key={resultado} value={resultado}>
+                      {resultado}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="qualidadeContato">Qualidade do contato *</Label>
+              <Select
+                value={formData.qualidadeContato}
+                onValueChange={(value) => handleChange('qualidadeContato', value)}
+              >
+                <SelectTrigger id="qualidadeContato">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {QUALIDADES.map((qualidade) => (
+                    <SelectItem key={qualidade} value={qualidade}>
+                      {qualidade}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="valorFechado">Valor fechado</Label>
+              <MoneyInput
+                id="valorFechado"
+                name="valorFechado"
+                value={valorNumerico}
+                onChangeValue={handleValorChange}
+                placeholder="R$ 0,00"
               />
             </div>
           </div>
 
-          <div className="modal-footer">
-            <button
+          <div className="space-y-2">
+            <Label htmlFor="observacao">Observações</Label>
+            <Textarea
+              id="observacao"
+              name="observacao"
+              rows={4}
+              placeholder="Detalhes que ajudam no acompanhamento do cliente"
+              value={formData.observacao}
+              onChange={(event) => handleChange('observacao', event.target.value)}
+            />
+          </div>
+
+          <DialogFooter className="gap-3 pt-2">
+            <Button
               type="button"
-              onClick={handleCancel}
-              className="btn btn-secondary"
-              disabled={isSubmitting}
+              variant="ghost"
+              onClick={resetAndClose}
             >
               Cancelar
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary flex items-center gap-2"
-              disabled={isSubmitting}
+            </Button>
+            <Button type="submit" disabled={isSubmitting}
+              className={cn('gap-2', isSubmitting && 'cursor-progress')}
             >
-              {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  {cliente ? 'Atualizar Cliente' : 'Salvar Cliente'}
-                </>
-              )}
-            </button>
-          </div>
+              {isSubmitting ? 'Salvando...' : cliente ? 'Atualizar cliente' : 'Salvar cliente'}
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
-  );
+      </DialogContent>
+    </Dialog>
+  )
 }

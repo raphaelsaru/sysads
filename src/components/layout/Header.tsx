@@ -1,119 +1,148 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useState } from 'react'
+import { Menu, Moon, PanelLeftOpen, PanelRightOpen, Sun } from 'lucide-react'
+
+import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 
 interface HeaderProps {
-  onToggleMobileSidebar?: () => void;
-  isCollapsed?: boolean;
+  onToggleMobileSidebar: () => void
+  onToggleCollapsed: () => void
+  collapsed: boolean
 }
 
-export default function Header({ onToggleMobileSidebar, isCollapsed = false }: HeaderProps) {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const { userProfile, signOut } = useAuth();
+export default function Header({ onToggleMobileSidebar, onToggleCollapsed, collapsed }: HeaderProps) {
+  const { userProfile, signOut } = useAuth()
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const root = document.documentElement
+    const hasDark = root.classList.contains('dark') || root.getAttribute('data-pc-theme') === 'dark'
+    setIsDarkMode(hasDark)
+  }, [])
 
   const toggleTheme = () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
+    const next = !isDarkMode
+    setIsDarkMode(next)
 
-    if (newTheme) {
-      document.documentElement.setAttribute('data-pc-theme', 'dark');
-      document.documentElement.classList.add('dark');
+    const root = document.documentElement
+    if (next) {
+      root.classList.add('dark')
+      root.setAttribute('data-pc-theme', 'dark')
     } else {
-      document.documentElement.removeAttribute('data-pc-theme');
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark')
+      root.removeAttribute('data-pc-theme')
     }
-  };
+  }
+
+  const companyInitial = userProfile?.company_name?.charAt(0)?.toUpperCase() ?? 'U'
 
   return (
-    <header className={`pc-header fixed top-0 right-0 h-header-height bg-theme-headerbg dark:bg-themedark-headerbg backdrop-blur-sm border-b border-theme-border dark:border-themedark-border z-30 transition-all duration-300 ${
-      isCollapsed ? 'lg:left-sidebar-collapsed-width' : 'lg:left-sidebar-width'
-    } left-0`}>
-      <div className="flex items-center justify-between h-full px-4 lg:px-6">
-        {/* Mobile Menu Button & Title */}
-        <div className="flex items-center gap-4">
-          <button
+    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
+      <div className="flex h-20 items-center justify-between px-4 sm:px-6 lg:px-10">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="inline-flex lg:hidden"
             onClick={onToggleMobileSidebar}
-            className="lg:hidden p-2 rounded-md text-theme-headercolor dark:text-themedark-headercolor hover:bg-theme-activebg dark:hover:bg-themedark-activebg transition-colors"
+            aria-label="Abrir navegação"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <h1 className="text-lg lg:text-xl font-semibold text-theme-headings dark:text-themedark-headings">
-            CRM Dashboard
-          </h1>
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          <div className="hidden lg:block">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden lg:inline-flex"
+              onClick={onToggleCollapsed}
+              aria-label={collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+            >
+              {collapsed ? <PanelRightOpen className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+            </Button>
+          </div>
+
+          <div className="flex flex-col">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {userProfile?.company_name || 'CRM Prizely'}
+            </span>
+            <h1 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">
+              Painel de relacionamento
+            </h1>
+          </div>
         </div>
 
-        {/* Right Side Actions */}
-        <div className="flex items-center gap-4">
-          {/* Theme Toggle */}
-          <button
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button
+            variant="outline"
+            size="icon"
             onClick={toggleTheme}
-            className="p-2 rounded-md text-theme-headercolor dark:text-themedark-headercolor hover:bg-theme-activebg dark:hover:bg-themedark-activebg transition-colors"
-            title={isDarkMode ? 'Modo claro' : 'Modo escuro'}
+            aria-label={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
+            className="border-border/70 bg-background/60 backdrop-blur"
           >
-            {isDarkMode ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-              </svg>
-            )}
-          </button>
+            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
 
-          {/* User Menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-3 p-2 rounded-md hover:bg-theme-activebg dark:hover:bg-themedark-activebg transition-colors"
-            >
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-medium text-sm">
-                {userProfile?.company_name?.charAt(0) || 'U'}
-              </div>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-theme-headings dark:text-themedark-headings">
-                  {userProfile?.company_name || 'Usuário'}
-                </p>
-                <p className="text-xs text-theme-bodycolor dark:text-themedark-bodycolor">
-                  {userProfile?.role === 'admin' ? 'Administrador' : 'Usuário'}
-                </p>
-              </div>
-              <svg className="w-4 h-4 text-theme-bodycolor dark:text-themedark-bodycolor" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            {/* Dropdown Menu */}
-            {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-themedark-sidebar rounded-md shadow-lg border border-theme-border dark:border-themedark-border z-50">
-                <div className="p-4 border-b border-theme-border dark:border-themedark-border">
-                  <p className="text-sm font-medium text-theme-headings dark:text-themedark-headings">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  'flex items-center gap-3 rounded-full border border-border/70 bg-card/80 px-2 pr-3 text-sm font-medium shadow-soft backdrop-blur transition hover:bg-card'
+                )}
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-brand">
+                  {companyInitial}
+                </span>
+                <span className="hidden text-left lg:flex lg:flex-col">
+                  <span className="text-sm font-semibold text-foreground">
+                    {userProfile?.company_name || 'Usuário'}
+                  </span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {userProfile?.role === 'admin' ? 'Administrador' : 'Colaborador'}
+                  </span>
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-foreground">
+                    {userProfile?.company_name || 'Conta'}
+                  </span>
+                  <span className="text-xs text-muted-foreground break-all">
                     {userProfile?.email}
-                  </p>
-                  <p className="text-xs text-theme-bodycolor dark:text-themedark-bodycolor">
-                    Moeda: {userProfile?.currency || 'BRL'}
-                  </p>
+                  </span>
+                  <span className="text-xs font-medium text-info">
+                    Moeda padrão: {userProfile?.currency || 'BRL'}
+                  </span>
                 </div>
-                <div className="p-2">
-                  <button
-                    onClick={() => {
-                      signOut();
-                      setShowUserMenu(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-                  >
-                    Sair
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  void signOut()
+                }}
+                className="text-destructive focus:text-destructive"
+              >
+                Sair da conta
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
-  );
+  )
 }

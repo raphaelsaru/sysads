@@ -121,8 +121,19 @@ export function useClientes() {
   const editarCliente = async (id: string, dadosAtualizados: Partial<NovoCliente>) => {
     setLoading(true);
     try {
-      // Prepare update data
-      const updateData: any = {};
+      type ClienteUpdatePayload = {
+        data_contato?: string;
+        nome?: string;
+        whatsapp_instagram?: string;
+        origem?: Cliente['origem'];
+        orcamento_enviado?: boolean;
+        resultado?: Cliente['resultado'];
+        qualidade_contato?: Cliente['qualidadeContato'];
+        valor_fechado?: number | null;
+        observacao?: string | null;
+      };
+
+      const updateData: ClienteUpdatePayload = {};
       if (dadosAtualizados.dataContato) updateData.data_contato = dadosAtualizados.dataContato;
       if (dadosAtualizados.nome) updateData.nome = dadosAtualizados.nome;
       if (dadosAtualizados.whatsappInstagram) updateData.whatsapp_instagram = dadosAtualizados.whatsappInstagram;

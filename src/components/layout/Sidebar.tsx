@@ -1,123 +1,145 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { LayoutDashboard, UsersRound } from 'lucide-react'
 
-const menuItems = [
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
+
+const MENU_ITEMS = [
   {
     id: 'dashboard',
     label: 'Dashboard',
+    description: 'Visão geral e estatísticas',
     href: '/',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-      </svg>
-    )
+    icon: LayoutDashboard,
   },
   {
     id: 'clientes',
     label: 'Clientes',
+    description: 'Gestão completa dos relacionamentos',
     href: '/clientes',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    )
-  }
-];
+    icon: UsersRound,
+  },
+] as const
 
 interface SidebarProps {
-  isMobileOpen: boolean;
-  setIsMobileOpen: (open: boolean) => void;
-  isCollapsed: boolean;
-  setIsCollapsed: (collapsed: boolean) => void;
+  collapsed: boolean
+  onCollapsedChange: (collapsed: boolean) => void
+  mobileOpen: boolean
+  onMobileOpenChange: (open: boolean) => void
 }
 
-export default function Sidebar({ isMobileOpen, setIsMobileOpen, isCollapsed, setIsCollapsed }: SidebarProps) {
-  const pathname = usePathname();
+export default function Sidebar({
+  collapsed,
+  onCollapsedChange,
+  mobileOpen,
+  onMobileOpenChange,
+}: SidebarProps) {
+  const pathname = usePathname()
+
+  const navContent = (
+    <div className="flex h-full flex-col justify-between bg-gradient-to-b from-primary/15 via-card to-background px-4 py-6">
+      <div className="space-y-6">
+        <Link href="/" className="block">
+          <div
+            className={cn(
+              'flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-3 text-primary-foreground shadow-brand backdrop-blur',
+              collapsed && 'justify-center'
+            )}
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-lg font-semibold text-primary-foreground">
+              PZ
+            </div>
+            {!collapsed && (
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold uppercase tracking-[0.08em] text-primary-foreground/90">
+                  Prizely CRM
+                </span>
+                <span className="text-xs font-medium text-primary-foreground/70">
+                  Experiências memoráveis
+                </span>
+              </div>
+            )}
+          </div>
+        </Link>
+
+        <nav className="space-y-2">
+          {MENU_ITEMS.map(({ id, label, description, href, icon: Icon }) => {
+            const isActive = pathname === href
+            return (
+              <Button
+                key={id}
+                asChild
+                variant={isActive ? 'default' : 'ghost'}
+                size="sm"
+                className={cn(
+                  'group w-full justify-start gap-3 rounded-xl py-4 text-sm font-semibold transition',
+                  collapsed && 'justify-center px-0 text-xs'
+                )}
+              >
+                <Link href={href}>
+                  <span className="flex items-center gap-3">
+                    <Icon
+                      className={cn(
+                        'h-5 w-5 transition group-hover:scale-110',
+                        isActive ? 'text-primary-foreground' : 'text-primary'
+                      )}
+                    />
+                    {!collapsed && (
+                      <span className="flex flex-col">
+                        <span className="text-sm text-foreground">{label}</span>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {description}
+                        </span>
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              </Button>
+            )
+          })}
+        </nav>
+      </div>
+
+      <div className={cn('rounded-xl border border-border/60 bg-background/80 p-3 text-xs text-muted-foreground', collapsed && 'hidden')}>
+        <p className="font-semibold text-foreground">Dica rápida</p>
+        <p className="mt-1 leading-relaxed">
+          Recolha a barra lateral para ganhar ainda mais espaço visual no painel.
+        </p>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-3 w-full justify-center"
+          onClick={() => onCollapsedChange(!collapsed)}
+        >
+          {collapsed ? 'Expandir navegação' : 'Recolher navegação'}
+        </Button>
+      </div>
+    </div>
+  )
 
   return (
     <>
-      {/* Mobile backdrop */}
-      {isMobileOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-          onClick={() => setIsMobileOpen(false)}
-        />
-      )}
+      <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
+        <SheetContent side="left" className="w-[85vw] max-w-xs border-none p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Navegação principal</SheetTitle>
+          </SheetHeader>
+          {navContent}
+        </SheetContent>
+      </Sheet>
 
-      <nav className={`pc-sidebar fixed left-0 top-0 h-full bg-theme-sidebarbg dark:bg-themedark-sidebarbg transition-all duration-300 z-40
-        ${isCollapsed && !isMobileOpen ? 'w-sidebar-collapsed-width' : 'w-sidebar-width'}
-        ${isMobileOpen ? 'translate-x-0' : 'lg:translate-x-0 -translate-x-full'}
-      `}>
-      <div className="navbar-wrapper h-full">
-        {/* Logo/Brand */}
-        <div className="m-header flex items-center py-4 px-6 h-header-height border-b border-theme-border/20 dark:border-themedark-border/20">
-          <Link href="/" className="b-brand flex items-center gap-3 text-theme-sidebarcaption dark:text-themedark-sidebarcaption">
-            {!isCollapsed && (
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold">
-                C
-              </div>
-            )}
-            {!isCollapsed && <span className="text-lg font-semibold">CRM Charbelle</span>}
-          </Link>
-
-          {/* Toggle Button */}
-          <button
-            onClick={() => {
-              if (window.innerWidth < 1024) {
-                setIsMobileOpen(false);
-              } else {
-                setIsCollapsed(!isCollapsed);
-              }
-            }}
-            className={`p-1 rounded-md text-theme-sidebarcolor dark:text-themedark-sidebarcolor hover:bg-white/10 transition-colors ${
-              isCollapsed ? 'ml-0' : 'ml-auto'
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <div className="navbar-content h-[calc(100vh_-_74px)] py-4 overflow-y-auto">
-          <ul className="pc-navbar space-y-1 px-3">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
-
-              return (
-                <li key={item.id}>
-                  <Link
-                    href={item.href}
-                    onClick={() => {
-                      if (window.innerWidth < 1024) {
-                        setIsMobileOpen(false);
-                      }
-                    }}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 group ${
-                      isActive
-                        ? 'bg-primary text-white shadow-md'
-                        : 'text-theme-sidebarcolor dark:text-themedark-sidebarcolor hover:bg-white/10 hover:text-white'
-                    }`}
-                  >
-                    <span className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-theme-sidebarcolor dark:text-themedark-sidebarcolor group-hover:text-white'}`}>
-                      {item.icon}
-                    </span>
-                    {!isCollapsed && (
-                      <span className="transition-opacity duration-200">
-                        {item.label}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </div>
-    </nav>
+      <aside
+        className={cn(
+          'pointer-events-auto fixed inset-y-0 left-0 z-40 hidden h-full border-r border-border/70 bg-background shadow-soft lg:flex lg:flex-col',
+          collapsed ? 'w-[96px]' : 'w-[272px]'
+        )}
+      >
+        {navContent}
+      </aside>
     </>
-  );
+  )
 }
