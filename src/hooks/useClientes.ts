@@ -1,20 +1,165 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { Cliente, NovoCliente } from '@/types/crm';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect, useCallback } from 'react'
 
-export function useClientes() {
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [loading, setLoading] = useState(false);
+import { Cliente, NovoCliente } from '@/types/crm'
+import { supabase } from '@/lib/supabase'
+import {
+  FALLBACK_CURRENCY_VALUE,
+  formatCurrency,
+  parseCurrencyInput,
+  type SupportedCurrency,
+} from '@/lib/currency'
 
-  const carregarClientes = async () => {
-    setLoading(true);
+const PAGE_SIZE = 15
+const STATS_PAGE_SIZE = 500
+
+interface EstatisticasClientes {
+  total: number
+  vendas: number
+  emProcesso: number
+  naoVenda: number
+  valorEmProcesso: number
+  valorVendido: number
+}
+
+const estatisticasIniciais: EstatisticasClientes = {
+  total: 0,
+  vendas: 0,
+  emProcesso: 0,
+  naoVenda: 0,
+  valorEmProcesso: 0,
+  valorVendido: 0,
+}
+
+type ClienteSupabaseRow = {
+  id: string
+  data_contato: string
+  nome: string
+  whatsapp_instagram: string
+  origem: Cliente['origem']
+  orcamento_enviado: boolean
+  resultado: Cliente['resultado']
+  qualidade_contato: Cliente['qualidadeContato']
+  valor_fechado: number | null
+  observacao: string | null
+}
+
+type ClienteStatsRow = {
+  resultado: Cliente['resultado']
+  valor_fechado: number | null
+}
+
+export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALUE) {
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [loading, setLoading] = useState(false)
+  const [loadingMais, setLoadingMais] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [page, setPage] = useState(0)
+  const [estatisticas, setEstatisticas] = useState<EstatisticasClientes>(estatisticasIniciais)
+
+  const formatarCliente = useCallback(
+    (cliente: ClienteSupabaseRow): Cliente => {
+      const valorFechadoNumero = cliente.valor_fechado ?? null
+
+      return {
+        id: cliente.id,
+        dataContato: cliente.data_contato,
+        nome: cliente.nome,
+        whatsappInstagram: cliente.whatsapp_instagram,
+        origem: cliente.origem,
+        orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
+        resultado: cliente.resultado,
+        qualidadeContato: cliente.qualidade_contato,
+        valorFechadoNumero,
+        valorFechado: valorFechadoNumero !== null ? formatCurrency(valorFechadoNumero, currency) : '',
+        observacao: cliente.observacao ?? undefined,
+      }
+    },
+    [currency]
+  )
+
+  const carregarEstatisticas = useCallback(async () => {
+    let total = 0
+    let vendas = 0
+    let emProcesso = 0
+    let naoVenda = 0
+    let valorEmProcesso = 0
+    let valorVendido = 0
+    let offset = 0
+
     try {
-      // Use Supabase client directly instead of fetch
+      // Pagina manualmente para garantir que todos os registros sejam considerados
+      // independentemente da paginação utilizada na tabela.
+      while (true) {
+        const { data, error } = await supabase
+          .from('clientes')
+          .select('resultado, valor_fechado')
+          .order('id', { ascending: true })
+          .range(offset, offset + STATS_PAGE_SIZE - 1)
+
+        if (error) {
+          throw error
+        }
+
+        const lote = (data as ClienteStatsRow[] | null) ?? []
+
+        if (lote.length === 0) {
+          break
+        }
+
+        for (const item of lote) {
+          total += 1
+
+          switch (item.resultado) {
+            case 'Venda':
+              vendas += 1
+              if (item.valor_fechado !== null) {
+                valorVendido += Number(item.valor_fechado) || 0
+              }
+              break
+            case 'Orçamento em Processo':
+              emProcesso += 1
+              if (item.valor_fechado !== null) {
+                valorEmProcesso += Number(item.valor_fechado) || 0
+              }
+              break
+            case 'Não Venda':
+              naoVenda += 1
+              break
+            default:
+              break
+          }
+        }
+
+        if (lote.length < STATS_PAGE_SIZE) {
+          break
+        }
+
+        offset += STATS_PAGE_SIZE
+      }
+
+      setEstatisticas({
+        total,
+        vendas,
+        emProcesso,
+        naoVenda,
+        valorEmProcesso,
+        valorVendido,
+      })
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error)
+      setEstatisticas(estatisticasIniciais)
+    }
+  }, [])
+
+  const carregarClientes = useCallback(async () => {
+    setLoading(true)
+    try {
       const { data: clientesData, error } = await supabase
         .from('clientes')
-        .select(`
+        .select(
+          `
           id,
           data_contato,
           nome,
@@ -24,54 +169,93 @@ export function useClientes() {
           resultado,
           qualidade_contato,
           valor_fechado,
-          observacao,
-          created_at,
-          updated_at
-        `)
-        .order('data_contato', { ascending: false });
+          observacao
+        `
+        )
+        .order('data_contato', { ascending: false })
+        .range(0, PAGE_SIZE - 1)
 
       if (error) {
-        console.error('Erro ao carregar clientes:', error);
-        return;
+        console.error('Erro ao carregar clientes:', error)
+        setHasMore(false)
+        return
       }
 
-      // Transform to match existing interface
-      const transformedClientes: Cliente[] = clientesData.map(cliente => ({
-        id: cliente.id,
-        dataContato: cliente.data_contato,
-        nome: cliente.nome,
-        whatsappInstagram: cliente.whatsapp_instagram,
-        origem: cliente.origem as Cliente['origem'],
-        orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
-        resultado: cliente.resultado as Cliente['resultado'],
-        qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
-        valorFechado: cliente.valor_fechado?.toString(),
-        observacao: cliente.observacao,
-      }));
+      const transformados = ((clientesData as ClienteSupabaseRow[] | null) ?? []).map(formatarCliente)
 
-      setClientes(transformedClientes);
+      setClientes(transformados)
+      setHasMore(((clientesData?.length ?? 0) === PAGE_SIZE))
+      setPage(1)
+      await carregarEstatisticas()
     } catch (error) {
-      console.error('Erro ao carregar clientes:', error);
+      console.error('Erro ao carregar clientes:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }, [carregarEstatisticas, formatarCliente])
+
+  const carregarMaisClientes = useCallback(async () => {
+    if (loadingMais || !hasMore) return
+
+    setLoadingMais(true)
+    try {
+      const start = page * PAGE_SIZE
+      const end = start + PAGE_SIZE - 1
+
+      const { data: clientesData, error } = await supabase
+        .from('clientes')
+        .select(
+          `
+          id,
+          data_contato,
+          nome,
+          whatsapp_instagram,
+          origem,
+          orcamento_enviado,
+          resultado,
+          qualidade_contato,
+          valor_fechado,
+          observacao
+        `
+        )
+        .order('data_contato', { ascending: false })
+        .range(start, end)
+
+      if (error) {
+        console.error('Erro ao carregar mais clientes:', error)
+        setHasMore(false)
+        return
+      }
+
+      const transformados = ((clientesData as ClienteSupabaseRow[] | null) ?? []).map(formatarCliente)
+
+      setClientes((prev) => [...prev, ...transformados])
+      setHasMore(((clientesData?.length ?? 0) === PAGE_SIZE))
+      setPage((prev) => prev + 1)
+    } catch (error) {
+      console.error('Erro ao carregar mais clientes:', error)
+    } finally {
+      setLoadingMais(false)
+    }
+  }, [formatarCliente, hasMore, loadingMais, page])
 
   useEffect(() => {
-    carregarClientes();
-  }, []);
+    void carregarClientes()
+  }, [carregarClientes])
 
   const adicionarCliente = async (novoCliente: NovoCliente) => {
-    setLoading(true);
+    setLoading(true)
     try {
-      // Get current user for user_id
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
       if (!user) {
-        throw new Error('Usuário não autenticado');
+        throw new Error('Usuário não autenticado')
       }
 
-      // Insert cliente with user_id
+      const valorFechadoNumero = parseCurrencyInput(novoCliente.valorFechado ?? null)
+
       const { data: cliente, error } = await supabase
         .from('clientes')
         .insert({
@@ -83,170 +267,118 @@ export function useClientes() {
           orcamento_enviado: novoCliente.orcamentoEnviado === 'Sim',
           resultado: novoCliente.resultado,
           qualidade_contato: novoCliente.qualidadeContato,
-          valor_fechado: novoCliente.valorFechado ? parseFloat(novoCliente.valorFechado) : null,
-          observacao: novoCliente.observacao || null
+          valor_fechado: valorFechadoNumero,
+          observacao: novoCliente.observacao || null,
         })
         .select()
-        .single();
+        .single()
 
-      if (error) {
-        console.error('Erro ao criar cliente:', error);
-        throw new Error('Erro ao criar cliente');
+      if (error || !cliente) {
+        console.error('Erro ao criar cliente:', error)
+        throw new Error('Erro ao criar cliente')
       }
 
-      // Transform to match existing interface
-      const transformedCliente: Cliente = {
-        id: cliente.id,
-        dataContato: cliente.data_contato,
-        nome: cliente.nome,
-        whatsappInstagram: cliente.whatsapp_instagram,
-        origem: cliente.origem as Cliente['origem'],
-        orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
-        resultado: cliente.resultado as Cliente['resultado'],
-        qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
-        valorFechado: cliente.valor_fechado?.toString(),
-        observacao: cliente.observacao,
-      };
+      const transformado = formatarCliente(cliente as unknown as ClienteSupabaseRow)
 
-      setClientes(prev => [...prev, transformedCliente]);
-      return transformedCliente;
+      setClientes((prev) => [...prev, transformado])
+      await carregarEstatisticas()
+      return transformado
     } catch (error) {
-      console.error('Erro ao adicionar cliente:', error);
-      throw error;
+      console.error('Erro ao adicionar cliente:', error)
+      throw error
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const editarCliente = async (id: string, dadosAtualizados: Partial<NovoCliente>) => {
-    setLoading(true);
+    setLoading(true)
     try {
       type ClienteUpdatePayload = {
-        data_contato?: string;
-        nome?: string;
-        whatsapp_instagram?: string;
-        origem?: Cliente['origem'];
-        orcamento_enviado?: boolean;
-        resultado?: Cliente['resultado'];
-        qualidade_contato?: Cliente['qualidadeContato'];
-        valor_fechado?: number | null;
-        observacao?: string | null;
-      };
+        data_contato?: string
+        nome?: string
+        whatsapp_instagram?: string
+        origem?: Cliente['origem']
+        orcamento_enviado?: boolean
+        resultado?: Cliente['resultado']
+        qualidade_contato?: Cliente['qualidadeContato']
+        valor_fechado?: number | null
+        observacao?: string | null
+      }
 
-      const updateData: ClienteUpdatePayload = {};
-      if (dadosAtualizados.dataContato) updateData.data_contato = dadosAtualizados.dataContato;
-      if (dadosAtualizados.nome) updateData.nome = dadosAtualizados.nome;
-      if (dadosAtualizados.whatsappInstagram) updateData.whatsapp_instagram = dadosAtualizados.whatsappInstagram;
-      if (dadosAtualizados.origem) updateData.origem = dadosAtualizados.origem;
-      if (dadosAtualizados.orcamentoEnviado !== undefined) updateData.orcamento_enviado = dadosAtualizados.orcamentoEnviado === 'Sim';
-      if (dadosAtualizados.resultado) updateData.resultado = dadosAtualizados.resultado;
-      if (dadosAtualizados.qualidadeContato) updateData.qualidade_contato = dadosAtualizados.qualidadeContato;
-      if (dadosAtualizados.valorFechado !== undefined) updateData.valor_fechado = dadosAtualizados.valorFechado ? parseFloat(dadosAtualizados.valorFechado) : null;
-      if (dadosAtualizados.observacao !== undefined) updateData.observacao = dadosAtualizados.observacao || null;
+      const updateData: ClienteUpdatePayload = {}
+      if (dadosAtualizados.dataContato) updateData.data_contato = dadosAtualizados.dataContato
+      if (dadosAtualizados.nome) updateData.nome = dadosAtualizados.nome
+      if (dadosAtualizados.whatsappInstagram) updateData.whatsapp_instagram = dadosAtualizados.whatsappInstagram
+      if (dadosAtualizados.origem) updateData.origem = dadosAtualizados.origem
+      if (dadosAtualizados.orcamentoEnviado !== undefined) updateData.orcamento_enviado = dadosAtualizados.orcamentoEnviado === 'Sim'
+      if (dadosAtualizados.resultado) updateData.resultado = dadosAtualizados.resultado
+      if (dadosAtualizados.qualidadeContato) updateData.qualidade_contato = dadosAtualizados.qualidadeContato
+      if (dadosAtualizados.valorFechado !== undefined) {
+        updateData.valor_fechado = parseCurrencyInput(dadosAtualizados.valorFechado)
+      }
+      if (dadosAtualizados.observacao !== undefined) updateData.observacao = dadosAtualizados.observacao || null
 
       const { data: cliente, error } = await supabase
         .from('clientes')
         .update(updateData)
         .eq('id', id)
         .select()
-        .single();
+        .single()
 
-      if (error) {
-        console.error('Erro ao atualizar cliente:', error);
-        throw new Error('Erro ao atualizar cliente');
+      if (error || !cliente) {
+        console.error('Erro ao atualizar cliente:', error)
+        throw new Error('Erro ao atualizar cliente')
       }
 
-      // Transform to match existing interface
-      const transformedCliente: Cliente = {
-        id: cliente.id,
-        dataContato: cliente.data_contato,
-        nome: cliente.nome,
-        whatsappInstagram: cliente.whatsapp_instagram,
-        origem: cliente.origem as Cliente['origem'],
-        orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
-        resultado: cliente.resultado as Cliente['resultado'],
-        qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
-        valorFechado: cliente.valor_fechado?.toString(),
-        observacao: cliente.observacao,
-      };
+      const transformado = formatarCliente(cliente as unknown as ClienteSupabaseRow)
 
-      setClientes(prev =>
-        prev.map(c =>
-          c.id === id ? transformedCliente : c
-        )
-      );
-      return transformedCliente;
+      setClientes((prev) => prev.map((c) => (c.id === id ? transformado : c)))
+      await carregarEstatisticas()
+      return transformado
     } catch (error) {
-      console.error('Erro ao editar cliente:', error);
-      throw error;
+      console.error('Erro ao editar cliente:', error)
+      throw error
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const excluirCliente = async (id: string) => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const { error } = await supabase
-        .from('clientes')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('clientes').delete().eq('id', id)
 
       if (error) {
-        console.error('Erro ao excluir cliente:', error);
-        throw new Error('Erro ao excluir cliente');
+        console.error('Erro ao excluir cliente:', error)
+        throw new Error('Erro ao excluir cliente')
       }
 
-      setClientes(prev => prev.filter(cliente => cliente.id !== id));
+      setClientes((prev) => prev.filter((cliente) => cliente.id !== id))
+      await carregarEstatisticas()
     } catch (error) {
-      console.error('Erro ao excluir cliente:', error);
-      throw error;
+      console.error('Erro ao excluir cliente:', error)
+      throw error
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const buscarCliente = (id: string): Cliente | undefined => {
-    return clientes.find(cliente => cliente.id === id);
-  };
-
-  // Função helper para parsing de valores monetários
-  const parseValorFechado = (valorStr: string): number => {
-    if (!valorStr || valorStr.trim() === '') return 0;
-
-    // Remove R$, espaços e converte vírgula para ponto
-    const valor = valorStr
-      .replace(/[R$\s]/g, '')
-      .replace(/\./g, '')  // Remove pontos de milhares
-      .replace(',', '.');  // Converte vírgula decimal para ponto
-
-    return parseFloat(valor) || 0;
-  };
-
-  // Estatísticas
-  const estatisticas = {
-    total: clientes.length,
-    vendas: clientes.filter(c => c.resultado === 'Venda').length,
-    emProcesso: clientes.filter(c => c.resultado === 'Orçamento em Processo').length,
-    naoVenda: clientes.filter(c => c.resultado === 'Não Venda').length,
-    // Valor total dos orçamentos em processo
-    valorEmProcesso: clientes
-      .filter(c => c.resultado === 'Orçamento em Processo' && c.valorFechado && c.valorFechado.trim() !== '')
-      .reduce((acc, c) => acc + parseValorFechado(c.valorFechado!), 0),
-    // Valor total das vendas efetivadas
-    valorVendido: clientes
-      .filter(c => c.resultado === 'Venda' && c.valorFechado && c.valorFechado.trim() !== '')
-      .reduce((acc, c) => acc + parseValorFechado(c.valorFechado!), 0)
-  };
+    return clientes.find((cliente) => cliente.id === id)
+  }
 
   return {
     clientes,
     loading,
+    loadingMais,
+    hasMore,
     adicionarCliente,
     editarCliente,
     excluirCliente,
     buscarCliente,
     estatisticas,
-    carregarClientes
-  };
+    carregarClientes,
+    carregarMaisClientes,
+  }
 }

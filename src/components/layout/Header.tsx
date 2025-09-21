@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Menu, Moon, PanelLeftOpen, PanelRightOpen, Sun } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -15,13 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
-interface HeaderProps {
-  onToggleMobileSidebar: () => void
-  onToggleCollapsed: () => void
-  collapsed: boolean
-}
-
-export default function Header({ onToggleMobileSidebar, onToggleCollapsed, collapsed }: HeaderProps) {
+export default function Header() {
   const { userProfile, signOut } = useAuth()
   const [isDarkMode, setIsDarkMode] = useState(false)
 
@@ -50,30 +44,8 @@ export default function Header({ onToggleMobileSidebar, onToggleCollapsed, colla
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
-      <div className="flex h-20 items-center justify-between px-4 sm:px-6 lg:px-10">
+      <div className="mx-auto flex h-20 w-full max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-12">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="inline-flex lg:hidden"
-            onClick={onToggleMobileSidebar}
-            aria-label="Abrir navegação"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-
-          <div className="hidden lg:block">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden lg:inline-flex"
-              onClick={onToggleCollapsed}
-              aria-label={collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
-            >
-              {collapsed ? <PanelRightOpen className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
-            </Button>
-          </div>
-
           <div className="flex flex-col">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {userProfile?.company_name || 'CRM Prizely'}

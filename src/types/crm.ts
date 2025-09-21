@@ -8,6 +8,7 @@ export interface Cliente {
   resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda';
   qualidadeContato: 'Bom' | 'Regular' | 'Ruim';
   valorFechado?: string;
+  valorFechadoNumero?: number | null;
   observacao?: string;
 }
 

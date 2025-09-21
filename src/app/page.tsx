@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
 
 export default function Home() {
   return (
@@ -25,14 +26,19 @@ export default function Home() {
 
 function HomePage() {
   const { userProfile } = useAuth()
+  const currency = userProfile?.currency ?? FALLBACK_CURRENCY_VALUE
+
   const {
     clientes,
     loading,
+    loadingMais,
     adicionarCliente,
     editarCliente,
     excluirCliente,
     estatisticas,
-  } = useClientes()
+    hasMore,
+    carregarMaisClientes,
+  } = useClientes(currency)
 
   const [mostrarModal, setMostrarModal] = useState(false)
   const [clienteEditando, setClienteEditando] = useState<Cliente | undefined>(undefined)
@@ -56,15 +62,10 @@ function HomePage() {
     setClienteEditando(undefined)
   }
 
-  const formatarValor = useCallback((valor: number) => {
-    const currency = userProfile?.currency || 'BRL'
-    const locale = currency === 'USD' ? 'en-US' : currency === 'EUR' ? 'de-DE' : 'pt-BR'
-
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-    }).format(valor)
-  }, [userProfile?.currency])
+  const formatarValor = useCallback(
+    (valor: number) => formatCurrency(valor, currency, { fallback: formatCurrency(0, currency) }),
+    [currency]
+  )
 
   const cards = useMemo(
     () => [
@@ -163,7 +164,7 @@ function HomePage() {
           ))}
         </div>
 
-        {loading ? (
+        {loading && clientes.length === 0 ? (
           <Card className="border-border/70 bg-card/70">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -187,6 +188,9 @@ function HomePage() {
             clientes={clientes}
             onEdit={handleEditarCliente}
             onDelete={excluirCliente}
+            onLoadMore={carregarMaisClientes}
+            hasMore={hasMore}
+            isLoadingMore={loadingMais}
           />
         )}
 
@@ -195,6 +199,7 @@ function HomePage() {
           onClose={handleFecharModal}
           onSave={handleSubmitForm}
           cliente={clienteEditando}
+          currency={currency}
         />
       </section>
     </MainLayout>

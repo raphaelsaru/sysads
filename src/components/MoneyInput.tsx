@@ -3,6 +3,7 @@
 import { NumericFormat } from 'react-number-format'
 
 import { cn } from '@/lib/utils'
+import { FALLBACK_CURRENCY_VALUE, getCurrencyPrefix, type SupportedCurrency } from '@/lib/currency'
 
 interface MoneyInputProps {
   value?: string | number
@@ -12,6 +13,7 @@ interface MoneyInputProps {
   disabled?: boolean
   id?: string
   name?: string
+  currency?: SupportedCurrency
 }
 
 const baseInputStyles =
@@ -20,18 +22,22 @@ const baseInputStyles =
 export default function MoneyInput({
   value,
   onChangeValue,
-  placeholder = 'R$ 0,00',
+  placeholder,
   className,
   disabled = false,
   id,
   name,
+  currency = FALLBACK_CURRENCY_VALUE,
 }: MoneyInputProps) {
+  const prefix = getCurrencyPrefix(currency)
+  const resolvedPlaceholder = placeholder ?? `${prefix}0,00`
+
   return (
     <NumericFormat
       id={id}
       name={name}
       className={cn(baseInputStyles, className)}
-      placeholder={placeholder}
+      placeholder={resolvedPlaceholder}
       disabled={disabled}
       value={value}
       onValueChange={(values) => {
@@ -42,7 +48,7 @@ export default function MoneyInput({
       decimalSeparator="," 
       decimalScale={2}
       fixedDecimalScale={true}
-      prefix="R$ "
+      prefix={prefix}
       allowNegative={false}
       allowLeadingZeros={false}
       inputMode="decimal"

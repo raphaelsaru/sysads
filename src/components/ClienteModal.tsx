@@ -26,19 +26,21 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { FALLBACK_CURRENCY_VALUE, formatCurrency, type SupportedCurrency } from '@/lib/currency'
 
 interface ClienteModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (cliente: NovoCliente) => void
   cliente?: Cliente
+  currency?: SupportedCurrency
 }
 
 const ORIGENS: NovoCliente['origem'][] = ['Indicação', 'Orgânico / Pefil', 'Anúncio', 'Cliente antigo']
 const RESULTADOS: NovoCliente['resultado'][] = ['Venda', 'Orçamento em Processo', 'Não Venda']
 const QUALIDADES: NovoCliente['qualidadeContato'][] = ['Bom', 'Regular', 'Ruim']
 
-export default function ClienteModal({ isOpen, onClose, onSave, cliente }: ClienteModalProps) {
+export default function ClienteModal({ isOpen, onClose, onSave, cliente, currency = FALLBACK_CURRENCY_VALUE }: ClienteModalProps) {
   const baseState: NovoCliente = useMemo(
     () => ({
       dataContato: getTodayBR(),
@@ -73,15 +75,11 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
         valorFechado: cliente.valorFechado || '',
         observacao: cliente.observacao || '',
       })
-
-      if (cliente.valorFechado) {
-        const numeroLimpo = cliente.valorFechado
-          .replace(/[^\d,]/g, '')
-          .replace(',', '.')
-        setValorNumerico(numeroLimpo ? parseFloat(numeroLimpo) : undefined)
-      } else {
-        setValorNumerico(undefined)
-      }
+      setValorNumerico(
+        cliente.valorFechadoNumero !== null && cliente.valorFechadoNumero !== undefined
+          ? cliente.valorFechadoNumero
+          : undefined
+      )
     } else {
       setFormData(baseState)
       setValorNumerico(undefined)
@@ -100,16 +98,10 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
 
   const handleValorChange = (valor: number | undefined) => {
     setValorNumerico(valor)
-    const valorFormatado = valor
-      ? `R$ ${valor.toLocaleString('pt-BR', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`
-      : ''
 
     setFormData((prev) => ({
       ...prev,
-      valorFechado: valorFormatado,
+      valorFechado: valor !== undefined ? formatCurrency(valor, currency) : '',
     }))
   }
 
@@ -270,7 +262,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente }: Clien
                 name="valorFechado"
                 value={valorNumerico}
                 onChangeValue={handleValorChange}
-                placeholder="R$ 0,00"
+                currency={currency}
               />
             </div>
           </div>

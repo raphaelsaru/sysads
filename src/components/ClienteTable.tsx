@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { CalendarDays, CircleDollarSign, MessageCircle, Pencil, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,9 @@ interface ClienteTableProps {
   clientes: Cliente[]
   onEdit?: (cliente: Cliente) => void
   onDelete?: (id: string) => void
+  onLoadMore?: () => void
+  hasMore?: boolean
+  isLoadingMore?: boolean
 }
 
 const resultadoVariant: Record<Cliente['resultado'], 'success' | 'warning' | 'destructive'> = {
@@ -60,8 +63,32 @@ function QualidadeBadge({ qualidade }: { qualidade: Cliente['qualidadeContato'] 
   )
 }
 
-export default function ClienteTable({ clientes, onEdit, onDelete }: ClienteTableProps) {
+export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, hasMore = false, isLoadingMore = false }: ClienteTableProps) {
   const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!onLoadMore || !hasMore) return
+
+    const sentinel = loadMoreRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries
+        if (entry.isIntersecting) {
+          onLoadMore()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+
+    observer.observe(sentinel)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [hasMore, onLoadMore, clientes.length])
 
   const handleDelete = async () => {
     if (clienteParaExcluir?.id && onDelete) {
@@ -243,6 +270,15 @@ export default function ClienteTable({ clientes, onEdit, onDelete }: ClienteTabl
           </Table>
         </CardContent>
       </Card>
+
+      <div ref={loadMoreRef} className="h-1 w-full" aria-hidden />
+
+      {isLoadingMore && (
+        <div className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-dashed border-border/70 bg-background/80 py-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          Carregando mais clientes
+        </div>
+      )}
 
       <AlertDialog open={!!clienteParaExcluir} onOpenChange={(open) => !open && setClienteParaExcluir(null)}>
         <AlertDialogContent>
