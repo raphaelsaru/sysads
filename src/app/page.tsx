@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus, Loader2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Filter, Plus, Loader2 } from 'lucide-react'
 
 import MainLayout from '@/components/layout/MainLayout'
 import ClienteTable from '@/components/ClienteTable'
@@ -14,6 +14,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FALLBACK_CURRENCY_VALUE } from '@/lib/currency'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export default function Home() {
   return (
@@ -22,6 +30,21 @@ export default function Home() {
     </ProtectedRoute>
   )
 }
+
+const ORIGENS = ['Indicação', 'Orgânico / Pefil', 'Anúncio', 'Cliente antigo'] as const
+const RESULTADOS = ['Venda', 'Orçamento em Processo', 'Não Venda'] as const
+const QUALIDADES = ['Bom', 'Regular', 'Ruim'] as const
+
+type FiltroChave = 'busca' | 'origem' | 'status' | 'qualidade' | 'valorMin' | 'valorMax'
+
+const filtrosIniciais = {
+  busca: '',
+  origem: 'todos',
+  status: 'todos',
+  qualidade: 'todos',
+  valorMin: '',
+  valorMax: '',
+} satisfies Record<FiltroChave, string>
 
 function HomePage() {
   const { userProfile } = useAuth()
@@ -40,6 +63,7 @@ function HomePage() {
 
   const [mostrarModal, setMostrarModal] = useState(false)
   const [clienteEditando, setClienteEditando] = useState<Cliente | undefined>(undefined)
+  const [filtros, setFiltros] = useState(filtrosIniciais)
 
   const handleSubmitForm = async (dadosCliente: NovoCliente) => {
     if (clienteEditando) {
@@ -59,6 +83,69 @@ function HomePage() {
     setMostrarModal(false)
     setClienteEditando(undefined)
   }
+
+  const atualizarFiltro = (campo: FiltroChave, valor: string) => {
+    setFiltros((prev) => ({
+      ...prev,
+      [campo]: valor,
+    }))
+  }
+
+  const limparFiltros = () => {
+    setFiltros(filtrosIniciais)
+  }
+
+  const clientesFiltrados = useMemo(() => {
+    const termo = filtros.busca.trim().toLowerCase()
+    const origem = filtros.origem
+    const status = filtros.status
+    const qualidade = filtros.qualidade
+    const valorMin = filtros.valorMin !== '' ? Number(filtros.valorMin) : undefined
+    const valorMax = filtros.valorMax !== '' ? Number(filtros.valorMax) : undefined
+
+    return clientes.filter((clienteAtual) => {
+      const nome = (clienteAtual.nome ?? '').toLowerCase()
+      const contato = (clienteAtual.whatsappInstagram ?? '').toLowerCase()
+      const valorNumero = clienteAtual.valorFechadoNumero ?? 0
+
+      if (termo && !nome.includes(termo) && !contato.includes(termo)) {
+        return false
+      }
+
+      if (origem !== 'todos' && clienteAtual.origem !== origem) {
+        return false
+      }
+
+      if (status !== 'todos' && clienteAtual.resultado !== status) {
+        return false
+      }
+
+      if (qualidade !== 'todos' && clienteAtual.qualidadeContato !== qualidade) {
+        return false
+      }
+
+      if (valorMin !== undefined && !Number.isNaN(valorMin) && valorNumero < valorMin) {
+        return false
+      }
+
+      if (valorMax !== undefined && !Number.isNaN(valorMax) && valorNumero > valorMax) {
+        return false
+      }
+
+      return true
+    })
+  }, [clientes, filtros])
+
+  const filtrosAtivos = useMemo(() => {
+    return (
+      filtros.busca.trim() !== '' ||
+      filtros.origem !== 'todos' ||
+      filtros.status !== 'todos' ||
+      filtros.qualidade !== 'todos' ||
+      filtros.valorMin !== '' ||
+      filtros.valorMax !== ''
+    )
+  }, [filtros])
 
   return (
     <MainLayout>
@@ -87,6 +174,92 @@ function HomePage() {
           </Button>
         </div>
 
+        <div className="rounded-2xl border border-border/70 bg-card/70 p-4 shadow-soft">
+          <div className="flex items-center gap-2 pb-4 text-sm font-medium text-muted-foreground">
+            <Filter className="h-4 w-4" />
+            Filtros avançados
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+            <Input
+              placeholder="Buscar por nome ou contato"
+              value={filtros.busca}
+              onChange={(event) => atualizarFiltro('busca', event.target.value)}
+            />
+
+            <Select value={filtros.origem} onValueChange={(valor) => atualizarFiltro('origem', valor)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Origem" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as origens</SelectItem>
+                {ORIGENS.map((origem) => (
+                  <SelectItem key={origem} value={origem}>
+                    {origem}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filtros.status} onValueChange={(valor) => atualizarFiltro('status', valor)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os status</SelectItem>
+                {RESULTADOS.map((resultado) => (
+                  <SelectItem key={resultado} value={resultado}>
+                    {resultado}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filtros.qualidade} onValueChange={(valor) => atualizarFiltro('qualidade', valor)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Qualidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as qualidades</SelectItem>
+                {QUALIDADES.map((qualidade) => (
+                  <SelectItem key={qualidade} value={qualidade}>
+                    {qualidade}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Input
+              type="number"
+              min={0}
+              placeholder="Valor mín"
+              value={filtros.valorMin}
+              onChange={(event) => atualizarFiltro('valorMin', event.target.value)}
+            />
+
+            <Input
+              type="number"
+              min={0}
+              placeholder="Valor máx"
+              value={filtros.valorMax}
+              onChange={(event) => atualizarFiltro('valorMax', event.target.value)}
+            />
+          </div>
+          <div className="mt-4 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Exibindo {clientesFiltrados.length} de {clientes.length} clientes
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="self-start sm:self-auto"
+              onClick={limparFiltros}
+              disabled={!filtrosAtivos}
+            >
+              Limpar filtros
+            </Button>
+          </div>
+        </div>
+
         {loading && clientes.length === 0 ? (
           <Card className="border-border/70 bg-card/70">
             <CardHeader>
@@ -108,7 +281,7 @@ function HomePage() {
           </Card>
         ) : (
           <ClienteTable
-            clientes={clientes}
+            clientes={clientesFiltrados}
             onEdit={handleEditarCliente}
             onDelete={excluirCliente}
             onLoadMore={carregarMaisClientes}
