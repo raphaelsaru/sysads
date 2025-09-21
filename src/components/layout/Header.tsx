@@ -57,7 +57,7 @@ export default function Header() {
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {userProfile?.company_name || 'CRM Prizely'}
+                CRM Prizely
               </span>
               <h1 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">
                 Painel de relacionamento
@@ -98,7 +98,7 @@ export default function Header() {
                 <Button
                   variant="ghost"
                   className={cn(
-                    'flex items-center gap-3 rounded-full border border-border/70 bg-card/80 px-2 pr-3 text-sm font-medium shadow-soft backdrop-blur transition hover:bg-card'
+                    'flex items-center gap-3 rounded-full border border-border/70 bg-card/80 pl-1.5 pr-3 text-sm font-medium shadow-soft backdrop-blur transition hover:bg-card'
                   )}
                 >
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-brand">

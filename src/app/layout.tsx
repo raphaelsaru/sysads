@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "CRM Charbelle - Sistema de Gestão de Clientes",
-  description: "Sistema de CRM para gestão de clientes da Charbelle",
+  title: "CRM Prizely - Sistema de Gestão de Clientes",
+  description: "Sistema de CRM para gestão de clientes da Prizely",
 };
 
 export default function RootLayout({
