@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Cliente } from '@/types/crm'
+import { formatDateBR, formatDateISO } from '@/lib/dateUtils'
 
 interface ClienteTableProps {
   clientes: Cliente[]
@@ -66,6 +67,21 @@ function QualidadeBadge({ qualidade }: { qualidade: Cliente['qualidadeContato'] 
 export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, hasMore = false, isLoadingMore = false }: ClienteTableProps) {
   const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
+
+  const clientesOrdenados = useMemo(() => {
+    const normalizarData = (valor: string) => {
+      if (!valor) return 0
+      const iso = formatDateISO(valor)
+      const parsed = new Date(iso || valor)
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.getTime()
+      }
+      const fallback = new Date(valor)
+      return Number.isNaN(fallback.getTime()) ? 0 : fallback.getTime()
+    }
+
+    return [...clientes].sort((a, b) => normalizarData(b.dataContato) - normalizarData(a.dataContato))
+  }, [clientes])
 
   useEffect(() => {
     if (!onLoadMore || !hasMore) return
@@ -113,7 +129,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
   return (
     <>
       <div className="space-y-4 lg:hidden">
-        {clientes.map((cliente) => (
+        {clientesOrdenados.map((cliente) => (
           <Card key={cliente.id ?? cliente.nome} className="border-border/60 bg-card/80 backdrop-blur">
             <CardHeader className="pb-4">
               <div className="flex items-start justify-between gap-4">
@@ -123,7 +139,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                   </CardTitle>
                   <CardDescription className="mt-1 flex items-center gap-1 text-xs">
                     <CalendarDays className="h-3.5 w-3.5" />
-                    {cliente.dataContato}
+                    {formatDateBR(cliente.dataContato)}
                   </CardDescription>
                 </div>
                 <StatusBadge resultado={cliente.resultado} />
@@ -211,9 +227,9 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clientes.map((cliente) => (
+              {clientesOrdenados.map((cliente) => (
                 <TableRow key={cliente.id ?? cliente.nome}>
-                  <TableCell className="font-medium">{cliente.dataContato}</TableCell>
+                  <TableCell className="font-medium">{formatDateBR(cliente.dataContato)}</TableCell>
                   <TableCell className="font-semibold text-foreground">{cliente.nome}</TableCell>
                   <TableCell>
                     <span className="text-sm font-medium text-primary">

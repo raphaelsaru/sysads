@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
-import { Plus, Loader2, Users, TrendingUp, ShoppingBag, CircleDollarSign } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Loader2 } from 'lucide-react'
 
 import MainLayout from '@/components/layout/MainLayout'
 import ClienteTable from '@/components/ClienteTable'
@@ -13,8 +13,7 @@ import { Cliente, NovoCliente } from '@/types/crm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
-import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
+import { FALLBACK_CURRENCY_VALUE } from '@/lib/currency'
 
 export default function Home() {
   return (
@@ -35,7 +34,6 @@ function HomePage() {
     adicionarCliente,
     editarCliente,
     excluirCliente,
-    estatisticas,
     hasMore,
     carregarMaisClientes,
   } = useClientes(currency)
@@ -62,59 +60,6 @@ function HomePage() {
     setClienteEditando(undefined)
   }
 
-  const formatarValor = useCallback(
-    (valor: number) => formatCurrency(valor, currency, { fallback: formatCurrency(0, currency) }),
-    [currency]
-  )
-
-  const cards = useMemo(
-    () => [
-      {
-        id: 'total',
-        label: 'Total de clientes',
-        value: estatisticas.total,
-        icon: Users,
-        tone: 'from-primary/15 via-primary/10 to-primary/20',
-      },
-      {
-        id: 'vendas',
-        label: 'Vendas concluídas',
-        value: estatisticas.vendas,
-        icon: ShoppingBag,
-        tone: 'from-success/20 via-success/10 to-success/20',
-      },
-      {
-        id: 'processo',
-        label: 'Em processo',
-        value: estatisticas.emProcesso,
-        icon: TrendingUp,
-        tone: 'from-warning/20 via-warning/10 to-warning/20',
-      },
-      {
-        id: 'nao',
-        label: 'Não venda',
-        value: estatisticas.naoVenda,
-        icon: CircleDollarSign,
-        tone: 'from-destructive/15 via-destructive/10 to-destructive/20',
-      },
-      {
-        id: 'valorProcesso',
-        label: 'Valor em processo',
-        value: formatarValor(estatisticas.valorEmProcesso),
-        icon: TrendingUp,
-        tone: 'from-accent/20 via-accent/10 to-accent/20',
-      },
-      {
-        id: 'valorVendido',
-        label: 'Valor vendido',
-        value: formatarValor(estatisticas.valorVendido),
-        icon: CircleDollarSign,
-        tone: 'from-primary/25 via-primary/10 to-primary/30',
-      },
-    ],
-    [estatisticas, formatarValor]
-  )
-
   return (
     <MainLayout>
       <section className="space-y-8">
@@ -140,28 +85,6 @@ function HomePage() {
             <Plus className="h-5 w-5" />
             Novo cliente
           </Button>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {cards.map(({ id, label, value, icon: Icon, tone }) => (
-            <Card key={id} className={cn('overflow-hidden border-none shadow-soft')}
-            >
-              <div className={cn('h-2 w-full bg-gradient-to-r', tone)} />
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {label}
-                </CardDescription>
-                <span className="rounded-full bg-muted/80 p-2 text-muted-foreground">
-                  <Icon className="h-4 w-4" />
-                </span>
-              </CardHeader>
-              <CardContent>
-                <CardTitle className="text-2xl font-semibold text-foreground">
-                  {value}
-                </CardTitle>
-              </CardContent>
-            </Card>
-          ))}
         </div>
 
         {loading && clientes.length === 0 ? (
