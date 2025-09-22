@@ -2,7 +2,7 @@
 
 import 'react-day-picker/dist/style.css'
 
-import { ReactNode, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Users, ShoppingBag, TrendingUp, CircleDollarSign, Loader2, RefreshCcw } from 'lucide-react'
 import { eachDayOfInterval, endOfMonth, format, isValid, parseISO, startOfMonth } from 'date-fns'
 import {
@@ -47,7 +47,7 @@ function DashboardContent() {
   const { userProfile } = useAuth()
   const currency = userProfile?.currency ?? FALLBACK_CURRENCY_VALUE
 
-  const [dateRange, setDateRange] = useState<DateRange>(() => {
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date()
     return {
       from: startOfMonth(today),
@@ -73,7 +73,7 @@ function DashboardContent() {
     if (!dateRange?.from || !dateRange?.to) return 'Selecione um período'
     const fromLabel = format(dateRange.from, 'dd/MM/yyyy')
     const toLabel = format(dateRange.to, 'dd/MM/yyyy')
-    return `${fromLabel} – ${toLabel}`
+    return `${fromLabel} - ${toLabel}`
   }, [dateRange])
 
   const conversao = periodSummary.total > 0 ? (periodSummary.vendas / periodSummary.total) * 100 : 0
@@ -445,7 +445,7 @@ interface ChartCardProps {
   subtitle?: string
   loading?: boolean
   empty?: boolean
-  children: ReactNode
+  children: React.ReactElement
 }
 
 function ChartCard({ title, subtitle, loading, empty, children }: ChartCardProps) {

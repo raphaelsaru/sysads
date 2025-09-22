@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuthHealth } from '@/hooks/useAuthHealth'
 
 export default function ConnectionStatus() {
-  const { isHealthy, lastCheck } = useAuthHealth()
+  const { isHealthy } = useAuthHealth()
   const [showAlert, setShowAlert] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
 

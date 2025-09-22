@@ -96,20 +96,20 @@ export default function Header() {
               {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
 
-            {/* Perfil do usuário - simplificado para mobile */}
+            {/* Perfil do usuário - melhorado */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   className={cn(
-                    'flex items-center gap-3 rounded-full border border-border/70 bg-card/80 pl-1.5 pr-3 text-sm font-medium shadow-soft backdrop-blur transition hover:bg-card',
+                    'flex items-center rounded-lg text-sm font-medium',
                     // Em mobile, mostrar apenas a bolinha
-                    'md:pl-1.5 md:pr-3',
-                    // Em mobile, remover padding e texto
-                    'sm:pl-1 sm:pr-1 sm:gap-0'
+                    'md:px-4 md:py-2.5',
+                    // Em mobile, reduzir gap e padding
+                    'sm:gap-2 sm:px-2 sm:py-1.5'
                   )}
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-brand">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground shadow-brand">
                     {companyInitial}
                   </span>
                   {/* Texto do perfil - apenas em desktop */}
@@ -118,7 +118,7 @@ export default function Header() {
                       {userProfile?.company_name || 'Usuário'}
                     </span>
                     <span className="text-xs font-medium text-muted-foreground">
-                      {userProfile?.role === 'admin' ? 'Administrador' : 'Colaborador'}
+                      {userProfile?.role === 'admin' ? 'Administrador' : 'Conta Pro'}
                     </span>
                   </span>
                 </Button>
@@ -132,9 +132,14 @@ export default function Header() {
                     <span className="break-all text-xs text-muted-foreground">
                       {userProfile?.email}
                     </span>
-                    <span className="text-xs font-medium text-info">
-                      Moeda padrão: {userProfile?.currency || 'BRL'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-info">
+                        Moeda: {userProfile?.currency || 'BRL'}
+                      </span>
+                      <span className="text-xs font-medium text-primary">
+                        {userProfile?.role === 'admin' ? 'Administrador' : 'Conta Pro'}
+                      </span>
+                    </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />

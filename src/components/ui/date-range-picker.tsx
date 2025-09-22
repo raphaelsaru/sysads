@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { format, isValid, parse, parseISO } from 'date-fns'
+import { format, isValid } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { DateRange } from 'react-day-picker'
 
@@ -11,38 +11,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatDateBR } from '@/lib/dateUtils'
+import { Calendar as CalendarIcon } from 'lucide-react'
 
 const ISO_DATE_FORMAT = 'yyyy-MM-dd'
-const BR_DATE_FORMAT = 'dd/MM/yyyy'
 
-function coerceDate(value?: string | Date | null) {
-  if (!value) return undefined
-
-  if (value instanceof Date) {
-    return isValid(value) ? value : undefined
-  }
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return undefined
-
-    try {
-      const isoCandidate = parseISO(trimmed)
-      if (isValid(isoCandidate)) return isoCandidate
-    } catch (error) {
-      // noop — try fallback parsing below
-    }
-
-    const brCandidate = parse(trimmed, BR_DATE_FORMAT, new Date())
-    if (isValid(brCandidate)) return brCandidate
-
-    const generic = new Date(trimmed)
-    return isValid(generic) ? generic : undefined
-  }
-
-  return undefined
-}
 
 // Hook para detectar dispositivos móveis
 function useIsMobile() {
@@ -53,7 +25,7 @@ function useIsMobile() {
       // Verificar se estamos no servidor
       if (typeof window === 'undefined') return false
       
-      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera
+      const userAgent = navigator.userAgent || navigator.vendor || (window as { opera?: string }).opera || ''
       const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent)
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
       const isSmallScreen = window.innerWidth < 768

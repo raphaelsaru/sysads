@@ -36,7 +36,7 @@ export default function AuthCallback() {
           setStatus('error')
           setMessage('Sessão não encontrada. Tente fazer login novamente.')
         }
-      } catch (err) {
+      } catch {
         setStatus('error')
         setMessage('Erro inesperado. Tente novamente.')
       }

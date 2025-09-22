@@ -1,7 +1,7 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
-import { User, AuthError } from '@supabase/supabase-js'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
 export interface UserProfile {
@@ -38,17 +38,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Função para verificar se o erro é relacionado a token inválido
-  const isTokenError = (error: any): boolean => {
+  const isTokenError = (error: unknown): boolean => {
     if (!error) return false
     
-    const message = error.message?.toLowerCase() || ''
+    const message = (error as { message?: string; status?: number }).message?.toLowerCase() || ''
     return (
       message.includes('refresh token') ||
       message.includes('invalid token') ||
       message.includes('jwt') ||
       message.includes('session') ||
-      error.status === 401 ||
-      error.status === 403
+      (error as { status?: number }).status === 401 ||
+      (error as { status?: number }).status === 403
     )
   }
 
@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const fetchUserProfile = async (userId: string) => {
+  const fetchUserProfile = useCallback(async (userId: string) => {
     try {
       console.log('Fetching profile for user:', userId)
 
@@ -213,7 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearAuthState()
       }
     }
-  }
+  }, [])
 
   const signIn = async (email: string, password: string) => {
     try {

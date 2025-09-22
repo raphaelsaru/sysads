@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
-import { formatDateBR, getTodayBR } from '@/lib/dateUtils'
+import { formatDateBR } from '@/lib/dateUtils'
+import { Calendar as CalendarIcon } from 'lucide-react'
 
 const ISO_DATE_FORMAT = 'yyyy-MM-dd'
 const BR_DATE_FORMAT = 'dd/MM/yyyy'
@@ -36,7 +37,7 @@ function coerceDate(value?: string | Date | null) {
 
       const isoCandidate = parseISO(trimmed)
       if (isValid(isoCandidate)) return isoCandidate
-    } catch (error) {
+    } catch {
       // noop — try fallback parsing below
     }
 
@@ -75,7 +76,7 @@ function useIsMobile() {
       // Verificar se estamos no servidor
       if (typeof window === 'undefined') return false
       
-      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera
+      const userAgent = navigator.userAgent || navigator.vendor || (window as { opera?: string }).opera || ''
       const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent)
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
       const isSmallScreen = window.innerWidth < 768

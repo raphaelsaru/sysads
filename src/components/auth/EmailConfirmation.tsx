@@ -36,7 +36,7 @@ export default function EmailConfirmation({ email, onBack }: EmailConfirmationPr
         setSuccess(true)
         setTimeout(() => setSuccess(false), 3000)
       }
-    } catch (err) {
+    } catch {
       setError('Erro inesperado. Tente novamente.')
     } finally {
       setLoading(false)
