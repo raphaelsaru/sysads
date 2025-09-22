@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import EmailConfirmation from './EmailConfirmation'
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
@@ -17,6 +18,7 @@ export default function LoginForm() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false)
   const { signIn, signUp } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,6 +34,13 @@ export default function LoginForm() {
         return
       }
       result = await signUp(email, password, companyName)
+      
+      // Se o cadastro foi bem-sucedido, mostrar tela de confirmação
+      if (!result.error) {
+        setNeedsEmailConfirmation(true)
+        setLoading(false)
+        return
+      }
     } else {
       result = await signIn(email, password)
     }
@@ -41,6 +50,19 @@ export default function LoginForm() {
     }
 
     setLoading(false)
+  }
+
+  const handleBackToLogin = () => {
+    setNeedsEmailConfirmation(false)
+    setEmail('')
+    setPassword('')
+    setCompanyName('')
+    setError(null)
+  }
+
+  // Se precisa de confirmação de email, mostrar o componente de confirmação
+  if (needsEmailConfirmation) {
+    return <EmailConfirmation email={email} onBack={handleBackToLogin} />
   }
 
   return (

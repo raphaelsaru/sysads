@@ -53,7 +53,8 @@ export default function Header() {
   return (
     <header className="border-b border-border/70 bg-background">
       <div className="mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-12">
-        <div className="flex flex-col gap-4 py-6 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center justify-between gap-4 py-6">
+          {/* Logo e título - lado esquerdo */}
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -65,7 +66,8 @@ export default function Header() {
             </div>
           </div>
 
-          <nav className="flex justify-start md:flex-1 md:justify-center">
+          {/* Navegação - centro (desktop) */}
+          <nav className="hidden md:flex md:flex-1 md:justify-center">
             <div className="flex items-center gap-1 rounded-full border border-border/70 bg-card/70 px-1 py-1 text-sm font-medium shadow-soft backdrop-blur">
               {navItems.map(({ href, label }) => (
                 <Link
@@ -82,6 +84,7 @@ export default function Header() {
             </div>
           </nav>
 
+          {/* Botões de ação - lado direito */}
           <div className="flex items-center gap-2 sm:gap-3">
             <Button
               variant="outline"
@@ -93,17 +96,23 @@ export default function Header() {
               {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
 
+            {/* Perfil do usuário - simplificado para mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   className={cn(
-                    'flex items-center gap-3 rounded-full border border-border/70 bg-card/80 pl-1.5 pr-3 text-sm font-medium shadow-soft backdrop-blur transition hover:bg-card'
+                    'flex items-center gap-3 rounded-full border border-border/70 bg-card/80 pl-1.5 pr-3 text-sm font-medium shadow-soft backdrop-blur transition hover:bg-card',
+                    // Em mobile, mostrar apenas a bolinha
+                    'md:pl-1.5 md:pr-3',
+                    // Em mobile, remover padding e texto
+                    'sm:pl-1 sm:pr-1 sm:gap-0'
                   )}
                 >
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-brand">
                     {companyInitial}
                   </span>
+                  {/* Texto do perfil - apenas em desktop */}
                   <span className="hidden text-left lg:flex lg:flex-col">
                     <span className="text-sm font-semibold text-foreground">
                       {userProfile?.company_name || 'Usuário'}
@@ -141,6 +150,24 @@ export default function Header() {
             </DropdownMenu>
           </div>
         </div>
+
+        {/* Navegação mobile - abaixo do header principal */}
+        <nav className="md:hidden">
+          <div className="flex items-center gap-1 rounded-full border border-border/70 bg-card/70 px-1 py-1 text-sm font-medium shadow-soft backdrop-blur">
+            {navItems.map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  'flex-1 rounded-full px-3 py-2 text-center transition-colors hover:text-primary',
+                  pathname === href ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
+                )}
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+        </nav>
       </div>
     </header>
   )

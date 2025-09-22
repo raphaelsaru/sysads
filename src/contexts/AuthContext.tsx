@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { User } from '@supabase/supabase-js'
+import { User, AuthError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
 export interface UserProfile {
@@ -31,35 +31,129 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Função para limpar estado de autenticação
+  const clearAuthState = () => {
+    setUser(null)
+    setUserProfile(null)
+  }
+
+  // Função para verificar se o erro é relacionado a token inválido
+  const isTokenError = (error: any): boolean => {
+    if (!error) return false
+    
+    const message = error.message?.toLowerCase() || ''
+    return (
+      message.includes('refresh token') ||
+      message.includes('invalid token') ||
+      message.includes('jwt') ||
+      message.includes('session') ||
+      error.status === 401 ||
+      error.status === 403
+    )
+  }
+
+  // Função para limpar tokens inválidos do localStorage
+  const clearInvalidTokens = () => {
+    try {
+      // Remove tokens do Supabase do localStorage
+      const keys = Object.keys(localStorage)
+      keys.forEach(key => {
+        if (key.includes('supabase') || key.includes('auth')) {
+          localStorage.removeItem(key)
+        }
+      })
+    } catch (error) {
+      console.warn('Error clearing tokens:', error)
+    }
+  }
+
   useEffect(() => {
-    // Get initial session
+    let mounted = true
+    let timeoutId: NodeJS.Timeout
+
+    // Get initial session com timeout
     const getInitialSession = async () => {
       try {
+        // Timeout de 10 segundos para evitar loading infinito
+        timeoutId = setTimeout(() => {
+          if (mounted) {
+            console.warn('Session fetch timeout - clearing auth state')
+            clearAuthState()
+            setLoading(false)
+          }
+        }, 10000)
+
         const { data, error } = await supabase.auth.getSession()
+
+        // Se há erro de token, limpar estado
+        if (error && isTokenError(error)) {
+          console.warn('Invalid session token detected:', error.message)
+          clearInvalidTokens()
+          clearAuthState()
+          return
+        }
 
         if (error) {
           console.error('Error fetching auth session:', error)
+          clearAuthState()
+          return
         }
 
         const session = data.session
-        setUser(session?.user ?? null)
+        
+        // Verificar se a sessão é válida
+        if (session?.user && session.expires_at) {
+          const now = Math.floor(Date.now() / 1000)
+          if (session.expires_at < now) {
+            console.warn('Session expired, clearing auth state')
+            clearInvalidTokens()
+            clearAuthState()
+            return
+          }
+        }
 
-        if (session?.user) {
-          await fetchUserProfile(session.user.id)
+        if (mounted) {
+          setUser(session?.user ?? null)
+
+          if (session?.user) {
+            await fetchUserProfile(session.user.id)
+          }
         }
       } catch (error) {
         console.error('Unexpected error while getting session:', error)
+        if (mounted) {
+          clearAuthState()
+        }
       } finally {
-        setLoading(false)
+        if (mounted) {
+          clearTimeout(timeoutId)
+          setLoading(false)
+        }
       }
     }
 
     getInitialSession()
 
-    // Listen for auth changes
+    // Listen for auth changes com tratamento de erro melhorado
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return
+
         try {
+          // Se é um evento de erro ou token inválido, limpar estado
+          if (event === 'TOKEN_REFRESHED' && !session) {
+            console.warn('Token refresh failed - clearing auth state')
+            clearInvalidTokens()
+            clearAuthState()
+            return
+          }
+
+          // Se é um evento de sign out, limpar estado
+          if (event === 'SIGNED_OUT') {
+            clearAuthState()
+            return
+          }
+
           setUser(session?.user ?? null)
 
           if (session?.user) {
@@ -69,20 +163,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (error) {
           console.error('Unexpected error during auth state change:', error)
+          if (mounted && isTokenError(error)) {
+            clearInvalidTokens()
+            clearAuthState()
+          }
         } finally {
-          setLoading(false)
+          if (mounted) {
+            setLoading(false)
+          }
         }
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      clearTimeout(timeoutId)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const fetchUserProfile = async (userId: string) => {
     try {
       console.log('Fetching profile for user:', userId)
 
-      // Use Supabase client directly instead of fetch
       const { data: profile, error } = await supabase
         .from('users')
         .select('*')
@@ -91,6 +194,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('Error fetching user profile:', error)
+        
+        // Se é erro de token, limpar estado
+        if (isTokenError(error)) {
+          clearInvalidTokens()
+          clearAuthState()
+        }
         return
       }
 
@@ -98,47 +207,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserProfile(profile)
     } catch (error) {
       console.error('Error fetching user profile:', error)
+      
+      if (isTokenError(error)) {
+        clearInvalidTokens()
+        clearAuthState()
+      }
     }
   }
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    return { error: error ? new Error(error.message) : null }
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      
+      if (error && isTokenError(error)) {
+        clearInvalidTokens()
+        clearAuthState()
+      }
+      
+      return { error: error ? new Error(error.message) : null }
+    } catch (error) {
+      console.error('Sign in error:', error)
+      return { error: error instanceof Error ? error : new Error('Erro inesperado no login') }
+    }
   }
 
   const signUp = async (email: string, password: string, companyName: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          company_name: companyName,
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            company_name: companyName,
+          },
         },
-      },
-    })
-    return { error: error ? new Error(error.message) : null }
+      })
+      
+      return { error: error ? new Error(error.message) : null }
+    } catch (error) {
+      console.error('Sign up error:', error)
+      return { error: error instanceof Error ? error : new Error('Erro inesperado no cadastro') }
+    }
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    try {
+      clearInvalidTokens()
+      await supabase.auth.signOut()
+      clearAuthState()
+    } catch (error) {
+      console.error('Sign out error:', error)
+      // Mesmo com erro, limpar estado local
+      clearAuthState()
+    }
   }
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return { error: new Error('No user logged in') }
 
-    const { error } = await supabase
-      .from('users')
-      .update(updates)
-      .eq('id', user.id)
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', user.id)
 
-    if (!error) {
-      setUserProfile(prev => prev ? { ...prev, ...updates } : null)
+      if (error && isTokenError(error)) {
+        clearInvalidTokens()
+        clearAuthState()
+        return { error: new Error('Sessão expirada. Faça login novamente.') }
+      }
+
+      if (!error) {
+        setUserProfile(prev => prev ? { ...prev, ...updates } : null)
+      }
+
+      return { error: error ? new Error(error.message) : null }
+    } catch (error) {
+      console.error('Update profile error:', error)
+      return { error: error instanceof Error ? error : new Error('Erro inesperado ao atualizar perfil') }
     }
-
-    return { error: error ? new Error(error.message) : null }
   }
 
   return (

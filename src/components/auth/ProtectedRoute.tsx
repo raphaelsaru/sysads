@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import LoginForm from './LoginForm'
+import AuthGuard from './AuthGuard'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -12,6 +13,7 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth()
 
+  // Se está carregando, mostrar loading simples
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -33,9 +35,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     )
   }
 
+  // Se não há usuário, mostrar login
   if (!user) {
     return <LoginForm />
   }
 
-  return <>{children}</>
+  // Se há usuário, usar AuthGuard para proteção adicional
+  return <AuthGuard>{children}</AuthGuard>
 }
