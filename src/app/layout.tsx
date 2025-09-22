@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ConnectionStatus from "@/components/auth/ConnectionStatus";
+import { Analytics } from '@vercel/analytics/react';
 
 const inter = Inter({
   variable: "--font-inter",
@@ -32,6 +33,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
           <ConnectionStatus />
+          <Analytics />
         </AuthProvider>
       </body>
     </html>
