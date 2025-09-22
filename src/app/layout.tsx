@@ -11,6 +11,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "CRM Prizely - Sistema de Gestão de Clientes",
   description: "Sistema de CRM para gestão de clientes da Prizely",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
 };
 
 export default function RootLayout({
@@ -20,6 +26,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+      </head>
       <body className={`${inter.variable} antialiased`}>
         <AuthProvider>
           {children}

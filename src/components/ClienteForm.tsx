@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { NovoCliente, Cliente } from '@/types/crm'
+import { DatePicker } from '@/components/ui/date-picker'
 
 interface ClienteFormProps {
   onSubmit: (cliente: NovoCliente) => void
@@ -69,11 +70,10 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="dataContato">Data de contato</Label>
-              <Input
+              <DatePicker
                 id="dataContato"
-                type="date"
                 value={formData.dataContato}
-                onChange={(event) => handleChange('dataContato', event.target.value)}
+                onChange={(value) => handleChange('dataContato', value ?? '')}
                 required
               />
             </div>

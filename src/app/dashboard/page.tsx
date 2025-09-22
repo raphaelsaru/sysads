@@ -3,15 +3,7 @@
 import 'react-day-picker/dist/style.css'
 
 import { ReactNode, useEffect, useMemo, useState } from 'react'
-import {
-  Users,
-  ShoppingBag,
-  TrendingUp,
-  CircleDollarSign,
-  Loader2,
-  CalendarRange,
-  RefreshCcw,
-} from 'lucide-react'
+import { Users, ShoppingBag, TrendingUp, CircleDollarSign, Loader2, RefreshCcw } from 'lucide-react'
 import { eachDayOfInterval, endOfMonth, format, isValid, parseISO, startOfMonth } from 'date-fns'
 import {
   ResponsiveContainer,
@@ -28,8 +20,8 @@ import MainLayout from '@/components/layout/MainLayout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Calendar, DateRange } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { type DateRange } from '@/components/ui/calendar'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { useAuth } from '@/contexts/AuthContext'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
 import { supabase } from '@/lib/supabase'
@@ -287,8 +279,15 @@ function DashboardContent() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="w-full max-w-md">
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <div className="w-full max-w-2xl">
+            <DateRangePicker
+              value={dateRange}
+              onChange={setDateRange}
+              fromLabel="Data inicial"
+              toLabel="Data final"
+              className="gap-2 rounded-full border-border/70 bg-background/80 text-sm font-medium text-foreground shadow-soft hover:bg-background"
+              buttonClassName="h-10 w-full sm:w-auto"
+            />
           </div>
           <Button
             type="button"
@@ -472,41 +471,5 @@ function ChartCard({ title, subtitle, loading, empty, children }: ChartCardProps
         )}
       </CardContent>
     </Card>
-  )
-}
-
-interface DateRangePickerProps {
-  value: DateRange | undefined
-  onChange: (range: DateRange | undefined) => void
-}
-
-function DateRangePicker({ value, onChange }: DateRangePickerProps) {
-  const label = value?.from && value?.to ? `${format(value.from, 'dd/MM/yyyy')} – ${format(value.to, 'dd/MM/yyyy')}` : 'Selecionar período'
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className={cn(
-            'h-10 w-full justify-start gap-2 rounded-full border-border/70 bg-background/80 text-sm font-medium text-foreground shadow-soft hover:bg-background sm:w-72',
-            !value?.from && !value?.to && 'text-muted-foreground'
-          )}
-        >
-          <CalendarRange className="h-4 w-4" />
-          <span className="truncate text-left">{label}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-2" align="end">
-        <Calendar
-          mode="range"
-          numberOfMonths={2}
-          selected={value}
-          onSelect={onChange}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
   )
 }

@@ -1,14 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import {
-  Loader2,
-  Users,
-  BarChart2,
-  Table2,
-  CalendarRange,
-  RefreshCcw,
-} from 'lucide-react'
+import { Loader2, Users, BarChart2, Table2, RefreshCcw } from 'lucide-react'
 import { eachDayOfInterval, endOfMonth, format, isAfter, isBefore, isEqual, parseISO, startOfDay, startOfMonth } from 'date-fns'
 
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
@@ -16,8 +9,8 @@ import MainLayout from '@/components/layout/MainLayout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Calendar, DateRange } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { type DateRange } from '@/components/ui/calendar'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 import ClienteTable from '@/components/ClienteTable'
 import { useAuth } from '@/contexts/AuthContext'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
@@ -446,27 +439,12 @@ function AdminUserDetail({ user, viewMode }: { user: UserSummary; viewMode: 'das
           <span className="text-sm font-medium text-foreground">{periodoLabel}</span>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 min-w-[220px] justify-start gap-2 rounded-full border-border/70 bg-card/80 text-sm font-medium text-foreground hover:bg-card"
-              >
-                <CalendarRange className="h-4 w-4 text-primary" />
-                {periodoLabel}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-2" align="end">
-              <Calendar
-                mode="range"
-                numberOfMonths={2}
-                selected={dateRange}
-                onSelect={setDateRange}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            buttonClassName="min-w-[220px] gap-2 rounded-full border-border/70 bg-card/80 text-sm font-medium text-foreground hover:bg-card"
+            align="end"
+          />
           <Button
             type="button"
             variant="ghost"
@@ -624,4 +602,3 @@ export default function AdminPage() {
     </ProtectedRoute>
   )
 }
-

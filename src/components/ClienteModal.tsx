@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { getTodayBR, formatDateISO } from '@/lib/dateUtils'
 import { Cliente, NovoCliente } from '@/types/crm'
@@ -27,6 +27,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency, type SupportedCurrency } from '@/lib/currency'
+import { DatePicker } from '@/components/ui/date-picker'
 
 interface ClienteModalProps {
   isOpen: boolean
@@ -59,6 +60,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
   const [formData, setFormData] = useState<NovoCliente>(baseState)
   const [valorNumerico, setValorNumerico] = useState<number | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -85,6 +87,16 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
       setValorNumerico(undefined)
     }
   }, [cliente, isOpen, baseState])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const timeout = window.setTimeout(() => {
+      nameInputRef.current?.focus()
+    }, 50)
+
+    return () => window.clearTimeout(timeout)
+  }, [isOpen])
 
   const handleChange = (
     field: keyof NovoCliente,
@@ -132,7 +144,17 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) resetAndClose() }}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto pt-10 sm:pt-12">
+      <DialogContent
+        className="max-h-[85vh] overflow-y-auto pt-10 sm:pt-12"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => {
+          // Permitir que o DatePicker funcione sem fechar o modal
+          const target = event.target as Element
+          if (target.closest('[data-radix-popper-content-wrapper]')) {
+            event.preventDefault()
+          }
+        }}
+      >
         <DialogHeader className="space-y-2 text-left">
           <DialogTitle className="text-2xl font-semibold text-foreground">
             {cliente ? 'Atualizar cliente' : 'Adicionar novo cliente'}
@@ -146,19 +168,19 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="dataContato">Data de contato *</Label>
-              <Input
+              <DatePicker
                 id="dataContato"
-                name="dataContato"
-                type="date"
+                value={formData.dataContato}
+                onChange={(value) => handleChange('dataContato', value ?? '')}
+                placeholder="Selecione a data"
                 required
-                value={formatDateISO(formData.dataContato)}
-                onChange={(event) => handleChange('dataContato', event.target.value)}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="nome">Nome do cliente *</Label>
               <Input
+                ref={nameInputRef}
                 id="nome"
                 name="nome"
                 placeholder="Nome completo"
