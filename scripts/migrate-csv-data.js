@@ -1,13 +1,24 @@
 const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config({ path: '.env.local' });
 
-// Configuração do Supabase
-const supabaseUrl = 'https://bjtjyzdbewxoypjaphqs.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqdGp5emRiZXd4b3lwamFwaHFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4Nzc2MDQsImV4cCI6MjA3MzQ1MzYwNH0.HU3K4Ynj5k8i7Dmmi-C7acFq28Sl3ksezlHai2TXOUg';
+// Configuração do Supabase usando variáveis de ambiente
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const USER_ID = process.env.USER_ID;
+
+// Validação das variáveis de ambiente
+if (!supabaseUrl || !supabaseKey || !USER_ID) {
+  console.error('❌ Erro: Variáveis de ambiente não encontradas!');
+  console.error('Certifique-se de que o arquivo .env.local contém:');
+  console.error('- NEXT_PUBLIC_SUPABASE_URL');
+  console.error('- NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  console.error('- USER_ID');
+  process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-const USER_ID = '4039e82a-f72b-4caa-afcf-57e141527e4d';
 
 // Função para converter data do formato DD/MM para YYYY-MM-DD
 function convertDate(dateStr) {

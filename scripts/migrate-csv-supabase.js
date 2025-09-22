@@ -1,7 +1,16 @@
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: '.env.local' });
 
-const USER_ID = '4039e82a-f72b-4caa-afcf-57e141527e4d';
+const USER_ID = process.env.USER_ID;
+
+// Validação das variáveis de ambiente
+if (!USER_ID) {
+  console.error('❌ Erro: USER_ID não encontrado!');
+  console.error('Certifique-se de que o arquivo .env.local contém:');
+  console.error('- USER_ID');
+  process.exit(1);
+}
 
 // Função para converter data do formato DD/MM para YYYY-MM-DD
 function convertDate(dateStr) {

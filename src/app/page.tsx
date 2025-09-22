@@ -157,7 +157,7 @@ function HomePage() {
             </Badge>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                CRM {userProfile?.company_name || 'Prizely'}
+                Olá {userProfile?.company_name || 'Prizely'}!
               </h1>
               <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
                 Centralize oportunidades, acompanhe negociações e ofereça experiências marcantes em cada contato.

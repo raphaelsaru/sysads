@@ -71,30 +71,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true
     let timeoutId: NodeJS.Timeout
 
-    // Get initial session com timeout
+    // Função para testar conectividade com Supabase
+    const testSupabaseConnection = async () => {
+      try {
+        console.log('🧪 Testing Supabase connection...')
+        const { data, error } = await supabase.from('users').select('count').limit(1)
+        return !error
+      } catch (err) {
+        console.error('❌ Supabase connection test failed:', err)
+        return false
+      }
+    }
+
+    // Get initial session com retry e fallback
     const getInitialSession = async () => {
       try {
-        // Timeout de 10 segundos para evitar loading infinito
+        console.log('🔐 Starting auth session check...')
+        
+        // Timeout de 20 segundos para dar mais tempo
         timeoutId = setTimeout(() => {
           if (mounted) {
-            console.warn('Session fetch timeout - clearing auth state')
+            console.warn('⏰ Session fetch timeout - clearing auth state')
             clearAuthState()
             setLoading(false)
           }
-        }, 10000)
+        }, 20000)
 
-        const { data, error } = await supabase.auth.getSession()
+        console.log('📡 Fetching session from Supabase...')
+        console.log('🔗 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+        console.log('🔑 Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+        
+        // Teste de conectividade primeiro
+        const isConnected = await testSupabaseConnection()
+        if (!isConnected) {
+          console.warn('⚠️ Supabase connection failed, skipping auth check')
+          if (mounted) {
+            clearTimeout(timeoutId)
+            setLoading(false)
+          }
+          return
+        }
+
+        console.log('✅ Supabase connection OK, fetching session...')
+        
+        // Promise com timeout individual para getSession
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('getSession timeout')), 10000)
+        )
+        
+        const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as any
+        
+        console.log('📊 Session data:', { 
+          hasSession: !!data.session, 
+          hasUser: !!data.session?.user,
+          error: error?.message 
+        })
 
         // Se há erro de token, limpar estado
         if (error && isTokenError(error)) {
-          console.warn('Invalid session token detected:', error.message)
+          console.warn('🚫 Invalid session token detected:', error.message)
           clearInvalidTokens()
           clearAuthState()
           return
         }
 
         if (error) {
-          console.error('Error fetching auth session:', error)
+          console.error('❌ Error fetching auth session:', error)
           clearAuthState()
           return
         }
@@ -104,8 +147,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Verificar se a sessão é válida
         if (session?.user && session.expires_at) {
           const now = Math.floor(Date.now() / 1000)
-          if (session.expires_at < now) {
-            console.warn('Session expired, clearing auth state')
+          const expiresAt = session.expires_at
+          console.log('⏰ Session expires at:', new Date(expiresAt * 1000).toISOString())
+          console.log('⏰ Current time:', new Date(now * 1000).toISOString())
+          
+          if (expiresAt < now) {
+            console.warn('⏰ Session expired, clearing auth state')
             clearInvalidTokens()
             clearAuthState()
             return
@@ -113,14 +160,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (mounted) {
+          console.log('✅ Setting user in context:', session?.user?.id)
           setUser(session?.user ?? null)
 
           if (session?.user) {
+            console.log('👤 Fetching user profile for:', session.user.id)
             await fetchUserProfile(session.user.id)
           }
         }
       } catch (error) {
-        console.error('Unexpected error while getting session:', error)
+        console.error('💥 Unexpected error while getting session:', error)
         if (mounted) {
           clearAuthState()
         }
@@ -128,6 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (mounted) {
           clearTimeout(timeoutId)
           setLoading(false)
+          console.log('🏁 Auth session check completed')
         }
       }
     }
@@ -184,33 +234,109 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
-      console.log('Fetching profile for user:', userId)
+      console.log('👤 Fetching profile for user:', userId)
 
-      const { data: profile, error } = await supabase
+      // Primeiro, testa se a tabela users existe
+      const { data: testData, error: testError } = await supabase
         .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single()
+        .select('count')
+        .limit(1)
 
-      if (error) {
-        console.error('Error fetching user profile:', error)
+      if (testError) {
+        console.warn('⚠️ Users table not accessible:', testError.message)
+        console.log('📝 Creating user profile in auth.users instead...')
         
-        // Se é erro de token, limpar estado
-        if (isTokenError(error)) {
-          clearInvalidTokens()
-          clearAuthState()
+        // Se a tabela users não existe, usa apenas os dados do auth
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const basicProfile = {
+            id: user.id,
+            email: user.email,
+            created_at: user.created_at,
+            updated_at: user.updated_at
+          }
+          console.log('✅ Using basic profile from auth:', basicProfile)
+          setUserProfile(basicProfile)
         }
         return
       }
 
-      console.log('Profile fetch result:', profile)
-      setUserProfile(profile)
+      // Busca o perfil do usuário (sem .single() para evitar erro se não existir)
+      const { data: profiles, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+
+      if (error) {
+        console.error('❌ Error fetching user profile:', error)
+        
+        // Se é erro de token, limpar estado
+        if (isTokenError(error)) {
+          console.warn('🚫 Token error in profile fetch, clearing auth state')
+          clearInvalidTokens()
+          clearAuthState()
+        } else {
+          // Se é outro erro, usar perfil básico do auth
+          console.log('📝 Falling back to basic profile from auth...')
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const basicProfile = {
+              id: user.id,
+              email: user.email,
+              created_at: user.created_at,
+              updated_at: user.updated_at
+            }
+            console.log('✅ Using basic profile from auth:', basicProfile)
+            setUserProfile(basicProfile)
+          }
+        }
+        return
+      }
+
+      // Se encontrou perfil na tabela users, usar ele
+      if (profiles && profiles.length > 0) {
+        console.log('✅ Profile found in users table:', profiles[0])
+        setUserProfile(profiles[0])
+      } else {
+        // Se não encontrou na tabela users, usar perfil básico do auth
+        console.log('📝 No profile in users table, using basic profile from auth...')
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const basicProfile = {
+            id: user.id,
+            email: user.email,
+            created_at: user.created_at,
+            updated_at: user.updated_at
+          }
+          console.log('✅ Using basic profile from auth:', basicProfile)
+          setUserProfile(basicProfile)
+        }
+      }
     } catch (error) {
-      console.error('Error fetching user profile:', error)
+      console.error('💥 Unexpected error fetching user profile:', error)
       
       if (isTokenError(error)) {
+        console.warn('🚫 Token error in profile fetch, clearing auth state')
         clearInvalidTokens()
         clearAuthState()
+      } else {
+        // Fallback para perfil básico
+        console.log('📝 Fallback to basic profile due to error...')
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const basicProfile = {
+              id: user.id,
+              email: user.email,
+              created_at: user.created_at,
+              updated_at: user.updated_at
+            }
+            console.log('✅ Using basic profile from auth:', basicProfile)
+            setUserProfile(basicProfile)
+          }
+        } catch (fallbackError) {
+          console.error('❌ Even fallback failed:', fallbackError)
+        }
       }
     }
   }, [])

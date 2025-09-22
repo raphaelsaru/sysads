@@ -1,13 +1,24 @@
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: '.env.local' });
 
-// Configuração do Supabase
-const supabaseUrl = 'https://bjtjyzdbewxoypjaphqs.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqdGp5emRiZXd4b3lwamFwaHFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Nzg3NzYwNCwiZXhwIjoyMDczNDUzNjA0fQ.OaW7lAZ7P1PmQJD0sQhQD4Nx7z8n6QEQFsWCfVkSCSU'; // Service role key
+// Configuração do Supabase usando variáveis de ambiente
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const USER_ID = process.env.USER_ID;
+
+// Validação das variáveis de ambiente
+if (!supabaseUrl || !supabaseKey || !USER_ID) {
+  console.error('❌ Erro: Variáveis de ambiente não encontradas!');
+  console.error('Certifique-se de que o arquivo .env.local contém:');
+  console.error('- NEXT_PUBLIC_SUPABASE_URL');
+  console.error('- SUPABASE_SERVICE_ROLE_KEY');
+  console.error('- USER_ID');
+  process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-const USER_ID = '4039e82a-f72b-4caa-afcf-57e141527e4d';
 
 async function completeMigration() {
   try {
