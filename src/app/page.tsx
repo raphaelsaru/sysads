@@ -8,6 +8,7 @@ import ClienteTable from '@/components/ClienteTable'
 import ClienteModal from '@/components/ClienteModal'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { useClientes } from '@/hooks/useClientes'
+import { useDailyQuote } from '@/hooks/useDailyQuote'
 import { useAuth } from '@/contexts/AuthContext'
 import { Cliente, NovoCliente } from '@/types/crm'
 import { Button } from '@/components/ui/button'
@@ -48,6 +49,7 @@ const filtrosIniciais = {
 
 function HomePage() {
   const { userProfile } = useAuth()
+  const { quote, loading: quoteLoading } = useDailyQuote()
   const currency = userProfile?.currency ?? FALLBACK_CURRENCY_VALUE
 
   const {
@@ -159,9 +161,21 @@ function HomePage() {
               <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                 Olá {userProfile?.company_name || 'Prizely'}!
               </h1>
-              <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
-                Centralize oportunidades, acompanhe negociações e ofereça experiências marcantes em cada contato.
-              </p>
+              <div className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
+                {quoteLoading ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Carregando inspiração do dia...</span>
+                  </div>
+                ) : quote ? (
+                  <div className="space-y-1">
+                    <p className="italic">"{quote.q}"</p>
+                    <p className="text-xs text-muted-foreground/80">— {quote.a}</p>
+                  </div>
+                ) : (
+                  <p>Centralize oportunidades, acompanhe negociações e ofereça experiências marcantes em cada contato.</p>
+                )}
+              </div>
             </div>
           </div>
 
