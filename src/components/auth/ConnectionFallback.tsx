@@ -39,7 +39,11 @@ export default function ConnectionFallback({ onRetry, isVisible }: ConnectionFal
               Problema de Conectividade
             </CardTitle>
             <CardDescription className="text-sm leading-relaxed text-muted-foreground">
-              Estamos enfrentando problemas de conectividade. Isso pode ser normal para usuários de outros países ou com conexão lenta.
+              Estamos enfrentando problemas de conectividade. Isso pode ser normal para usuários de outros países ou com conexão lenta. 
+              <br />
+              <span className="text-xs text-muted-foreground/80">
+                💡 Dica: Se o problema persistir, tente limpar o cache do navegador.
+              </span>
             </CardDescription>
           </div>
           {retryCount > 0 && (

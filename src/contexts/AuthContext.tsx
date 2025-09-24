@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase, createSupabaseClient } from '@/lib/supabase'
+import { supabase, createSupabaseClient, clearSupabaseInstance } from '@/lib/supabase'
 import ConnectionFallback from '@/components/auth/ConnectionFallback'
+import { useConnectionHealth } from '@/hooks/useConnectionHealth'
 
 export interface UserProfile {
   id: string
@@ -34,6 +35,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [showConnectionFallback, setShowConnectionFallback] = useState(false)
+  
+  // Hook para monitorar saúde da conexão
+  const connectionHealth = useConnectionHealth()
 
   // Função para limpar estado de autenticação
   const clearAuthState = () => {
@@ -66,6 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem(key)
         }
       })
+      
+      // Limpa a instância do Supabase para forçar recriação
+      clearSupabaseInstance()
     } catch (error) {
       console.warn('Error clearing tokens:', error)
     }
@@ -208,59 +215,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true
     let timeoutId: NodeJS.Timeout
 
-    // Função para testar conectividade com Supabase com retry inteligente
-    const testSupabaseConnection = async (retries = 3): Promise<boolean> => {
-      for (let i = 0; i < retries; i++) {
-        try {
-          console.log(` Testing Supabase connection... (attempt ${i + 1}/${retries})`)
-          
-          // Cria cliente com timeout progressivo: 15s, 20s, 25s
-          const timeoutMs = 15000 + (i * 5000)
-          const testClient = createSupabaseClient(timeoutMs)
-          
-          // Teste mais simples que não depende de políticas RLS
-          const { error } = await testClient.auth.getUser()
-          
-          if (!error) {
-            console.log(' Supabase connection successful')
-            return true
-          }
-          
-          // Se é erro de token inválido, não tentar novamente
-          if (isTokenError(error)) {
-            console.warn(' Invalid token detected, clearing auth state')
-            clearInvalidTokens()
-            clearAuthState()
-            return false
-          }
-          
-          console.warn(` Connection test failed (attempt ${i + 1}):`, error.message)
-          
-          // Aguarda antes da próxima tentativa (exponential backoff)
-          if (i < retries - 1) {
-            const delayMs = Math.pow(2, i) * 2000 // 2s, 4s, 8s
-            console.log(` Waiting ${delayMs}ms before retry...`)
-            await new Promise(resolve => setTimeout(resolve, delayMs))
-          }
-        } catch (err) {
-          console.error(` Supabase connection test failed (attempt ${i + 1}):`, err)
-          
-          // Se é timeout, não é erro de token
-          if (err instanceof Error && err.message.includes('timeout')) {
-            console.warn(` Timeout on attempt ${i + 1}, will retry with longer timeout`)
-          }
-          
-          if (i < retries - 1) {
-            const delayMs = Math.pow(2, i) * 2000
-            console.log(` Waiting ${delayMs}ms before retry...`)
-            await new Promise(resolve => setTimeout(resolve, delayMs))
-          }
-        }
-      }
-      
-      console.error(' All connection tests failed')
-      return false
-    }
 
     // Get initial session com retry e fallback
     const getInitialSession = async () => {
@@ -280,10 +234,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log(' Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
         console.log(' Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
         
-        // Teste de conectividade primeiro
-        const isConnected = await testSupabaseConnection()
+        // Verifica saúde da conexão usando o hook
+        const isConnected = await connectionHealth.checkConnection()
         if (!isConnected) {
-          console.warn(' Supabase connection failed, showing connection fallback')
+          console.warn('❌ Falha na conexão Supabase, mostrando fallback')
           if (mounted) {
             clearTimeout(timeoutId)
             setShowConnectionFallback(true)
@@ -491,8 +445,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const retryConnection = () => {
     setShowConnectionFallback(false)
     setLoading(true)
-    // Recarrega a página para tentar novamente
-    window.location.reload()
+    
+    // Usa o hook de saúde da conexão para resetar
+    connectionHealth.resetConnection()
+    
+    // Aguarda um pouco antes de recarregar para dar tempo da limpeza
+    setTimeout(() => {
+      window.location.reload()
+    }, 1000)
   }
 
   return (
