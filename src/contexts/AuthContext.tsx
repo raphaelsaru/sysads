@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { supabase, createSupabaseClient } from '@/lib/supabase'
 import ConnectionFallback from '@/components/auth/ConnectionFallback'
 
 export interface UserProfile {
@@ -208,35 +208,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true
     let timeoutId: NodeJS.Timeout
 
-    // Função para testar conectividade com Supabase com retry
+    // Função para testar conectividade com Supabase com retry inteligente
     const testSupabaseConnection = async (retries = 3): Promise<boolean> => {
       for (let i = 0; i < retries; i++) {
         try {
           console.log(` Testing Supabase connection... (attempt ${i + 1}/${retries})`)
           
-          // Timeout individual para teste de conectividade
-          const testPromise = supabase.from('users').select('count').limit(1)
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Connection test timeout')), 8000)
-          )
+          // Cria cliente com timeout progressivo: 15s, 20s, 25s
+          const timeoutMs = 15000 + (i * 5000)
+          const testClient = createSupabaseClient(timeoutMs)
           
-          const { error } = await Promise.race([testPromise, timeoutPromise]) as any
+          // Teste mais simples que não depende de políticas RLS
+          const { error } = await testClient.auth.getUser()
           
           if (!error) {
             console.log(' Supabase connection successful')
             return true
           }
           
+          // Se é erro de token inválido, não tentar novamente
+          if (isTokenError(error)) {
+            console.warn(' Invalid token detected, clearing auth state')
+            clearInvalidTokens()
+            clearAuthState()
+            return false
+          }
+          
           console.warn(` Connection test failed (attempt ${i + 1}):`, error.message)
           
           // Aguarda antes da próxima tentativa (exponential backoff)
           if (i < retries - 1) {
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000))
+            const delayMs = Math.pow(2, i) * 2000 // 2s, 4s, 8s
+            console.log(` Waiting ${delayMs}ms before retry...`)
+            await new Promise(resolve => setTimeout(resolve, delayMs))
           }
         } catch (err) {
           console.error(` Supabase connection test failed (attempt ${i + 1}):`, err)
+          
+          // Se é timeout, não é erro de token
+          if (err instanceof Error && err.message.includes('timeout')) {
+            console.warn(` Timeout on attempt ${i + 1}, will retry with longer timeout`)
+          }
+          
           if (i < retries - 1) {
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000))
+            const delayMs = Math.pow(2, i) * 2000
+            console.log(` Waiting ${delayMs}ms before retry...`)
+            await new Promise(resolve => setTimeout(resolve, delayMs))
           }
         }
       }
@@ -250,14 +267,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log(' Starting auth session check...')
         
-        // Timeout de 20 segundos para usuários de outros países
+        // Timeout de 30 segundos para usuários de outros países
         timeoutId = setTimeout(() => {
           if (mounted) {
             console.warn(' Session fetch timeout - showing connection fallback')
             setShowConnectionFallback(true)
             setLoading(false)
           }
-        }, 20000)
+        }, 30000)
 
         console.log(' Fetching session from Supabase...')
         console.log(' Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
@@ -277,10 +294,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         console.log(' Supabase connection OK, fetching session...')
         
-        // Promise com timeout individual para getSession (10s para usuários globais)
+        // Promise com timeout individual para getSession (15s para usuários globais)
         const sessionPromise = supabase.auth.getSession()
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('getSession timeout')), 10000)
+          setTimeout(() => reject(new Error('getSession timeout')), 15000)
         )
         
         const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as { data: { session: { user?: any, expires_at?: number } | null }, error: Error | null }
