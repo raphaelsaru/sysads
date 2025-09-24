@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     console.log('🔍 API route called')
     console.log('📍 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not set')
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     console.log('📊 Testing database connection...')
     
     // Teste simples primeiro
-    const { data: testData, error: testError } = await serviceSupabase
+    const { error: testError } = await serviceSupabase
       .from('users')
       .select('count')
       .limit(1)

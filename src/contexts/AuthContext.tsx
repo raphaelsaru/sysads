@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => reject(new Error('Table test timeout')), 10000)
       )
       
-      const { error: testError } = await Promise.race([testPromise, testTimeoutPromise]) as any
+      const { error: testError } = await Promise.race([testPromise, testTimeoutPromise]) as { error: Error | null }
 
       if (testError) {
         console.warn('Users table not accessible:', testError.message)
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => reject(new Error('Profile fetch timeout')), 12000)
       )
       
-      const { data: profiles, error } = await Promise.race([profilePromise, profileTimeoutPromise]) as any
+      const { data: profiles, error } = await Promise.race([profilePromise, profileTimeoutPromise]) as { data: UserProfile[] | null, error: Error | null }
 
       if (error) {
         console.error(' Error fetching user profile:', error)
@@ -300,7 +300,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setTimeout(() => reject(new Error('getSession timeout')), 15000)
         )
         
-        const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as { data: { session: { user?: any, expires_at?: number } | null }, error: Error | null }
+        const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as { data: { session: { user?: User, expires_at?: number } | null }, error: Error | null }
         
         console.log(' Session data:', { 
           hasSession: !!data.session, 
