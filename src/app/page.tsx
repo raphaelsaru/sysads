@@ -169,7 +169,7 @@ function HomePage() {
                   </div>
                 ) : quote ? (
                   <div className="space-y-1">
-                    <p className="italic">&ldquo;{quote.q}&rdquo;</p>
+                    <p className="italic">{`"${quote.q}"`}</p>
                     <p className="text-xs text-muted-foreground/80">— {quote.a}</p>
                   </div>
                 ) : (

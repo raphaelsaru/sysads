@@ -137,6 +137,8 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
       resetAndClose()
     } catch (error) {
       console.error('Erro ao salvar cliente:', error)
+      // Mostrar erro para o usuário
+      alert('Erro ao salvar cliente. Verifique sua conexão e tente novamente.')
     } finally {
       setIsSubmitting(false)
     }
@@ -227,7 +229,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
                 <div>
                   <p className="text-sm font-semibold text-foreground">Enviar orçamento</p>
                   <p className="text-xs text-muted-foreground">
-                    Marque como &quot;Sim&quot; quando o orçamento foi remetido ao cliente.
+                    Marque como {`"Sim"`} quando o orçamento foi remetido ao cliente.
                   </p>
                 </div>
                 <Switch

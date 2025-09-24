@@ -251,7 +251,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
       } = await supabase.auth.getUser()
 
       if (!user) {
-        throw new Error('Usuário não autenticado')
+        throw new Error('Usuário não autenticado. Faça login novamente.')
       }
 
       const valorFechadoNumero = parseCurrencyInput(novoCliente.valorFechado ?? null)
@@ -273,9 +273,16 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
         .select()
         .single()
 
-      if (error || !cliente) {
+      if (error) {
         console.error('Erro ao criar cliente:', error)
-        throw new Error('Erro ao criar cliente')
+        if (error.message?.includes('network') || error.message?.includes('fetch')) {
+          throw new Error('Erro de conexão. Verifique sua internet e tente novamente.')
+        }
+        throw new Error('Erro ao salvar cliente. Tente novamente.')
+      }
+
+      if (!cliente) {
+        throw new Error('Cliente não foi criado. Tente novamente.')
       }
 
       const transformado = formatarCliente(cliente as unknown as ClienteSupabaseRow)
@@ -326,9 +333,16 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
         .select()
         .single()
 
-      if (error || !cliente) {
+      if (error) {
         console.error('Erro ao atualizar cliente:', error)
-        throw new Error('Erro ao atualizar cliente')
+        if (error.message?.includes('network') || error.message?.includes('fetch')) {
+          throw new Error('Erro de conexão. Verifique sua internet e tente novamente.')
+        }
+        throw new Error('Erro ao atualizar cliente. Tente novamente.')
+      }
+
+      if (!cliente) {
+        throw new Error('Cliente não foi atualizado. Tente novamente.')
       }
 
       const transformado = formatarCliente(cliente as unknown as ClienteSupabaseRow)

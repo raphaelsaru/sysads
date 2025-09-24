@@ -250,14 +250,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log(' Starting auth session check...')
         
-        // Timeout de 30 segundos para usuários de outros países
+        // Timeout de 20 segundos para usuários de outros países
         timeoutId = setTimeout(() => {
           if (mounted) {
             console.warn(' Session fetch timeout - showing connection fallback')
             setShowConnectionFallback(true)
             setLoading(false)
           }
-        }, 30000)
+        }, 20000)
 
         console.log(' Fetching session from Supabase...')
         console.log(' Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
@@ -266,9 +266,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Teste de conectividade primeiro
         const isConnected = await testSupabaseConnection()
         if (!isConnected) {
-          console.warn(' Supabase connection failed, skipping auth check')
+          console.warn(' Supabase connection failed, showing connection fallback')
           if (mounted) {
             clearTimeout(timeoutId)
+            setShowConnectionFallback(true)
             setLoading(false)
           }
           return
@@ -276,10 +277,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         console.log(' Supabase connection OK, fetching session...')
         
-        // Promise com timeout individual para getSession (15s para usuários globais)
+        // Promise com timeout individual para getSession (10s para usuários globais)
         const sessionPromise = supabase.auth.getSession()
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('getSession timeout')), 15000)
+          setTimeout(() => reject(new Error('getSession timeout')), 10000)
         )
         
         const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as { data: { session: { user?: any, expires_at?: number } | null }, error: Error | null }
