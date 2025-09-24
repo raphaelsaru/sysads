@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 interface ConnectionFallbackProps {
   onRetry: () => void
+  onSkip: () => void
   isVisible: boolean
 }
 
-export default function ConnectionFallback({ onRetry, isVisible }: ConnectionFallbackProps) {
+export default function ConnectionFallback({ onRetry, onSkip, isVisible }: ConnectionFallbackProps) {
   const [retryCount, setRetryCount] = useState(0)
   const [isRetrying, setIsRetrying] = useState(false)
 
@@ -54,32 +55,45 @@ export default function ConnectionFallback({ onRetry, isVisible }: ConnectionFal
         </CardHeader>
         
         <CardContent className="space-y-4">
-          <div className="flex gap-3 justify-center">
-            <Button
-              onClick={handleRetry}
-              disabled={isRetrying}
-              className="gap-2"
-              variant="default"
-            >
-              {isRetrying ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Tentando...
-                </>
-              ) : (
-                <>
-                  <Wifi className="h-4 w-4" />
-                  Tentar Novamente
-                </>
-              )}
-            </Button>
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3 justify-center">
+              <Button
+                onClick={handleRetry}
+                disabled={isRetrying}
+                className="gap-2"
+                variant="default"
+              >
+                {isRetrying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Tentando...
+                  </>
+                ) : (
+                  <>
+                    <Wifi className="h-4 w-4" />
+                    Tentar Novamente
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                onClick={() => window.location.reload()}
+                variant="outline"
+              >
+                Recarregar Página
+              </Button>
+            </div>
             
-            <Button
-              onClick={() => window.location.reload()}
-              variant="outline"
-            >
-              Recarregar Página
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                onClick={onSkip}
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Continuar sem verificação
+              </Button>
+            </div>
           </div>
           
           <p className="text-xs text-muted-foreground text-center">

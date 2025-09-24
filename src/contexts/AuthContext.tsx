@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase, createSupabaseClient, clearSupabaseInstance } from '@/lib/supabase'
+import { supabase, clearSupabaseInstance } from '@/lib/supabase'
 import ConnectionFallback from '@/components/auth/ConnectionFallback'
 import { useConnectionHealth } from '@/hooks/useConnectionHealth'
 
@@ -26,6 +26,7 @@ interface AuthContextType {
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>
   retryConnection: () => void
+  skipConnectionCheck: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -38,6 +39,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   // Hook para monitorar saúde da conexão
   const connectionHealth = useConnectionHealth()
+  
+  // Monitora mudanças na saúde da conexão para esconder o popup quando necessário
+  useEffect(() => {
+    if (connectionHealth.isHealthy && showConnectionFallback) {
+      console.log('✅ Conexão restaurada, escondendo popup')
+      setShowConnectionFallback(false)
+    }
+  }, [connectionHealth.isHealthy, showConnectionFallback])
 
   // Função para limpar estado de autenticação
   const clearAuthState = () => {
@@ -234,16 +243,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log(' Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
         console.log(' Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
         
-        // Verifica saúde da conexão usando o hook
-        const isConnected = await connectionHealth.checkConnection()
-        if (!isConnected) {
-          console.warn('❌ Falha na conexão Supabase, mostrando fallback')
-          if (mounted) {
-            clearTimeout(timeoutId)
-            setShowConnectionFallback(true)
-            setLoading(false)
+        // Verifica saúde da conexão usando o hook (com timeout mais curto)
+        try {
+          const connectionPromise = connectionHealth.checkConnection()
+          const connectionTimeoutPromise = new Promise<boolean>((_, reject) => 
+            setTimeout(() => reject(new Error('Connection check timeout')), 8000)
+          )
+          
+          const isConnected = await Promise.race([connectionPromise, connectionTimeoutPromise])
+          
+          if (!isConnected) {
+            console.warn('❌ Falha na conexão Supabase, mostrando fallback')
+            if (mounted) {
+              clearTimeout(timeoutId)
+              setShowConnectionFallback(true)
+              setLoading(false)
+            }
+            return
           }
-          return
+        } catch {
+          console.warn('⚠️ Timeout na verificação de conexão, continuando com session...')
+          // Se timeout na verificação, continua tentando pegar a session
         }
 
         console.log(' Supabase connection OK, fetching session...')
@@ -455,6 +475,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 1000)
   }
 
+  const skipConnectionCheck = () => {
+    console.log('⏭️ Pulando verificação de conexão')
+    setShowConnectionFallback(false)
+    setLoading(false)
+    // Continua com a aplicação mesmo sem verificação de conexão
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -467,12 +494,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         updateProfile,
         retryConnection,
+        skipConnectionCheck,
       }}
     >
       {children}
       <ConnectionFallback 
         isVisible={showConnectionFallback} 
-        onRetry={retryConnection} 
+        onRetry={retryConnection}
+        onSkip={skipConnectionCheck}
       />
     </AuthContext.Provider>
   )
