@@ -21,7 +21,7 @@ interface AuthContextType {
   userProfile: UserProfile | null
   loading: boolean
   showConnectionFallback: boolean
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: Error | null }>
   signUp: (email: string, password: string, companyName: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>
@@ -223,55 +223,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
     let timeoutId: NodeJS.Timeout
-
+    // Fallback de segurança para garantir que o loading nunca fique travado
+    const fallbackTimeoutId = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn('🚨 Fallback de segurança ativado - forçando fim do loading')
+        setLoading(false)
+        setShowConnectionFallback(true)
+      }
+    }, 20000) // 20 segundos como último recurso
 
     // Get initial session com retry e fallback
     const getInitialSession = async () => {
       try {
         console.log(' Starting auth session check...')
         
-        // Timeout de 30 segundos para usuários de outros países
+        // Timeout de 15 segundos para evitar espera muito longa
         timeoutId = setTimeout(() => {
           if (mounted) {
             console.warn(' Session fetch timeout - showing connection fallback')
             setShowConnectionFallback(true)
             setLoading(false)
           }
-        }, 30000)
+        }, 15000)
 
         console.log(' Fetching session from Supabase...')
         console.log(' Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
         console.log(' Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
         
-        // Verifica saúde da conexão usando o hook (com timeout mais curto)
+        // Verificação simples de conectividade (sem usar o hook complexo)
         try {
-          const connectionPromise = connectionHealth.checkConnection()
-          const connectionTimeoutPromise = new Promise<boolean>((_, reject) => 
-            setTimeout(() => reject(new Error('Connection check timeout')), 8000)
+          console.log('🔍 Verificando conectividade básica...')
+          const testPromise = supabase.auth.getUser()
+          const testTimeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Connection test timeout')), 3000)
           )
           
-          const isConnected = await Promise.race([connectionPromise, connectionTimeoutPromise])
-          
-          if (!isConnected) {
-            console.warn('❌ Falha na conexão Supabase, mostrando fallback')
-            if (mounted) {
-              clearTimeout(timeoutId)
-              setShowConnectionFallback(true)
-              setLoading(false)
-            }
-            return
-          }
-        } catch {
-          console.warn('⚠️ Timeout na verificação de conexão, continuando com session...')
-          // Se timeout na verificação, continua tentando pegar a session
+          await Promise.race([testPromise, testTimeoutPromise])
+          console.log('✅ Conectividade básica OK')
+        } catch (error) {
+          console.warn('⚠️ Problema na conectividade, mas continuando...', error)
+          // Continua mesmo com problema de conectividade
         }
 
         console.log(' Supabase connection OK, fetching session...')
         
-        // Promise com timeout individual para getSession (15s para usuários globais)
+        // Promise com timeout individual para getSession (10s para usuários globais)
         const sessionPromise = supabase.auth.getSession()
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('getSession timeout')), 15000)
+          setTimeout(() => reject(new Error('getSession timeout')), 10000)
         )
         
         const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as { data: { session: { user?: User, expires_at?: number } | null }, error: Error | null }
@@ -330,6 +329,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } finally {
         if (mounted) {
           clearTimeout(timeoutId)
+          clearTimeout(fallbackTimeoutId)
           setLoading(false)
           console.log(' Auth session check completed')
         }
@@ -382,12 +382,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false
       clearTimeout(timeoutId)
+      clearTimeout(fallbackTimeoutId)
       subscription.unsubscribe()
     }
-  }, [fetchUserProfile])
+  }, [fetchUserProfile, loading])
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMe: boolean = false) => {
     try {
+      console.log('🔐 Fazendo login com rememberMe:', rememberMe)
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -396,6 +399,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error && isTokenError(error)) {
         clearInvalidTokens()
         clearAuthState()
+      }
+      
+      // Se o login foi bem-sucedido e rememberMe está marcado, salvar preferência
+      if (!error && rememberMe) {
+        console.log('💾 Salvando preferência de lembrar-me')
+        localStorage.setItem('prizely_remember_me', 'true')
+        localStorage.setItem('prizely_user_email', email)
+      } else if (!error && !rememberMe) {
+        // Se não marcou lembrar-me, limpar preferências salvas
+        console.log('🗑️ Limpando preferências de lembrar-me')
+        localStorage.removeItem('prizely_remember_me')
+        localStorage.removeItem('prizely_user_email')
       }
       
       return { error: error ? new Error(error.message) : null }
@@ -426,13 +441,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      console.log('🚪 Fazendo logout e limpando preferências')
       clearInvalidTokens()
       await supabase.auth.signOut()
       clearAuthState()
+      
+      // Limpar preferências de lembrar-me ao fazer logout manual
+      localStorage.removeItem('prizely_remember_me')
+      localStorage.removeItem('prizely_user_email')
     } catch (error) {
       console.error('Sign out error:', error)
       // Mesmo com erro, limpar estado local
       clearAuthState()
+      localStorage.removeItem('prizely_remember_me')
+      localStorage.removeItem('prizely_user_email')
     }
   }
 

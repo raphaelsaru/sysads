@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Loader2, LockKeyhole, Mail, Building2 } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import EmailConfirmation from './EmailConfirmation'
 
@@ -19,7 +20,20 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const { signIn, signUp } = useAuth()
+
+  // Carregar preferências salvas quando o componente monta
+  useEffect(() => {
+    const savedRememberMe = localStorage.getItem('prizely_remember_me')
+    const savedEmail = localStorage.getItem('prizely_user_email')
+    
+    if (savedRememberMe === 'true' && savedEmail) {
+      console.log('🔄 Carregando preferências salvas:', { email: savedEmail, rememberMe: true })
+      setEmail(savedEmail)
+      setRememberMe(true)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,7 +56,7 @@ export default function LoginForm() {
         return
       }
     } else {
-      result = await signIn(email, password)
+      result = await signIn(email, password, rememberMe)
     }
 
     if (result.error) {
@@ -54,7 +68,10 @@ export default function LoginForm() {
 
   const handleBackToLogin = () => {
     setNeedsEmailConfirmation(false)
-    setEmail('')
+    // Não limpar email se lembrar-me estiver marcado
+    if (!rememberMe) {
+      setEmail('')
+    }
     setPassword('')
     setCompanyName('')
     setError(null)
@@ -141,6 +158,29 @@ export default function LoginForm() {
                   />
                 </div>
               </div>
+
+              {!isSignUp && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="rememberMe"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                    />
+                    <Label
+                      htmlFor="rememberMe"
+                      className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Lembrar-me
+                    </Label>
+                  </div>
+                  {rememberMe && email && (
+                    <span className="text-xs text-muted-foreground">
+                      Email salvo ✓
+                    </span>
+                  )}
+                </div>
+              )}
 
               {error && (
                 <Alert className="border-destructive/40 bg-destructive/10 text-destructive">

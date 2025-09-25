@@ -94,6 +94,20 @@ export default function ConnectionFallback({ onRetry, onSkip, isVisible }: Conne
                 Continuar sem verificação
               </Button>
             </div>
+            
+            <div className="flex justify-center">
+              <Button
+                onClick={() => {
+                  // Força o carregamento da aplicação mesmo com problemas de conexão
+                  window.location.href = '/'
+                }}
+                variant="outline"
+                size="sm"
+                className="text-primary border-primary hover:bg-primary hover:text-primary-foreground"
+              >
+                Ir para Login
+              </Button>
+            </div>
           </div>
           
           <p className="text-xs text-muted-foreground text-center">
