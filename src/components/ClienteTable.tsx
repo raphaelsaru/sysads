@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2 } from 'lucide-react'
+import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,8 +24,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Cliente } from '@/types/crm'
 import { formatDateBR, formatDateISO } from '@/lib/dateUtils'
+
+type SortField = 'createdAt' | 'dataContato' | 'nome' | 'valorFechado'
+type SortOrder = 'asc' | 'desc'
 
 interface ClienteTableProps {
   clientes: Cliente[]
@@ -66,6 +76,8 @@ function QualidadeBadge({ qualidade }: { qualidade: Cliente['qualidadeContato'] 
 
 export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, hasMore = false, isLoadingMore = false }: ClienteTableProps) {
   const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null)
+  const [sortField, setSortField] = useState<SortField>('createdAt')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
 
   const clientesOrdenados = useMemo(() => {
@@ -80,8 +92,46 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
       return Number.isNaN(fallback.getTime()) ? 0 : fallback.getTime()
     }
 
-    return [...clientes].sort((a, b) => normalizarData(b.dataContato) - normalizarData(a.dataContato))
-  }, [clientes])
+    const normalizarValor = (valor: string | undefined) => {
+      if (!valor) return 0
+      const numero = parseFloat(valor.replace(/[^\d.,]/g, '').replace(',', '.'))
+      return Number.isNaN(numero) ? 0 : numero
+    }
+
+    return [...clientes].sort((a, b) => {
+      let aValue: any
+      let bValue: any
+
+      switch (sortField) {
+        case 'createdAt':
+          aValue = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          bValue = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          break
+        case 'dataContato':
+          aValue = normalizarData(a.dataContato)
+          bValue = normalizarData(b.dataContato)
+          break
+        case 'nome':
+          aValue = a.nome.toLowerCase()
+          bValue = b.nome.toLowerCase()
+          break
+        case 'valorFechado':
+          aValue = normalizarValor(a.valorFechado)
+          bValue = normalizarValor(b.valorFechado)
+          break
+        default:
+          return 0
+      }
+
+      if (sortField === 'nome') {
+        return sortOrder === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue)
+      }
+
+      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue
+    })
+  }, [clientes, sortField, sortOrder])
 
   useEffect(() => {
     if (!onLoadMore || !hasMore) return
@@ -129,6 +179,42 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
   return (
     <>
       <div className="space-y-4 lg:hidden">
+        <Card className="border-border/60 bg-card/80 backdrop-blur">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-semibold">Clientes CRM</CardTitle>
+            <CardDescription className="text-sm">
+              Monitore o funil de relacionamento e acompanhe os resultados em tempo real.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Ordenar por</label>
+              <Select value={sortField} onValueChange={(value: SortField) => setSortField(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt">Data de Criação</SelectItem>
+                  <SelectItem value="dataContato">Data de Contato</SelectItem>
+                  <SelectItem value="nome">Nome</SelectItem>
+                  <SelectItem value="valorFechado">Valor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Ordem</label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="gap-2 justify-start"
+              >
+                {sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                {sortOrder === 'asc' ? 'Crescente' : 'Decrescente'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
         {clientesOrdenados.map((cliente) => (
           <Card key={cliente.id ?? cliente.nome} className="border-border/60 bg-card/80 backdrop-blur">
             <CardHeader className="pb-4">
@@ -206,10 +292,36 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
 
       <Card className="hidden border-border/70 bg-card/80 shadow-soft lg:block">
         <CardHeader className="pb-4">
-          <CardTitle className="text-xl font-semibold">Clientes CRM</CardTitle>
-          <CardDescription>
-            Monitore o funil de relacionamento e acompanhe os resultados em tempo real.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-semibold">Clientes CRM</CardTitle>
+              <CardDescription>
+                Monitore o funil de relacionamento e acompanhe os resultados em tempo real.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={sortField} onValueChange={(value: SortField) => setSortField(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt">Data de Criação</SelectItem>
+                  <SelectItem value="dataContato">Data de Contato</SelectItem>
+                  <SelectItem value="nome">Nome</SelectItem>
+                  <SelectItem value="valorFechado">Valor</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="gap-2"
+              >
+                {sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                {sortOrder === 'asc' ? 'Crescente' : 'Decrescente'}
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>

@@ -43,6 +43,7 @@ type ClienteSupabaseRow = {
   qualidade_contato: Cliente['qualidadeContato']
   valor_fechado: number | null
   observacao: string | null
+  created_at: string
 }
 
 type ClienteStatsRow = {
@@ -74,6 +75,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
         valorFechadoNumero,
         valorFechado: valorFechadoNumero !== null ? formatCurrency(valorFechadoNumero, currency) : '',
         observacao: cliente.observacao ?? undefined,
+        createdAt: cliente.created_at,
       }
     },
     [currency]
@@ -169,10 +171,11 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
           resultado,
           qualidade_contato,
           valor_fechado,
-          observacao
+          observacao,
+          created_at
         `
         )
-        .order('data_contato', { ascending: false })
+        .order('created_at', { ascending: false })
         .range(0, PAGE_SIZE - 1)
 
       if (error) {
@@ -215,10 +218,11 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
           resultado,
           qualidade_contato,
           valor_fechado,
-          observacao
+          observacao,
+          created_at
         `
         )
-        .order('data_contato', { ascending: false })
+        .order('created_at', { ascending: false })
         .range(start, end)
 
       if (error) {
