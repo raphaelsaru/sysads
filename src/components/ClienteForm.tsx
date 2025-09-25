@@ -34,7 +34,7 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
     dataContato: cliente?.dataContato || getToday(),
     nome: cliente?.nome || '',
     whatsappInstagram: cliente?.whatsappInstagram || '',
-    origem: cliente?.origem || 'Orgânico / Pefil',
+    origem: cliente?.origem || 'Orgânico / Perfil',
     orcamentoEnviado: cliente?.orcamentoEnviado || 'Não',
     resultado: cliente?.resultado || 'Orçamento em Processo',
     qualidadeContato: cliente?.qualidadeContato || 'Regular',
@@ -111,7 +111,7 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Indicação">Indicação</SelectItem>
-                  <SelectItem value="Orgânico / Pefil">Orgânico / Pefil</SelectItem>
+                  <SelectItem value="Orgânico / Perfil">Orgânico / Perfil</SelectItem>
                   <SelectItem value="Anúncio">Anúncio</SelectItem>
                   <SelectItem value="Cliente antigo">Cliente antigo</SelectItem>
                 </SelectContent>

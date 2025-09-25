@@ -32,7 +32,7 @@ export default function Home() {
   )
 }
 
-const ORIGENS = ['Indicação', 'Orgânico / Pefil', 'Anúncio', 'Cliente antigo'] as const
+const ORIGENS = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antigo'] as const
 const RESULTADOS = ['Venda', 'Orçamento em Processo', 'Não Venda'] as const
 const QUALIDADES = ['Bom', 'Regular', 'Ruim'] as const
 

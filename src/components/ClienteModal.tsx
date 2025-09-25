@@ -37,7 +37,7 @@ interface ClienteModalProps {
   currency?: SupportedCurrency
 }
 
-const ORIGENS: NovoCliente['origem'][] = ['Indicação', 'Orgânico / Pefil', 'Anúncio', 'Cliente antigo']
+const ORIGENS: NovoCliente['origem'][] = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antigo']
 const RESULTADOS: NovoCliente['resultado'][] = ['Venda', 'Orçamento em Processo', 'Não Venda']
 const QUALIDADES: NovoCliente['qualidadeContato'][] = ['Bom', 'Regular', 'Ruim']
 
@@ -47,7 +47,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
       dataContato: getTodayBR(),
       nome: '',
       whatsappInstagram: '',
-      origem: 'Orgânico / Pefil',
+      origem: 'Orgânico / Perfil',
       orcamentoEnviado: 'Não',
       resultado: 'Orçamento em Processo',
       qualidadeContato: 'Regular',

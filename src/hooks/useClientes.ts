@@ -275,10 +275,22 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
 
       if (error) {
         console.error('Erro ao criar cliente:', error)
+        console.error('Detalhes do erro:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
         if (error.message?.includes('network') || error.message?.includes('fetch')) {
           throw new Error('Erro de conexão. Verifique sua internet e tente novamente.')
         }
-        throw new Error('Erro ao salvar cliente. Tente novamente.')
+        if (error.message?.includes('policies')) {
+          throw new Error('Erro de permissão. Verifique se você está autenticado.')
+        }
+        if (error.message?.includes('invalid input')) {
+          throw new Error('Dados inválidos. Verifique os campos preenchidos.')
+        }
+        throw new Error(`Erro ao salvar cliente: ${error.message || 'Erro desconhecido'}`)
       }
 
       if (!cliente) {
