@@ -19,7 +19,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const [timeoutReached, setTimeoutReached] = useState(false)
 
   useEffect(() => {
-    // Timeout reduzido para 5 segundos para detectar loading infinito
+    // Timeout reduzido para 5 segundos
     const timeout = setTimeout(() => {
       if (loading) {
         console.warn('⏰ Auth loading timeout detectado')
@@ -36,7 +36,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       // Aguardar menos tempo para ver se o erro é temporário
       const checkAuth = setTimeout(() => {
         setAuthError(true)
-      }, 1000)
+      }, 1500)
 
       return () => clearTimeout(checkAuth)
     }

@@ -91,21 +91,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('👤 Buscando perfil do usuário:', userId)
 
-      // Usar perfil básico do auth diretamente - sem testes de tabela
+      // Primeiro, obter dados básicos do auth (sempre funciona)
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const basicProfile: UserProfile = {
-          id: user.id,
-          email: user.email || '',
-          role: 'user',
-          currency: 'BRL',
-          company_name: 'Prizely',
-          created_at: user.created_at,
-          updated_at: user.updated_at || user.created_at
-        }
-        console.log('✅ Perfil básico definido:', basicProfile)
-        setUserProfile(basicProfile)
+      if (!user) {
+        console.warn('⚠️ Usuário não encontrado no auth')
+        return
       }
+
+      // Verificar se é admin via user_metadata
+      const isAdmin = user.user_metadata?.role === 'admin'
+      
+      const basicProfile: UserProfile = {
+        id: user.id,
+        email: user.email || '',
+        role: isAdmin ? 'admin' : 'user',
+        currency: 'BRL',
+        company_name: user.user_metadata?.company_name || 'Empresa',
+        created_at: user.created_at,
+        updated_at: user.updated_at || user.created_at
+      }
+      console.log('✅ Perfil básico definido a partir do auth:', basicProfile)
+      setUserProfile(basicProfile)
+
+      // Tentar buscar perfil da tabela users em background (sem bloquear)
+      setTimeout(async () => {
+        try {
+          console.log('🔄 Tentando buscar perfil da tabela users em background...')
+          
+          const { data: userProfileData, error: profileError } = await supabase
+            .from('users')
+            .select('id, email, company_name, role, currency, created_at, updated_at')
+            .eq('id', userId)
+            .single()
+
+          if (!profileError && userProfileData) {
+            const fullProfile: UserProfile = {
+              id: userProfileData.id,
+              email: userProfileData.email,
+              role: userProfileData.role || 'user',
+              currency: userProfileData.currency || 'BRL',
+              company_name: userProfileData.company_name || 'Empresa',
+              created_at: userProfileData.created_at,
+              updated_at: userProfileData.updated_at || userProfileData.created_at
+            }
+            console.log('✅ Perfil completo obtido da tabela users:', fullProfile)
+            setUserProfile(fullProfile)
+          } else {
+            console.warn('⚠️ Perfil não encontrado na tabela users:', profileError)
+          }
+        } catch (bgError) {
+          console.warn('⚠️ Erro ao buscar perfil em background:', bgError)
+        }
+      }, 100) // Muito rápido para não bloquear
+      
     } catch (error) {
       console.error('❌ Erro ao buscar perfil do usuário:', error)
       // Em caso de erro, usar perfil padrão
@@ -114,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: '',
         role: 'user',
         currency: 'BRL',
-        company_name: 'Prizely',
+        company_name: 'Empresa',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -130,13 +168,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log('🚀 Carregamento simplificado iniciado...')
         
-        // Timeout muito reduzido - apenas 2 segundos
+        // Timeout muito reduzido - apenas 1.5 segundos
         const timeoutId = setTimeout(() => {
           if (mounted) {
-            console.log('⏰ Timeout de 2s atingido - liberando UI')
+            console.log('⏰ Timeout de 1.5s atingido - liberando UI')
             setLoading(false)
           }
-        }, 2000)
+        }, 1500)
 
         // Busca sessão simples sem verificações complexas
         const { data, error } = await supabase.auth.getSession()

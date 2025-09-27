@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AdminProvider } from "@/contexts/AdminContext";
 import ConnectionStatus from "@/components/auth/ConnectionStatus";
 import { Analytics } from '@vercel/analytics/react';
 
@@ -31,9 +32,11 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={`${inter.variable} antialiased`}>
         <AuthProvider>
-          {children}
-          <ConnectionStatus />
-          <Analytics />
+          <AdminProvider>
+            {children}
+            <ConnectionStatus />
+            <Analytics />
+          </AdminProvider>
         </AuthProvider>
       </body>
     </html>

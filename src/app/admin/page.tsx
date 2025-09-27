@@ -1,11 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, Users, BarChart2, Table2, RefreshCcw } from 'lucide-react'
+import { Loader2, Users, BarChart2, Table2, RefreshCcw, User } from 'lucide-react'
 import { eachDayOfInterval, endOfMonth, format, isAfter, isBefore, isEqual, parseISO, startOfDay, startOfMonth } from 'date-fns'
 
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import MainLayout from '@/components/layout/MainLayout'
+import UserManagement from '@/components/admin/UserManagement'
+import ImpersonationBanner from '@/components/admin/ImpersonationBanner'
+import { createClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,6 +16,7 @@ import { type DateRange } from '@/components/ui/calendar'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import ClienteTable from '@/components/ClienteTable'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAdmin, useEffectiveUser } from '@/contexts/AdminContext'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -23,8 +27,13 @@ interface UserSummary {
   company_name: string
   email: string
   currency: 'BRL' | 'USD' | 'EUR'
+  role: 'admin' | 'user'
   created_at: string
+  updated_at: string
   totalClientes: number
+  totalVendas: number
+  valorTotal: number
+  ativo: boolean
 }
 
 interface ClienteRaw {
@@ -66,62 +75,74 @@ const periodoInicial = () => {
 
 function AdminPageContent() {
   const { userProfile } = useAuth()
+  const { impersonation } = useAdmin()
   const [users, setUsers] = useState<UserSummary[]>([])
   const [usersLoading, setUsersLoading] = useState(true)
   const [usersError, setUsersError] = useState<string | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'dashboard' | 'tabela'>('dashboard')
+  const [viewMode, setViewMode] = useState<'dashboard' | 'management' | 'user-detail'>('management')
+
+  const fetchUsersFromAPI = async () => {
+    setUsersLoading(true)
+    setUsersError(null)
+    
+    try {
+      console.log('🔍 Buscando usuários via API de administração...')
+      
+      // Obter token de acesso do Supabase
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.access_token) {
+        throw new Error('Não autorizado - sessão não encontrada')
+      }
+
+      const response = await fetch('/api/admin/users', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        credentials: 'include', // Incluir cookies de autenticação
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log('✅ Usuários carregados via API:', data.users?.length || 0)
+      
+      const enrichedUsers = data.users.map((user: any): UserSummary => ({
+        id: user.id,
+        company_name: user.company_name || 'Empresa sem nome',
+        email: user.email,
+        currency: user.currency || FALLBACK_CURRENCY_VALUE,
+        role: user.role || 'user',
+        created_at: user.created_at,
+        updated_at: user.updated_at || user.created_at,
+        totalClientes: user.totalClientes || 0,
+        totalVendas: user.totalVendas || 0,
+        valorTotal: user.valorTotal || 0,
+        ativo: user.ativo !== false,
+      }))
+
+      setUsers(enrichedUsers)
+      setSelectedUserId((prev) => prev ?? enrichedUsers[0]?.id ?? null)
+    } catch (error) {
+      console.error('❌ Erro ao carregar usuários:', error)
+      setUsersError(`Não foi possível carregar os usuários: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+    } finally {
+      setUsersLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      setUsersLoading(true)
-      setUsersError(null)
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('id, company_name, email, currency, created_at')
-          .order('created_at', { ascending: true })
-
-        if (error) {
-          throw error
-        }
-
-        const lista = data ?? []
-
-        const enriched = await Promise.all(
-          lista.map(async (usuario) => {
-            const { count, error: countError } = await supabase
-              .from('clientes')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', usuario.id)
-
-            if (countError) {
-              console.error('Erro ao contar clientes para usuário', usuario.id, countError)
-            }
-
-            return {
-              id: usuario.id,
-              company_name: usuario.company_name,
-              email: usuario.email,
-              currency: (usuario.currency as UserSummary['currency']) ?? FALLBACK_CURRENCY_VALUE,
-              created_at: usuario.created_at,
-              totalClientes: count ?? 0,
-            }
-          })
-        )
-
-        setUsers(enriched)
-        setSelectedUserId((prev) => prev ?? enriched[0]?.id ?? null)
-      } catch (error) {
-        console.error('Erro ao carregar usuários:', error)
-        setUsersError('Não foi possível carregar os usuários cadastrados.')
-      } finally {
-        setUsersLoading(false)
-      }
+    if (userProfile?.role === 'admin') {
+      fetchUsersFromAPI()
     }
-
-    void fetchUsers()
-  }, [])
+  }, [userProfile?.role])
 
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) ?? null,
@@ -146,81 +167,75 @@ function AdminPageContent() {
 
   return (
     <MainLayout>
+      {impersonation.isImpersonating && <ImpersonationBanner />}
+      
       <section className="space-y-8">
         <header className="space-y-4">
           <Badge variant="muted" className="w-fit bg-primary/10 text-primary">
             Console administrativo
           </Badge>
           <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">Gestão de usuários</h1>
+            <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">
+              {impersonation.isImpersonating 
+                ? `Visualizando como: ${impersonation.impersonatedUser?.company_name}` 
+                : 'Gestão de usuários'
+              }
+            </h1>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Acompanhe todos os clientes cadastrados na plataforma e mergulhe nas métricas de cada conta para orientar seu time.
+              {impersonation.isImpersonating
+                ? `Você está visualizando o sistema como ${impersonation.impersonatedUser?.email}. Todos os dados mostrados são referentes a este usuário.`
+                : 'Acompanhe todos os clientes cadastrados na plataforma e mergulhe nas métricas de cada conta para orientar seu time.'
+              }
             </p>
           </div>
         </header>
 
-        <Card className="border-border/70 bg-card/80 shadow-soft">
-          <CardHeader className="flex flex-col gap-2">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <Users className="h-5 w-5 text-primary" /> Usuários ativos
-            </CardTitle>
-            <CardDescription>Selecione uma conta para visualizar detalhes em profundidade.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {usersLoading ? (
-              <div className="flex items-center gap-2 rounded-2xl border border-dashed border-border/70 bg-background/70 px-4 py-6 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" /> Carregando usuários cadastrados
-              </div>
-            ) : usersError ? (
-              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-6 text-sm text-destructive">
-                {usersError}
-              </div>
-            ) : users.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border/70 bg-background/60 px-4 py-6 text-sm text-muted-foreground">
-                Nenhum usuário encontrado até o momento.
-              </div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {users.map((user) => {
-                  const isSelected = user.id === selectedUserId
-                  return (
-                    <button
-                      key={user.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedUserId(user.id)
-                      }}
-                      className={cn(
-                        'group flex h-full flex-col gap-3 rounded-2xl border border-border/70 bg-background/70 p-4 text-left shadow-soft transition hover:border-primary/60 hover:shadow-primary/10',
-                        isSelected && 'border-primary/70 bg-primary/5 shadow-primary/20'
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-semibold text-foreground group-hover:text-primary">
-                            {user.company_name || 'Conta sem nome'}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{user.email}</span>
-                        </div>
-                        <Badge variant={isSelected ? 'default' : 'outline'} className="rounded-full text-xs">
-                          {user.totalClientes} leads
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="rounded-full bg-muted px-2 py-1 font-medium text-muted-foreground">
-                          {user.currency || FALLBACK_CURRENCY_VALUE}
-                        </span>
-                        <span>Criado em {format(new Date(user.created_at), 'dd/MM/yyyy')}</span>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Navegação entre visualizações */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={viewMode === 'management' ? 'default' : 'outline'}
+            onClick={() => setViewMode('management')}
+            className="gap-2"
+          >
+            <Users className="h-4 w-4" />
+            Gerenciamento de Usuários
+          </Button>
+          {selectedUser && (
+            <>
+              <Button
+                variant={viewMode === 'dashboard' ? 'default' : 'outline'}
+                onClick={() => setViewMode('dashboard')}
+                className="gap-2"
+              >
+                <BarChart2 className="h-4 w-4" />
+                Dashboard do Usuário
+              </Button>
+              <Button
+                variant={viewMode === 'user-detail' ? 'default' : 'outline'}
+                onClick={() => setViewMode('user-detail')}
+                className="gap-2"
+              >
+                <Table2 className="h-4 w-4" />
+                Tabela de Clientes
+              </Button>
+            </>
+          )}
+        </div>
 
-        {selectedUser ? (
+        {/* Conteúdo baseado no modo de visualização */}
+        {viewMode === 'management' && (
+          <UserManagement
+            users={users}
+            onUserUpdate={fetchUsersFromAPI}
+            selectedUserId={selectedUserId}
+            onUserSelect={(userId) => {
+              setSelectedUserId(userId)
+              setViewMode('dashboard')
+            }}
+          />
+        )}
+
+        {(viewMode === 'dashboard' || viewMode === 'user-detail') && selectedUser && (
           <Card className="border-border/70 bg-card/80 shadow-soft">
             <CardHeader className="flex flex-col gap-3 border-b border-border/60 pb-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -230,39 +245,26 @@ function AdminPageContent() {
                   </CardTitle>
                   <CardDescription>{selectedUser.email}</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant={viewMode === 'dashboard' ? 'default' : 'outline'}
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => setViewMode('dashboard')}
-                  >
-                    <BarChart2 className="h-4 w-4" />
-                    Visão dashboard
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={viewMode === 'tabela' ? 'default' : 'outline'}
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => setViewMode('tabela')}
-                  >
-                    <Table2 className="h-4 w-4" />
-                    Tabela de clientes
-                  </Button>
-                </div>
+                <Button
+                  onClick={() => setViewMode('management')}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <User className="h-4 w-4" />
+                  Voltar para Gerenciamento
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="pt-6">
               <AdminUserDetail
                 key={selectedUser.id}
                 user={selectedUser}
-                viewMode={viewMode}
+                viewMode={viewMode === 'dashboard' ? 'dashboard' : 'tabela'}
               />
             </CardContent>
           </Card>
-        ) : null}
+        )}
       </section>
     </MainLayout>
   )
@@ -280,33 +282,37 @@ function AdminUserDetail({ user, viewMode }: { user: UserSummary; viewMode: 'das
       setLoadingClientes(true)
       setClientesError(null)
       try {
-        const { data, error } = await supabase
-          .from('clientes')
-          .select(
-            `
-            id,
-            data_contato,
-            nome,
-            whatsapp_instagram,
-            origem,
-            orcamento_enviado,
-            resultado,
-            qualidade_contato,
-            valor_fechado,
-            observacao
-          `
-          )
-          .eq('user_id', user.id)
-          .order('data_contato', { ascending: false })
-
-        if (error) {
-          throw error
+        console.log('🔍 Carregando clientes do usuário via API admin:', user.id)
+        
+        // Obter token de acesso do Supabase
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session?.access_token) {
+          throw new Error('Não autorizado - sessão não encontrada')
         }
 
-        setClientesRaw((data as ClienteRaw[]) ?? [])
+        const response = await fetch(`/api/admin/users/${user.id}/clientes`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          credentials: 'include', // Incluir cookies de autenticação
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || `HTTP ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log('✅ Clientes carregados via API admin:', data.clientes?.length || 0)
+        
+        setClientesRaw((data.clientes as ClienteRaw[]) ?? [])
       } catch (error) {
-        console.error('Erro ao carregar clientes do usuário:', error)
-        setClientesError('Não foi possível carregar os clientes deste usuário.')
+        console.error('❌ Erro ao carregar clientes do usuário:', error)
+        setClientesError(`Não foi possível carregar os clientes: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
       } finally {
         setLoadingClientes(false)
       }

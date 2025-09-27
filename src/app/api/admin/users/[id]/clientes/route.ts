@@ -40,13 +40,25 @@ export async function GET(
       return NextResponse.json({ error: 'Acesso negado - apenas administradores' }, { status: 403 })
     }
 
-    // TEMPORÁRIO: Usar service role para bypass RLS até aplicar as políticas
+    // Usar service role para bypass RLS quando necessário
     const serviceSupabase = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // Buscar clientes do usuário específico usando service role (bypass RLS temporariamente)
+    // Tentar usar a função RPC otimizada primeiro
+    console.log('🔍 Tentando usar função RPC get_user_clientes_admin para usuário:', userId)
+    const { data: rpcClientes, error: rpcError } = await serviceSupabase
+      .rpc('get_user_clientes_admin', { target_user_id: userId })
+
+    if (!rpcError && rpcClientes) {
+      console.log('✅ Clientes obtidos via RPC:', rpcClientes.length, 'clientes')
+      return NextResponse.json({ clientes: rpcClientes })
+    }
+
+    console.warn('⚠️ Função RPC falhou, usando fallback:', rpcError)
+
+    // Fallback: buscar clientes usando service role (bypass RLS)
     const { data: clientes, error: clientesError } = await serviceSupabase
       .from('clientes')
       .select(`
