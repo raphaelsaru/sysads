@@ -43,3 +43,5 @@ next-env.d.ts
 .mcp.json
 
 docs/leads-ac-tattoo.csv
+*storybook.log
+storybook-static
