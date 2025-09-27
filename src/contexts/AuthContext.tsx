@@ -89,134 +89,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
-      console.log('Fetching profile for user:', userId)
+      console.log('👤 Buscando perfil do usuário:', userId)
 
-      // Teste rápido da tabela users com timeout reduzido
-      const testPromise = supabase
-        .from('users')
-        .select('count')
-        .limit(1)
-      
-      const testTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Table test timeout')), 3000)
-      )
-      
-      const { error: testError } = await Promise.race([testPromise, testTimeoutPromise]) as { error: Error | null }
-
-      if (testError) {
-        console.warn('Users table not accessible:', testError.message)
-        console.log('Creating user profile in auth.users instead...')
-        
-        // Se a tabela users não existe, usa apenas os dados do auth
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const basicProfile: UserProfile = {
-            id: user.id,
-            email: user.email || '',
-            role: 'user',
-            currency: 'BRL',
-            company_name: 'Prizely',
-            created_at: user.created_at,
-            updated_at: user.updated_at || user.created_at
-          }
-          console.log('Using basic profile from auth:', basicProfile)
-          setUserProfile(basicProfile)
+      // Usar perfil básico do auth diretamente - sem testes de tabela
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const basicProfile: UserProfile = {
+          id: user.id,
+          email: user.email || '',
+          role: 'user',
+          currency: 'BRL',
+          company_name: 'Prizely',
+          created_at: user.created_at,
+          updated_at: user.updated_at || user.created_at
         }
-        return
-      }
-
-      // Busca o perfil do usuário com timeout reduzido
-      const profilePromise = supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-      
-      const profileTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-      )
-      
-      const { data: profiles, error } = await Promise.race([profilePromise, profileTimeoutPromise]) as { data: UserProfile[] | null, error: Error | null }
-
-      if (error) {
-        console.error(' Error fetching user profile:', error)
-        
-        // Se é erro de token, limpar estado
-        if (isTokenError(error)) {
-          console.warn(' Token error in profile fetch, clearing auth state')
-          clearInvalidTokens()
-          clearAuthState()
-        } else {
-          // Se é outro erro, usar perfil básico do auth
-          console.log(' Falling back to basic profile from auth...')
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            const basicProfile: UserProfile = {
-              id: user.id,
-              email: user.email || '',
-              role: 'user',
-              currency: 'BRL',
-              company_name: 'Prizely',
-              created_at: user.created_at,
-              updated_at: user.updated_at || user.created_at
-            }
-            console.log('Using basic profile from auth:', basicProfile)
-            setUserProfile(basicProfile)
-          }
-        }
-        return
-      }
-
-      // Se encontrou perfil na tabela users, usar ele
-      if (profiles && profiles.length > 0) {
-        console.log(' Profile found in users table:', profiles[0])
-        setUserProfile(profiles[0])
-      } else {
-        // Se não encontrou na tabela users, usar perfil básico do auth
-        console.log(' No profile in users table, using basic profile from auth...')
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const basicProfile: UserProfile = {
-            id: user.id,
-            email: user.email || '',
-            role: 'user',
-            currency: 'BRL',
-            company_name: 'Prizely',
-            created_at: user.created_at,
-            updated_at: user.updated_at || user.created_at
-          }
-          console.log('Using basic profile from auth:', basicProfile)
-          setUserProfile(basicProfile)
-        }
+        console.log('✅ Perfil básico definido:', basicProfile)
+        setUserProfile(basicProfile)
       }
     } catch (error) {
-      console.error(' Unexpected error fetching user profile:', error)
-      
-      if (isTokenError(error)) {
-        console.warn(' Token error in profile fetch, clearing auth state')
-        clearInvalidTokens()
-        clearAuthState()
-      } else {
-        // Fallback para perfil básico
-        console.log(' Fallback to basic profile due to error...')
-        try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            const basicProfile: UserProfile = {
-              id: user.id,
-              email: user.email || '',
-              role: 'user',
-              currency: 'BRL',
-              company_name: 'Prizely',
-              created_at: user.created_at,
-              updated_at: user.updated_at || user.created_at
-            }
-            console.log('Using basic profile from auth:', basicProfile)
-            setUserProfile(basicProfile)
-          }
-        } catch (fallbackError) {
-          console.error(' Even fallback failed:', fallbackError)
-        }
+      console.error('❌ Erro ao buscar perfil do usuário:', error)
+      // Em caso de erro, usar perfil padrão
+      const defaultProfile: UserProfile = {
+        id: userId,
+        email: '',
+        role: 'user',
+        currency: 'BRL',
+        company_name: 'Prizely',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
+      setUserProfile(defaultProfile)
     }
   }, [])
 
