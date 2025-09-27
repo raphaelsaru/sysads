@@ -2,7 +2,6 @@
 
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import LoginForm from './LoginForm'
 import AuthGuard from './AuthGuard'
 

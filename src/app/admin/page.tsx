@@ -8,7 +8,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import MainLayout from '@/components/layout/MainLayout'
 import UserManagement from '@/components/admin/UserManagement'
 import ImpersonationBanner from '@/components/admin/ImpersonationBanner'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,10 +16,8 @@ import { type DateRange } from '@/components/ui/calendar'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import ClienteTable from '@/components/ClienteTable'
 import { useAuth } from '@/contexts/AuthContext'
-import { useAdmin, useEffectiveUser } from '@/contexts/AdminContext'
+import { useAdmin } from '@/contexts/AdminContext'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
-import { supabase } from '@/lib/supabase'
-import { cn } from '@/lib/utils'
 import type { Cliente } from '@/types/crm'
 
 interface UserSummary {
@@ -77,8 +75,8 @@ function AdminPageContent() {
   const { userProfile } = useAuth()
   const { impersonation } = useAdmin()
   const [users, setUsers] = useState<UserSummary[]>([])
-  const [usersLoading, setUsersLoading] = useState(true)
-  const [usersError, setUsersError] = useState<string | null>(null)
+  const [, setUsersLoading] = useState(true)
+  const [, setUsersError] = useState<string | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'dashboard' | 'management' | 'user-detail'>('management')
 
@@ -90,7 +88,7 @@ function AdminPageContent() {
       console.log('🔍 Buscando usuários via API de administração...')
       
       // Obter token de acesso do Supabase
-      const supabase = createClient()
+      const supabase = createSupabaseClient()
       const { data: { session } } = await supabase.auth.getSession()
       
       if (!session?.access_token) {
@@ -285,7 +283,7 @@ function AdminUserDetail({ user, viewMode }: { user: UserSummary; viewMode: 'das
         console.log('🔍 Carregando clientes do usuário via API admin:', user.id)
         
         // Obter token de acesso do Supabase
-        const supabase = createClient()
+        const supabase = createSupabaseClient()
         const { data: { session } } = await supabase.auth.getSession()
         
         if (!session?.access_token) {

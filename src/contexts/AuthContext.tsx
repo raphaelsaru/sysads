@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, 1500)
 
         // Busca sessão simples sem verificações complexas
-        const { data, error } = await supabase.auth.getSession()
+        const { data } = await supabase.auth.getSession()
         
         clearTimeout(timeoutId)
         

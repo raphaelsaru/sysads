@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -99,8 +99,8 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
     }
 
     return [...clientes].sort((a, b) => {
-      let aValue: any
-      let bValue: any
+      let aValue: string | number | Date
+      let bValue: string | number | Date
 
       switch (sortField) {
         case 'createdAt':
@@ -125,11 +125,11 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
 
       if (sortField === 'nome') {
         return sortOrder === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue)
+          ? String(aValue).localeCompare(String(bValue))
+          : String(bValue).localeCompare(String(aValue))
       }
 
-      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue
+      return sortOrder === 'asc' ? Number(aValue) - Number(bValue) : Number(bValue) - Number(aValue)
     })
   }, [clientes, sortField, sortOrder])
 

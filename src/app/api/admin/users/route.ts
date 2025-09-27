@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Não autorizado - token de acesso necessário',
         debug: {
-          cookieError: authError?.message,
+          cookieError: authError instanceof Error ? authError.message : String(authError),
           hasAuthHeader: !!request.headers.get('authorization')
         }
       }, { status: 401 })
