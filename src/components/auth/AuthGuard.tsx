@@ -19,13 +19,13 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const [timeoutReached, setTimeoutReached] = useState(false)
 
   useEffect(() => {
-    // Timeout de 10 segundos para detectar loading infinito
+    // Timeout reduzido para 5 segundos para detectar loading infinito
     const timeout = setTimeout(() => {
       if (loading) {
-        console.warn('Auth loading timeout detected')
+        console.warn('⏰ Auth loading timeout detectado')
         setTimeoutReached(true)
       }
-    }, 10000)
+    }, 5000)
 
     return () => clearTimeout(timeout)
   }, [loading])
@@ -33,27 +33,22 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   useEffect(() => {
     // Se não está carregando e não há usuário, verificar se há erro
     if (!loading && !user) {
-      // Aguardar um pouco para ver se o erro é temporário
+      // Aguardar menos tempo para ver se o erro é temporário
       const checkAuth = setTimeout(() => {
         setAuthError(true)
-      }, 2000)
+      }, 1000)
 
       return () => clearTimeout(checkAuth)
     }
   }, [loading, user])
 
-  // Se está carregando e não atingiu timeout, mostrar loading normal
+  // Se está carregando e não atingiu timeout, mostrar loading mínimo
   if (loading && !timeoutReached) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center space-y-4">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <Loader2 className="h-8 w-8 text-primary animate-spin" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Verificando autenticação</h2>
-            <p className="text-sm text-muted-foreground">Aguarde um momento...</p>
-          </div>
+          <Loader2 className="h-8 w-8 text-primary animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Verificando...</p>
         </div>
       </div>
     )

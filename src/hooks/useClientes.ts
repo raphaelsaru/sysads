@@ -91,6 +91,17 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
     let offset = 0
 
     try {
+      console.log('📊 Carregando estatísticas...')
+      
+      // Verificar se o usuário está autenticado
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        console.warn('⚠️ Usuário não autenticado para estatísticas')
+        setEstatisticas(estatisticasIniciais)
+        return
+      }
+      
       // Pagina manualmente para garantir que todos os registros sejam considerados
       // independentemente da paginação utilizada na tabela.
       while (true) {
@@ -101,6 +112,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
           .range(offset, offset + STATS_PAGE_SIZE - 1)
 
         if (error) {
+          console.error('❌ Erro ao carregar estatísticas:', error)
           throw error
         }
 
@@ -141,6 +153,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
         offset += STATS_PAGE_SIZE
       }
 
+      console.log('✅ Estatísticas carregadas:', { total, vendas, emProcesso, naoVenda })
       setEstatisticas({
         total,
         vendas,
@@ -150,7 +163,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
         valorVendido,
       })
     } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error)
+      console.error('❌ Erro ao carregar estatísticas:', error)
       setEstatisticas(estatisticasIniciais)
     }
   }, [])
@@ -158,6 +171,19 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
   const carregarClientes = useCallback(async () => {
     setLoading(true)
     try {
+      console.log('🔄 Iniciando carregamento de clientes...')
+      
+      // Verificar se o usuário está autenticado
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        console.error('❌ Usuário não autenticado:', authError)
+        setHasMore(false)
+        return
+      }
+      
+      console.log('👤 Usuário autenticado:', user.id)
+      
       const { data: clientesData, error } = await supabase
         .from('clientes')
         .select(
@@ -179,19 +205,30 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
         .range(0, PAGE_SIZE - 1)
 
       if (error) {
-        console.error('Erro ao carregar clientes:', error)
+        console.error('❌ Erro ao carregar clientes:', error)
+        console.error('Detalhes do erro:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
         setHasMore(false)
         return
       }
 
+      console.log('✅ Clientes carregados:', clientesData?.length || 0)
       const transformados = ((clientesData as ClienteSupabaseRow[] | null) ?? []).map(formatarCliente)
 
       setClientes(transformados)
       setHasMore(((clientesData?.length ?? 0) === PAGE_SIZE))
       setPage(1)
-      await carregarEstatisticas()
+      
+      // Carregar estatísticas em paralelo para não bloquear a UI
+      carregarEstatisticas().catch(error => {
+        console.warn('⚠️ Erro ao carregar estatísticas (não crítico):', error)
+      })
     } catch (error) {
-      console.error('Erro ao carregar clientes:', error)
+      console.error('❌ Erro inesperado ao carregar clientes:', error)
     } finally {
       setLoading(false)
     }
@@ -244,6 +281,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
   }, [formatarCliente, hasMore, loadingMais, page])
 
   useEffect(() => {
+    console.log('🚀 Hook useClientes inicializado, carregando clientes...')
     void carregarClientes()
   }, [carregarClientes])
 

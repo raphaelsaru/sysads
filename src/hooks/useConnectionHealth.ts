@@ -24,13 +24,13 @@ export function useConnectionHealth() {
     try {
       console.log('🔍 Verificando saúde da conexão...')
       
-      // Cria cliente com timeout de 5 segundos (mais rápido)
-      const client = createSupabaseClient(5000)
+      // Cria cliente com timeout de 3 segundos (mais rápido)
+      const client = createSupabaseClient(3000)
       
       // Teste simples de conectividade com timeout próprio
       const connectionPromise = client.auth.getUser()
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Connection timeout')), 5000)
+        setTimeout(() => reject(new Error('Connection timeout')), 3000)
       )
       
       const { error } = await Promise.race([connectionPromise, timeoutPromise])
@@ -95,12 +95,12 @@ export function useConnectionHealth() {
     }, 1000)
   }, [checkConnection])
 
-  // Verificação automática a cada 30 segundos se a conexão estiver ruim
+  // Verificação automática a cada 15 segundos se a conexão estiver ruim
   useEffect(() => {
     if (!health.isHealthy && !health.isChecking) {
       const interval = setInterval(() => {
         checkConnection()
-      }, 30000) // 30 segundos
+      }, 15000) // 15 segundos
 
       return () => clearInterval(interval)
     }

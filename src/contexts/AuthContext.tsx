@@ -91,14 +91,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Fetching profile for user:', userId)
 
-      // Primeiro, testa se a tabela users existe com timeout
+      // Teste rápido da tabela users com timeout reduzido
       const testPromise = supabase
         .from('users')
         .select('count')
         .limit(1)
       
       const testTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Table test timeout')), 10000)
+        setTimeout(() => reject(new Error('Table test timeout')), 3000)
       )
       
       const { error: testError } = await Promise.race([testPromise, testTimeoutPromise]) as { error: Error | null }
@@ -125,14 +125,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Busca o perfil do usuário com timeout (sem .single() para evitar erro se não existir)
+      // Busca o perfil do usuário com timeout reduzido
       const profilePromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
       
       const profileTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 12000)
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
       )
       
       const { data: profiles, error } = await Promise.race([profilePromise, profileTimeoutPromise]) as { data: UserProfile[] | null, error: Error | null }
@@ -222,116 +222,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true
-    let timeoutId: NodeJS.Timeout
-    // Fallback de segurança para garantir que o loading nunca fique travado
-    const fallbackTimeoutId = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('🚨 Fallback de segurança ativado - forçando fim do loading')
-        setLoading(false)
-        setShowConnectionFallback(true)
-      }
-    }, 20000) // 20 segundos como último recurso
-
-    // Get initial session com retry e fallback
+    
+    // Carregamento simplificado - sem verificações complexas
     const getInitialSession = async () => {
       try {
-        console.log(' Starting auth session check...')
+        console.log('🚀 Carregamento simplificado iniciado...')
         
-        // Timeout de 15 segundos para evitar espera muito longa
-        timeoutId = setTimeout(() => {
+        // Timeout muito reduzido - apenas 2 segundos
+        const timeoutId = setTimeout(() => {
           if (mounted) {
-            console.warn(' Session fetch timeout - showing connection fallback')
-            setShowConnectionFallback(true)
+            console.log('⏰ Timeout de 2s atingido - liberando UI')
             setLoading(false)
           }
-        }, 15000)
+        }, 2000)
 
-        console.log(' Fetching session from Supabase...')
-        console.log(' Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-        console.log(' Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+        // Busca sessão simples sem verificações complexas
+        const { data, error } = await supabase.auth.getSession()
         
-        // Verificação simples de conectividade (sem usar o hook complexo)
-        try {
-          console.log('🔍 Verificando conectividade básica...')
-          const testPromise = supabase.auth.getUser()
-          const testTimeoutPromise = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Connection test timeout')), 3000)
-          )
-          
-          await Promise.race([testPromise, testTimeoutPromise])
-          console.log('✅ Conectividade básica OK')
-        } catch (error) {
-          console.warn('⚠️ Problema na conectividade, mas continuando...', error)
-          // Continua mesmo com problema de conectividade
-        }
-
-        console.log(' Supabase connection OK, fetching session...')
+        clearTimeout(timeoutId)
         
-        // Promise com timeout individual para getSession (10s para usuários globais)
-        const sessionPromise = supabase.auth.getSession()
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('getSession timeout')), 10000)
-        )
+        console.log('📡 Sessão obtida:', { hasSession: !!data.session, hasUser: !!data.session?.user })
         
-        const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as { data: { session: { user?: User, expires_at?: number } | null }, error: Error | null }
-        
-        console.log(' Session data:', { 
-          hasSession: !!data.session, 
-          hasUser: !!data.session?.user,
-          error: error?.message 
-        })
-
-        // Se há erro de token, limpar estado
-        if (error && isTokenError(error)) {
-          console.warn(' Invalid session token detected:', error.message)
-          clearInvalidTokens()
-          clearAuthState()
-          return
-        }
-
-        if (error) {
-          console.error(' Error fetching auth session:', error)
-          clearAuthState()
-          return
-        }
-
-        const session = data.session
-        
-        // Verificar se a sessão é válida
-        if (session?.user && session.expires_at) {
-          const now = Math.floor(Date.now() / 1000)
-          const expiresAt = session.expires_at
-          console.log(' Session expires at:', new Date(expiresAt * 1000).toISOString())
-          console.log(' Current time:', new Date(now * 1000).toISOString())
-          
-          if (expiresAt < now) {
-            console.warn(' Session expired, clearing auth state')
-            clearInvalidTokens()
-            clearAuthState()
-            return
-          }
-        }
-
         if (mounted) {
-          console.log(' Setting user in context:', session?.user?.id)
+          const session = data.session
+          console.log('👤 Definindo usuário no contexto:', session?.user?.id)
           setUser(session?.user ?? null)
 
           if (session?.user) {
-            console.log("Fetching user profile for:", session.user.id)
-            await fetchUserProfile(session.user.id)
+            console.log("📋 Buscando perfil do usuário:", session.user.id)
+            // Busca perfil em paralelo para não bloquear a UI
+            fetchUserProfile(session.user.id).catch(error => {
+              console.warn('⚠️ Erro ao buscar perfil (não crítico):', error)
+            })
           }
         }
       } catch (error) {
-        console.error(' Unexpected error while getting session:', error)
+        console.error('❌ Erro ao obter sessão:', error)
         if (mounted) {
           clearAuthState()
         }
       } finally {
         if (mounted) {
-          clearTimeout(timeoutId)
-          clearTimeout(fallbackTimeoutId)
           setLoading(false)
-          console.log(' Auth session check completed')
+          console.log('✅ Carregamento simplificado concluído')
         }
       }
     }
@@ -381,8 +314,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false
-      clearTimeout(timeoutId)
-      clearTimeout(fallbackTimeoutId)
       subscription.unsubscribe()
     }
   }, [fetchUserProfile, loading])

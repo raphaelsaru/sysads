@@ -13,24 +13,14 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth()
 
-  // Se está carregando, mostrar loading simples
+  // Se está carregando, mostrar loading mínimo
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <Card className="w-full max-w-md border-border/70 bg-card/70 shadow-soft">
-          <CardHeader className="space-y-2 text-center">
-            <CardTitle className="flex items-center justify-center gap-2 text-lg">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              Preparando seu workspace
-            </CardTitle>
-            <CardDescription>
-              Em instantes você terá acesso ao painel completo.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-2 animate-pulse rounded-full bg-primary/20" />
-          </CardContent>
-        </Card>
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        </div>
       </div>
     )
   }
