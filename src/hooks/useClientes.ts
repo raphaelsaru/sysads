@@ -303,7 +303,12 @@ export function useClientes(
 
       const transformados = ((clientesData as ClienteSupabaseRow[] | null) ?? []).map(formatarCliente)
 
-      setClientes((prev) => [...prev, ...transformados])
+      // Filtrar duplicatas antes de adicionar
+      setClientes((prev) => {
+        const existingIds = new Set(prev.map(c => c.id))
+        const novos = transformados.filter(c => !existingIds.has(c.id))
+        return [...prev, ...novos]
+      })
       setHasMore(((clientesData?.length ?? 0) === PAGE_SIZE))
       setPage((prev) => prev + 1)
     } catch (error) {
@@ -315,6 +320,10 @@ export function useClientes(
 
   useEffect(() => {
     console.log('🚀 Hook useClientes inicializado, carregando clientes...')
+    // Resetar paginação quando targetUserId mudar
+    setPage(0)
+    setClientes([])
+    setHasMore(true)
     void carregarClientes()
   }, [carregarClientes])
 
