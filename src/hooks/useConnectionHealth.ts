@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 
-const supabase = createClient()
+// const supabase = createClient() // Removido - não utilizado
 
 interface ConnectionHealth {
   isHealthy: boolean
