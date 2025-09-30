@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 
-// const supabase = createClient() // Removido - não utilizado
-
 interface ConnectionHealth {
   isHealthy: boolean
   isChecking: boolean
@@ -27,7 +25,7 @@ export function useConnectionHealth() {
       console.log('🔍 Verificando saúde da conexão...')
       
       // Cria cliente com timeout de 3 segundos (mais rápido)
-      const client = createSupabaseClient(3000)
+      const client = createClient()
       
       // Teste simples de conectividade com timeout próprio
       const connectionPromise = client.auth.getUser()
