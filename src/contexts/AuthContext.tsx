@@ -2,9 +2,11 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase, clearSupabaseInstance } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import ConnectionFallback from '@/components/auth/ConnectionFallback'
 import { useConnectionHealth } from '@/hooks/useConnectionHealth'
+
+const supabase = createClient()
 
 export interface UserProfile {
   id: string
@@ -79,9 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem(key)
         }
       })
-      
-      // Limpa a instância do Supabase para forçar recriação
-      clearSupabaseInstance()
     } catch (error) {
       console.warn('Error clearing tokens:', error)
     }

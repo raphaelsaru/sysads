@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createSupabaseClient, clearSupabaseInstance } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
+
+const supabase = createClient()
 
 interface ConnectionHealth {
   isHealthy: boolean
@@ -77,9 +79,6 @@ export function useConnectionHealth() {
 
   const resetConnection = useCallback(() => {
     console.log('🔄 Resetando conexão...')
-    
-    // Limpa instância do Supabase
-    clearSupabaseInstance()
     
     // Reseta estado
     setHealth({

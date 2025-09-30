@@ -1,68 +1,46 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback } from 'react'
-import { useAuth, UserProfile } from '@/contexts/AuthContext'
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
 
-interface ImpersonationState {
-  isImpersonating: boolean
-  originalUser: UserProfile | null
-  impersonatedUser: UserProfile | null
+interface ImpersonatedUser {
+  id: string
+  email: string
+  company_name: string
+  currency: string
 }
 
 interface AdminContextType {
-  impersonation: ImpersonationState
-  startImpersonation: (targetUser: UserProfile) => void
+  impersonatedUserId: string | null
+  impersonatedUser: ImpersonatedUser | null
+  startImpersonation: (user: ImpersonatedUser) => void
   stopImpersonation: () => void
-  isAdmin: boolean
-  canImpersonate: boolean
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined)
 
-export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const { userProfile } = useAuth()
-  const [impersonation, setImpersonation] = useState<ImpersonationState>({
-    isImpersonating: false,
-    originalUser: null,
-    impersonatedUser: null,
-  })
+export function AdminProvider({ children }: { children: ReactNode }) {
+  const [impersonatedUserId, setImpersonatedUserId] = useState<string | null>(null)
+  const [impersonatedUser, setImpersonatedUser] = useState<ImpersonatedUser | null>(null)
 
-  const isAdmin = userProfile?.role === 'admin'
-  const canImpersonate = isAdmin && !impersonation.isImpersonating
-
-  const startImpersonation = useCallback((targetUser: UserProfile) => {
-    if (!isAdmin) {
-      console.warn('Only admins can impersonate users')
-      return
-    }
-
-    console.log(`Admin ${userProfile?.email} starting impersonation of ${targetUser.email}`)
-
-    setImpersonation({
-      isImpersonating: true,
-      originalUser: userProfile,
-      impersonatedUser: targetUser,
-    })
-  }, [isAdmin, userProfile])
+  const startImpersonation = useCallback((user: ImpersonatedUser) => {
+    console.log('🎭 Iniciando impersonação:', user.email)
+    setImpersonatedUserId(user.id)
+    setImpersonatedUser(user)
+  }, [])
 
   const stopImpersonation = useCallback(() => {
-    console.log(`Stopping impersonation, returning to admin ${impersonation.originalUser?.email}`)
-
-    setImpersonation({
-      isImpersonating: false,
-      originalUser: null,
-      impersonatedUser: null,
-    })
-  }, [impersonation.originalUser])
+    console.log('🎭 Parando impersonação')
+    setImpersonatedUserId(null)
+    setImpersonatedUser(null)
+  }, [])
 
   return (
     <AdminContext.Provider
       value={{
-        impersonation,
+        impersonatedUserId,
+        impersonatedUser,
         startImpersonation,
         stopImpersonation,
-        isAdmin,
-        canImpersonate,
       }}
     >
       {children}
@@ -76,12 +54,4 @@ export function useAdmin() {
     throw new Error('useAdmin must be used within an AdminProvider')
   }
   return context
-}
-
-// Hook para obter o usuário efetivo (impersonado ou original)
-export function useEffectiveUser() {
-  const { userProfile } = useAuth()
-  const { impersonation } = useAdmin()
-
-  return impersonation.isImpersonating ? impersonation.impersonatedUser : userProfile
 }

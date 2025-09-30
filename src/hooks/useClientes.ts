@@ -3,13 +3,15 @@
 import { useState, useEffect, useCallback } from 'react'
 
 import { Cliente, NovoCliente } from '@/types/crm'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import {
   FALLBACK_CURRENCY_VALUE,
   formatCurrency,
   parseCurrencyInput,
   type SupportedCurrency,
 } from '@/lib/currency'
+
+const supabase = createClient()
 
 const PAGE_SIZE = 15
 const STATS_PAGE_SIZE = 500
@@ -51,7 +53,10 @@ type ClienteStatsRow = {
   valor_fechado: number | null
 }
 
-export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALUE) {
+export function useClientes(
+  currency: SupportedCurrency = FALLBACK_CURRENCY_VALUE,
+  targetUserId?: string | null
+) {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingMais, setLoadingMais] = useState(false)
@@ -101,6 +106,10 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
         setEstatisticas(estatisticasIniciais)
         return
       }
+
+      // Usar targetUserId se fornecido, senão usar o user.id
+      const effectiveUserId = targetUserId || user.id
+      console.log('👤 Carregando estatísticas para usuário:', effectiveUserId)
       
       // Pagina manualmente para garantir que todos os registros sejam considerados
       // independentemente da paginação utilizada na tabela.
@@ -108,6 +117,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
         const { data, error } = await supabase
           .from('clientes')
           .select('resultado, valor_fechado')
+          .eq('user_id', effectiveUserId)
           .order('id', { ascending: true })
           .range(offset, offset + STATS_PAGE_SIZE - 1)
 
@@ -166,7 +176,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
       console.error('❌ Erro ao carregar estatísticas:', error)
       setEstatisticas(estatisticasIniciais)
     }
-  }, [])
+  }, [targetUserId])
 
   const carregarClientes = useCallback(async () => {
     setLoading(true)
@@ -181,8 +191,10 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
         setHasMore(false)
         return
       }
-      
-      console.log('👤 Usuário autenticado:', user.id)
+
+      // Usar targetUserId se fornecido, senão usar o user.id
+      const effectiveUserId = targetUserId || user.id
+      console.log('👤 Carregando clientes para usuário:', effectiveUserId)
       
       const { data: clientesData, error } = await supabase
         .from('clientes')
@@ -201,6 +213,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
           created_at
         `
         )
+        .eq('user_id', effectiveUserId)
         .order('created_at', { ascending: false })
         .range(0, PAGE_SIZE - 1)
 
@@ -210,8 +223,16 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
           message: error.message,
           details: error.details,
           hint: error.hint,
-          code: error.code
+          code: error.code,
+          effectiveUserId: effectiveUserId,
+          currentUserId: user.id
         })
+        
+        // Se for erro de RLS/permissão, mostrar mensagem mais clara
+        if (error.code === 'PGRST116' || error.message?.includes('row-level security')) {
+          console.error('⚠️ ERRO DE RLS: As políticas RLS não foram configuradas. Execute admin-setup.sql no Supabase!')
+        }
+        
         setHasMore(false)
         return
       }
@@ -232,13 +253,24 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
     } finally {
       setLoading(false)
     }
-  }, [carregarEstatisticas, formatarCliente])
+  }, [carregarEstatisticas, formatarCliente, targetUserId])
 
   const carregarMaisClientes = useCallback(async () => {
     if (loadingMais || !hasMore) return
 
     setLoadingMais(true)
     try {
+      // Verificar se o usuário está autenticado
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        setHasMore(false)
+        return
+      }
+
+      // Usar targetUserId se fornecido, senão usar o user.id
+      const effectiveUserId = targetUserId || user.id
+
       const start = page * PAGE_SIZE
       const end = start + PAGE_SIZE - 1
 
@@ -259,6 +291,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
           created_at
         `
         )
+        .eq('user_id', effectiveUserId)
         .order('created_at', { ascending: false })
         .range(start, end)
 
@@ -278,7 +311,7 @@ export function useClientes(currency: SupportedCurrency = FALLBACK_CURRENCY_VALU
     } finally {
       setLoadingMais(false)
     }
-  }, [formatarCliente, hasMore, loadingMais, page])
+  }, [formatarCliente, hasMore, loadingMais, page, targetUserId])
 
   useEffect(() => {
     console.log('🚀 Hook useClientes inicializado, carregando clientes...')

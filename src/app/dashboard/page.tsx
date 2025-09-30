@@ -23,9 +23,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { type DateRange } from '@/components/ui/calendar'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAdmin } from '@/contexts/AdminContext'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { cn } from '@/lib/utils'
+
+const supabase = createClient()
 
 interface HistoricoDia {
   isoDate: string
@@ -45,7 +48,10 @@ interface PeriodoResumo {
 
 function DashboardContent() {
   const { userProfile } = useAuth()
-  const currency = userProfile?.currency ?? FALLBACK_CURRENCY_VALUE
+  const { impersonatedUserId, impersonatedUser } = useAdmin()
+  
+  // Usar moeda do usuário impersonado se houver, senão usar a do usuário logado
+  const currency = impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date()
@@ -103,9 +109,20 @@ function DashboardContent() {
       const fimISO = format(dateRange.to, 'yyyy-MM-dd')
 
       try {
+        // Verificar se o usuário está autenticado
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        
+        if (authError || !user) {
+          throw new Error('Usuário não autenticado')
+        }
+
+        // Usar impersonatedUserId se houver, senão usar o user.id
+        const effectiveUserId = impersonatedUserId || user.id
+
         const { data, error } = await supabase
           .from('clientes')
           .select('data_contato, resultado, valor_fechado')
+          .eq('user_id', effectiveUserId)
           .gte('data_contato', inicioISO)
           .lte('data_contato', fimISO)
           .order('data_contato', { ascending: true })
@@ -199,7 +216,7 @@ function DashboardContent() {
     }
 
     void carregarHistorico()
-  }, [dateRange])
+  }, [dateRange, impersonatedUserId])
 
   const cards = [
     {
@@ -270,10 +287,13 @@ function DashboardContent() {
           </Badge>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-              Dashboard {userProfile?.company_name || 'Prizely'}
+              Dashboard {impersonatedUser?.company_name || userProfile?.company_name || 'Prizely'}
             </h1>
             <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
-              Acompanhe rapidamente o desempenho das oportunidades e negociações do seu time.
+              {impersonatedUser 
+                ? `Visualizando dados de ${impersonatedUser.company_name}`
+                : 'Acompanhe rapidamente o desempenho das oportunidades e negociações do seu time.'
+              }
             </p>
           </div>
         </div>

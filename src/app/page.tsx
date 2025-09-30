@@ -10,6 +10,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { useClientes } from '@/hooks/useClientes'
 import { useDailyQuote } from '@/hooks/useDailyQuote'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAdmin } from '@/contexts/AdminContext'
 import { Cliente, NovoCliente } from '@/types/crm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -49,8 +50,11 @@ const filtrosIniciais = {
 
 function HomePage() {
   const { userProfile } = useAuth()
+  const { impersonatedUserId, impersonatedUser } = useAdmin()
   const { quote, loading: quoteLoading } = useDailyQuote()
-  const currency = userProfile?.currency ?? FALLBACK_CURRENCY_VALUE
+  
+  // Usar moeda do usuário impersonado se houver, senão usar a do usuário logado
+  const currency = impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE
 
   const {
     clientes,
@@ -61,7 +65,7 @@ function HomePage() {
     excluirCliente,
     hasMore,
     carregarMaisClientes,
-  } = useClientes(currency)
+  } = useClientes(currency, impersonatedUserId)
 
   const [mostrarModal, setMostrarModal] = useState(false)
   const [clienteEditando, setClienteEditando] = useState<Cliente | undefined>(undefined)
@@ -159,10 +163,12 @@ function HomePage() {
             </Badge>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                Olá {userProfile?.company_name || 'Prizely'}!
+                Olá {impersonatedUser?.company_name || userProfile?.company_name || 'Prizely'}!
               </h1>
               <div className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
-                {quoteLoading ? (
+                {impersonatedUser ? (
+                  <p>Visualizando clientes de <strong>{impersonatedUser.company_name}</strong></p>
+                ) : quoteLoading ? (
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Carregando inspiração do dia...</span>

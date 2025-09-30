@@ -44,10 +44,12 @@ export default function Header() {
   }
 
   const companyInitial = userProfile?.company_name?.charAt(0)?.toUpperCase() ?? 'U'
-
+  
+  // Adicionar link Admin apenas se o usuário for admin
   const navItems = [
     { href: '/', label: 'Clientes CRM' },
     { href: '/dashboard', label: 'Dashboard' },
+    ...(userProfile?.role === 'admin' ? [{ href: '/admin', label: 'Admin' }] : []),
   ]
 
   return (

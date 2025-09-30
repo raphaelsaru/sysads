@@ -5,7 +5,9 @@ import { Mail, CheckCircle, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-rea
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
+
+const supabase = createClient()
 
 interface EmailConfirmationProps {
   email: string
