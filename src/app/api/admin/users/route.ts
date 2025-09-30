@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 
 export async function GET() {
@@ -28,7 +28,7 @@ export async function GET() {
       console.log('⚠️ [API Admin] Tentando getUser()...')
       const { data: { user: authUser }, error: userError } = await supabase.auth.getUser()
       console.log('📋 [API Admin] User data:', { hasUser: !!authUser, userError: userError?.message })
-      user = authUser
+      user = authUser || undefined
     }
     
     if (!user) {
