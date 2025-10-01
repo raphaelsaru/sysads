@@ -5,6 +5,7 @@ import { router } from 'expo-router'
 import { ORIGENS, QUALIDADES, RESULTADOS } from '@core/constants/clientes'
 import type { NovoCliente } from '@core/types/crm'
 import { useClientes } from '@hooks/useClientes'
+import { formatCurrencyInput } from '@core/utils/currency'
 import {
   Screen,
   Typography,
@@ -12,6 +13,8 @@ import {
   Button,
   ChipGroup,
   Card,
+  DatePicker,
+  Switch,
   usePrizelyTheme,
 } from '@design-system'
 
@@ -32,6 +35,8 @@ const baseState: NovoCliente = {
 export default function CreateClientScreen() {
   const { criarCliente, criandoCliente } = useClientes()
   const [form, setForm] = useState<NovoCliente>(baseState)
+  const [dataContato, setDataContato] = useState<Date>(new Date())
+  const [orcamentoEnviado, setOrcamentoEnviado] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const theme = usePrizelyTheme()
 
@@ -48,6 +53,11 @@ export default function CreateClientScreen() {
     })
   }
 
+  const handleValorFechadoChange = (text: string) => {
+    const formatted = formatCurrencyInput(text)
+    updateField('valorFechado', formatted)
+  }
+
   const handleSubmit = async () => {
     if (!isValid) {
       const nextErrors: Record<string, string> = {}
@@ -58,7 +68,12 @@ export default function CreateClientScreen() {
     }
 
     try {
-      await criarCliente({ ...form, dataContato: form.dataContato || todayISO() })
+      const dataContatoISO = dataContato.toISOString().slice(0, 10)
+      await criarCliente({
+        ...form,
+        dataContato: dataContatoISO,
+        orcamentoEnviado: orcamentoEnviado ? 'Sim' : 'Não',
+      })
       Alert.alert('Cliente criado', 'O cliente foi adicionado com sucesso.', [
         {
           text: 'OK',
@@ -86,6 +101,10 @@ export default function CreateClientScreen() {
 
         <Card style={{ gap: theme.spacing.lg }}>
           <View style={{ gap: theme.spacing.sm }}>
+            <Field label="Data de contato">
+              <DatePicker value={dataContato} onChange={setDataContato} />
+            </Field>
+
             <Field label="Nome do cliente" error={errors.nome}>
               <TextField
                 placeholder="Nome completo"
@@ -101,14 +120,6 @@ export default function CreateClientScreen() {
                 onChangeText={(value) => updateField('whatsappInstagram', value)}
               />
             </Field>
-
-            <Field label="Data de contato">
-              <TextField
-                placeholder="AAAA-MM-DD"
-                value={form.dataContato}
-                onChangeText={(value) => updateField('dataContato', value)}
-              />
-            </Field>
           </View>
 
           <View style={{ gap: theme.spacing.md }}>
@@ -121,10 +132,10 @@ export default function CreateClientScreen() {
             </Field>
 
             <Field label="Orçamento enviado">
-              <ChipGroup
-                options={[{ label: 'Sim', value: 'Sim' }, { label: 'Não', value: 'Não' }]}
-                value={form.orcamentoEnviado}
-                onChange={(value: typeof form.orcamentoEnviado) => updateField('orcamentoEnviado', value)}
+              <Switch
+                value={orcamentoEnviado}
+                onValueChange={setOrcamentoEnviado}
+                label={orcamentoEnviado ? 'Sim' : 'Não'}
               />
             </Field>
 
@@ -148,10 +159,10 @@ export default function CreateClientScreen() {
           <View style={{ gap: theme.spacing.sm }}>
             <Field label="Valor fechado (opcional)">
               <TextField
-                placeholder="Ex: 1500,00"
+                placeholder="0,00"
                 keyboardType="decimal-pad"
                 value={form.valorFechado ?? ''}
-                onChangeText={(value) => updateField('valorFechado', value)}
+                onChangeText={handleValorFechadoChange}
               />
             </Field>
 
@@ -162,7 +173,11 @@ export default function CreateClientScreen() {
                 onChangeText={(value) => updateField('observacao', value)}
                 multiline
                 numberOfLines={4}
-                style={{ minHeight: 120, textAlignVertical: 'top' }}
+                style={{
+                  minHeight: 120,
+                  textAlignVertical: 'top',
+                  paddingTop: theme.spacing.sm,
+                }}
               />
             </Field>
           </View>

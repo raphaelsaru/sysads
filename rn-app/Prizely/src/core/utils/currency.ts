@@ -34,3 +34,24 @@ export const parseCurrencyInput = (input: string | undefined | null): number | n
 
   return parsed
 }
+
+/**
+ * Formata o valor digitado para o padrão de moeda brasileira (0.000,00)
+ * @param value - Valor digitado pelo usuário
+ * @returns Valor formatado como string
+ */
+export const formatCurrencyInput = (value: string): string => {
+  // Remove tudo que não é número
+  const numbers = value.replace(/\D/g, '')
+
+  if (!numbers) return ''
+
+  // Converte para centavos
+  const amount = Number(numbers) / 100
+
+  // Formata para moeda brasileira
+  return amount.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
