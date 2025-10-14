@@ -189,89 +189,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true
+    let timeoutId: NodeJS.Timeout
     
-    // Carregamento com recuperação de sessão melhorada
+    // Carregamento simplificado e robusto
     const getInitialSession = async () => {
       try {
         console.log('🚀 Iniciando verificação de sessão...')
         
-        // Timeout de 3 segundos (um pouco mais generoso para recuperação)
-        const timeoutId = setTimeout(() => {
-          if (mounted) {
-            console.log('⏰ Timeout de 3s atingido - liberando UI')
+        // Garantir que sempre libere a UI em 2 segundos no máximo
+        timeoutId = setTimeout(() => {
+          if (mounted && loading) {
+            console.warn('⏰ Timeout de 2s - liberando UI forçadamente')
             setLoading(false)
           }
-        }, 3000)
+        }, 2000)
 
-        // Primeiro, verificar se há tokens no storage
-        const hasTokens = checkForStoredTokens()
-        console.log('🔍 Tokens encontrados no storage:', hasTokens)
-
-        // Buscar sessão atual
+        // Buscar sessão atual (simplificado)
         const { data, error } = await supabase.auth.getSession()
         
-        clearTimeout(timeoutId)
+        console.log('📡 Resposta do getSession:', { 
+          hasSession: !!data.session, 
+          hasUser: !!data.session?.user,
+          error: error?.message 
+        })
         
-        if (error) {
-          console.error('❌ Erro ao obter sessão:', error)
-          // Se o erro é de token inválido, limpar e tentar recuperar
-          if (isTokenError(error)) {
-            console.log('🔄 Tentando recuperar sessão...')
-            const { data: { session: recoveredSession } } = await supabase.auth.refreshSession()
-            if (recoveredSession) {
-              console.log('✅ Sessão recuperada com sucesso!')
-              if (mounted) {
-                setUser(recoveredSession.user)
-                fetchUserProfile(recoveredSession.user.id).catch(err => {
-                  console.warn('⚠️ Erro ao buscar perfil (não crítico):', err)
-                })
+        if (mounted) {
+          if (data.session?.user) {
+            // Tem sessão válida
+            console.log('✅ Sessão válida encontrada:', data.session.user.id)
+            setUser(data.session.user)
+            fetchUserProfile(data.session.user.id).catch(err => {
+              console.warn('⚠️ Erro ao buscar perfil:', err)
+            })
+          } else if (error && isTokenError(error)) {
+            // Token inválido, tentar refresh
+            console.log('🔄 Token inválido, tentando refresh...')
+            try {
+              const { data: refreshData } = await supabase.auth.refreshSession()
+              if (refreshData.session?.user && mounted) {
+                console.log('✅ Sessão recuperada via refresh')
+                setUser(refreshData.session.user)
+                fetchUserProfile(refreshData.session.user.id).catch(() => {})
+              } else {
+                console.log('⚠️ Refresh falhou - sem sessão')
+                clearAuthState()
               }
-              return
-            } else {
-              console.log('⚠️ Não foi possível recuperar sessão - limpando estado')
+            } catch (refreshError) {
+              console.error('❌ Erro no refresh:', refreshError)
               clearInvalidTokens()
               clearAuthState()
             }
-          }
-        }
-        
-        console.log('📡 Sessão obtida:', { hasSession: !!data.session, hasUser: !!data.session?.user })
-        
-        if (mounted) {
-          const session = data.session
-          console.log('👤 Definindo usuário no contexto:', session?.user?.id)
-          setUser(session?.user ?? null)
-
-          if (session?.user) {
-            console.log("📋 Buscando perfil do usuário:", session.user.id)
-            // Busca perfil em paralelo para não bloquear a UI
-            fetchUserProfile(session.user.id).catch(error => {
-              console.warn('⚠️ Erro ao buscar perfil (não crítico):', error)
-            })
+          } else {
+            // Sem sessão
+            console.log('ℹ️ Nenhuma sessão encontrada')
+            setUser(null)
+            setUserProfile(null)
           }
         }
       } catch (error) {
-        console.error('❌ Erro ao obter sessão:', error)
+        console.error('❌ Erro crítico ao obter sessão:', error)
         if (mounted) {
-          // Tentar uma última vez recuperar a sessão antes de desistir
-          try {
-            console.log('🔄 Última tentativa de recuperação de sessão...')
-            const { data: { session } } = await supabase.auth.refreshSession()
-            if (session && mounted) {
-              console.log('✅ Sessão recuperada na última tentativa!')
-              setUser(session.user)
-              fetchUserProfile(session.user.id).catch(() => {})
-            } else {
-              clearAuthState()
-            }
-          } catch {
-            clearAuthState()
-          }
+          clearAuthState()
         }
       } finally {
+        clearTimeout(timeoutId)
         if (mounted) {
           setLoading(false)
-          console.log('✅ Carregamento concluído')
+          console.log('✅ Verificação de sessão concluída')
         }
       }
     }

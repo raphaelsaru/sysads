@@ -1,11 +1,16 @@
-# Correção de Problema de Reautenticação
+# Correção de Problema de Reautenticação e Refresh
 
-## 🔍 Problema Identificado
+## 🔍 Problemas Identificados
 
-Quando o usuário fechava o navegador e voltava ao site, a aplicação não carregava corretamente, apresentando:
+### Problema 1: Fechou e Reabriu o Navegador
 - Erro 403 (Forbidden) no console
 - Aviso sobre preload de CSS não utilizado
 - Falha na recuperação da sessão do usuário
+
+### Problema 2: Ao Dar Refresh (F5)
+- Página não carregava, ficava em branco
+- Loading infinito
+- Site travado
 
 ## 🎯 Causas Raiz
 
@@ -24,7 +29,15 @@ Quando o usuário fechava o navegador e voltava ao site, a aplicação não carr
    - A aplicação não verificava se havia tokens salvos antes de desistir
    - Sem mecanismo de fallback para recuperar sessões válidas
 
+4. **AuthContext travando em estado de loading** (PROBLEMA CRÍTICO - Versão 2)
+   - O `useEffect` do AuthContext podia ficar preso em `loading = true`
+   - Timeout muito alto (3 segundos) combinado com lógica complexa
+   - Múltiplas tentativas de recuperação podiam criar loops
+   - Não havia garantia de que `setLoading(false)` sempre executaria
+
 ## ✅ Correções Implementadas
+
+### VERSÃO 1 - Correções Iniciais
 
 ### 1. **Melhorias no `supabase-browser.ts`**
 
@@ -182,9 +195,118 @@ Todas as mudanças mantêm os padrões de segurança:
 
 ---
 
+### VERSÃO 2 - Correções Críticas (Problema de Refresh)
+
+#### 4. **AuthContext Simplificado e Robusto**
+
+Problema: O código anterior podia travar em `loading = true`, causando tela branca infinita.
+
+**Solução Aplicada:**
+
+```typescript
+useEffect(() => {
+  let mounted = true
+  let timeoutId: NodeJS.Timeout
+  
+  const getInitialSession = async () => {
+    try {
+      // Timeout de segurança - SEMPRE libera UI em 2s
+      timeoutId = setTimeout(() => {
+        if (mounted && loading) {
+          console.warn('⏰ Timeout de 2s - liberando UI forçadamente')
+          setLoading(false)
+        }
+      }, 2000)
+
+      // Buscar sessão (simplificado)
+      const { data, error } = await supabase.auth.getSession()
+      
+      if (mounted) {
+        if (data.session?.user) {
+          // Tem sessão válida
+          setUser(data.session.user)
+          fetchUserProfile(data.session.user.id)
+        } else if (error && isTokenError(error)) {
+          // Tentar refresh UMA vez
+          const { data: refreshData } = await supabase.auth.refreshSession()
+          if (refreshData.session?.user) {
+            setUser(refreshData.session.user)
+          } else {
+            clearAuthState()
+          }
+        } else {
+          // Sem sessão
+          setUser(null)
+        }
+      }
+    } finally {
+      clearTimeout(timeoutId)
+      if (mounted) {
+        setLoading(false) // SEMPRE executa
+      }
+    }
+  }
+}, [])
+```
+
+**Benefícios:**
+- ✅ **Timeout reduzido**: 2 segundos (antes 3s)
+- ✅ **Garantia de finalização**: `finally` sempre executa `setLoading(false)`
+- ✅ **Sem loops**: Uma única tentativa de refresh
+- ✅ **Fluxo linear**: Sem ramificações complexas
+- ✅ **Logs detalhados**: Fácil debug
+
+#### 5. **Middleware Ultra-Simplificado**
+
+Problema: O middleware anterior tentava fazer refresh, causando delays e loops.
+
+**Solução Aplicada:**
+
+```typescript
+export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+  
+  // Recursos estáticos e API: passa direto
+  const isStaticOrApi = 
+    pathname.startsWith('/_next') || 
+    pathname.startsWith('/api') ||
+    pathname.match(/\.(ico|png|jpg|jpeg|gif|svg|webp|css|js)$/)
+  
+  if (isStaticOrApi) {
+    return NextResponse.next()
+  }
+  
+  // Caminhos públicos: passa direto
+  const publicPaths = ['/', '/auth/login', '/auth/callback']
+  if (publicPaths.some(path => pathname.startsWith(path))) {
+    return NextResponse.next()
+  }
+  
+  // Rotas protegidas: verifica auth (SEM refresh)
+  const { data } = await supabase.auth.getUser()
+  if (!data.user) {
+    return NextResponse.redirect(new URL('/auth/login', request.url))
+  }
+  
+  return NextResponse.next()
+}
+```
+
+**Benefícios:**
+- ✅ **Sem refresh no middleware**: Deixa para o client-side
+- ✅ **Caminho público (/)** liberado sem verificação
+- ✅ **Performance**: Menos checks, mais rápido
+- ✅ **Simplicidade**: Fácil de entender e manter
+
+---
+
 **Data da correção:** 14 de outubro de 2025  
+**Versão 1:** Persistência e recuperação de sessão  
+**Versão 2:** Correção crítica de loading infinito e refresh
+
 **Arquivos modificados:**
-- `src/lib/supabase-browser.ts`
-- `src/contexts/AuthContext.tsx`
-- `middleware.ts`
+- `src/lib/supabase-browser.ts` (v1)
+- `src/contexts/AuthContext.tsx` (v1 + v2)
+- `middleware.ts` (v1 + v2)
+- `src/hooks/useSessionPersistence.ts` (v1)
 
