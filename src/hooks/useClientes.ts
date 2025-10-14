@@ -180,6 +180,13 @@ export function useClientes(
 
   const carregarClientes = useCallback(async () => {
     setLoading(true)
+    
+    // Timeout de segurança - SEMPRE libera loading após 5 segundos
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Timeout de 5s ao carregar clientes - liberando UI')
+      setLoading(false)
+    }, 5000)
+    
     try {
       console.log('🔄 Iniciando carregamento de clientes...')
       
@@ -189,6 +196,9 @@ export function useClientes(
       if (authError || !user) {
         console.error('❌ Usuário não autenticado:', authError)
         setHasMore(false)
+        setClientes([]) // Garantir que lista fica vazia
+        clearTimeout(timeoutId)
+        setLoading(false)
         return
       }
 
@@ -234,6 +244,9 @@ export function useClientes(
         }
         
         setHasMore(false)
+        setClientes([]) // Garantir que lista fica vazia em caso de erro
+        clearTimeout(timeoutId)
+        setLoading(false)
         return
       }
 
@@ -250,8 +263,12 @@ export function useClientes(
       })
     } catch (error) {
       console.error('❌ Erro inesperado ao carregar clientes:', error)
+      setClientes([])
+      setHasMore(false)
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
+      console.log('✅ Carregamento de clientes finalizado')
     }
   }, [carregarEstatisticas, formatarCliente, targetUserId])
 
