@@ -30,7 +30,10 @@ export default function ClientesScreen() {
     ({ item }: { item: (typeof clientes)[number] }) => {
       const valor = item.valorFechadoNumero ? formatCurrency(item.valorFechadoNumero) : '—'
       return (
-        <Card style={{ padding: theme.spacing.lg, marginBottom: theme.spacing.md }}>
+        <Card
+          style={{ padding: theme.spacing.lg, marginBottom: theme.spacing.md }}
+          onPress={() => router.push(`/(protected)/edit-client?id=${item.id}`)}
+        >
           <View
             style={{
               flexDirection: 'row',

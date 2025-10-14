@@ -37,21 +37,24 @@ export const parseCurrencyInput = (input: string | undefined | null): number | n
 
 /**
  * Formata o valor digitado para o padrão de moeda brasileira (0.000,00)
- * @param value - Valor digitado pelo usuário
+ * O valor digitado é tratado como reais inteiros (sem centavos)
+ * Exemplo: digitar "500" resulta em "500,00" (quinhentos reais)
+ * @param value - Valor apenas com números (sem formatação)
  * @returns Valor formatado como string
  */
 export const formatCurrencyInput = (value: string): string => {
-  // Remove tudo que não é número
-  const numbers = value.replace(/\D/g, '')
+  // Value já deve vir apenas com números
+  if (!value || value === '0') return ''
 
-  if (!numbers) return ''
+  // Converte para número inteiro
+  const amount = Number(value)
 
-  // Converte para centavos
-  const amount = Number(numbers) / 100
+  // Verifica se é um número válido
+  if (Number.isNaN(amount) || amount === 0) return ''
 
-  // Formata para moeda brasileira
+  // Formata para moeda brasileira com centavos zerados
   return amount.toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }) + ',00'
 }

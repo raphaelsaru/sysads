@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Alert, ScrollView, View } from 'react-native'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 
 import { ORIGENS, QUALIDADES, RESULTADOS } from '@core/constants/clientes'
 import type { NovoCliente } from '@core/types/crm'
@@ -18,28 +18,56 @@ import {
   usePrizelyTheme,
 } from '@design-system'
 
-const todayISO = () => new Date().toISOString().slice(0, 10)
+export default function EditClientScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const { clientes, atualizarCliente, atualizandoCliente } = useClientes()
+  const theme = usePrizelyTheme()
 
-const baseState: NovoCliente = {
-  dataContato: todayISO(),
-  nome: '',
-  whatsappInstagram: '',
-  origem: ORIGENS[0],
-  orcamentoEnviado: 'Não',
-  resultado: RESULTADOS[1],
-  qualidadeContato: QUALIDADES[1],
-  valorFechado: '',
-  observacao: '',
-}
+  const cliente = clientes.find((c) => c.id === id)
 
-export default function CreateClientScreen() {
-  const { criarCliente, criandoCliente } = useClientes()
-  const [form, setForm] = useState<NovoCliente>(baseState)
+  const [form, setForm] = useState<NovoCliente>({
+    dataContato: '',
+    nome: '',
+    whatsappInstagram: '',
+    origem: ORIGENS[0],
+    orcamentoEnviado: 'Não',
+    resultado: RESULTADOS[1],
+    qualidadeContato: QUALIDADES[1],
+    valorFechado: '',
+    observacao: '',
+  })
+
   const [dataContato, setDataContato] = useState<Date>(new Date())
   const [orcamentoEnviado, setOrcamentoEnviado] = useState(false)
   const [valorFechadoNumeros, setValorFechadoNumeros] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const theme = usePrizelyTheme()
+
+  useEffect(() => {
+    if (cliente) {
+      setForm({
+        dataContato: cliente.dataContato,
+        nome: cliente.nome,
+        whatsappInstagram: cliente.whatsappInstagram,
+        origem: cliente.origem,
+        orcamentoEnviado: cliente.orcamentoEnviado,
+        resultado: cliente.resultado,
+        qualidadeContato: cliente.qualidadeContato,
+        valorFechado: cliente.valorFechadoNumero?.toString() ?? '',
+        observacao: cliente.observacao ?? '',
+      })
+
+      if (cliente.dataContato) {
+        const [year, month, day] = cliente.dataContato.split('-').map(Number)
+        setDataContato(new Date(year, month - 1, day))
+      }
+
+      setOrcamentoEnviado(cliente.orcamentoEnviado === 'Sim')
+
+      if (cliente.valorFechadoNumero) {
+        setValorFechadoNumeros(cliente.valorFechadoNumero.toString())
+      }
+    }
+  }, [cliente])
 
   const isValid = useMemo(() => {
     return form.nome.trim().length > 0 && form.whatsappInstagram.trim().length > 0
@@ -55,17 +83,11 @@ export default function CreateClientScreen() {
   }
 
   const handleValorFechadoChange = (text: string) => {
-    // Apenas aceitar números
     const numbers = text.replace(/\D/g, '')
-
-    // Atualizar estado com apenas números
     setValorFechadoNumeros(numbers)
-
-    // Armazenar no form para envio
     updateField('valorFechado', numbers)
   }
 
-  // Computar valor formatado para exibição
   const valorFechadoFormatado = useMemo(() => {
     if (!valorFechadoNumeros) return ''
     return formatCurrencyInput(valorFechadoNumeros)
@@ -80,6 +102,11 @@ export default function CreateClientScreen() {
       return
     }
 
+    if (!id) {
+      Alert.alert('Erro', 'Cliente não encontrado')
+      return
+    }
+
     try {
       const dataContatoISO = dataContato.toISOString().slice(0, 10)
       const payload = {
@@ -88,21 +115,32 @@ export default function CreateClientScreen() {
         orcamentoEnviado: orcamentoEnviado ? 'Sim' : 'Não',
       }
 
-      console.log('📤 Enviando cliente:', JSON.stringify(payload, null, 2))
+      await atualizarCliente({ id, payload })
 
-      await criarCliente(payload)
-
-      Alert.alert('Cliente criado', 'O cliente foi adicionado com sucesso.', [
+      Alert.alert('Cliente atualizado', 'As alterações foram salvas com sucesso.', [
         {
           text: 'OK',
           onPress: () => router.back(),
         },
       ])
     } catch (error) {
-      console.error('❌ Erro ao criar cliente:', error)
-      const message = error instanceof Error ? error.message : 'Erro inesperado ao criar cliente.'
+      console.error('❌ Erro ao atualizar cliente:', error)
+      const message = error instanceof Error ? error.message : 'Erro inesperado ao atualizar cliente.'
       Alert.alert('Não foi possível salvar', message)
     }
+  }
+
+  if (!cliente) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: theme.spacing.xl }}>
+          <Typography variant="titleMd">Cliente não encontrado</Typography>
+          <Button onPress={() => router.back()} style={{ marginTop: theme.spacing.lg }}>
+            Voltar
+          </Button>
+        </View>
+      </Screen>
+    )
   }
 
   return (
@@ -111,13 +149,6 @@ export default function CreateClientScreen() {
         contentContainerStyle={{ padding: theme.spacing.xl, gap: theme.spacing.lg }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={{ gap: theme.spacing.sm }}>
-          <Typography variant="titleMd">Adicionar cliente</Typography>
-          <Typography variant="body" tone="muted">
-            Preencha as informações essenciais para acompanhar o relacionamento.
-          </Typography>
-        </View>
-
         <Card style={{ gap: theme.spacing.lg }}>
           <View style={{ gap: theme.spacing.sm }}>
             <Field label="Data de contato">
@@ -206,8 +237,8 @@ export default function CreateClientScreen() {
             </Field>
           </View>
 
-          <Button onPress={handleSubmit} loading={criandoCliente} disabled={!isValid} fullWidth>
-            Salvar cliente
+          <Button onPress={handleSubmit} loading={atualizandoCliente} disabled={!isValid} fullWidth>
+            Salvar alterações
           </Button>
         </Card>
       </ScrollView>
@@ -215,15 +246,7 @@ export default function CreateClientScreen() {
   )
 }
 
-const Field = ({
-  label,
-  children,
-  error,
-}: {
-  label: string
-  children: React.ReactNode
-  error?: string
-}) => (
+const Field = ({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) => (
   <View style={{ gap: 6 }}>
     <Typography variant="bodyBold">{label}</Typography>
     {children}

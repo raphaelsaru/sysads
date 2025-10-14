@@ -23,7 +23,18 @@ export function useSessionPersistence({
       const { data: { session }, error } = await supabase.auth.getSession()
 
       if (error || !session) {
-        console.warn('No valid session found')
+        console.warn('⚠️ Nenhuma sessão válida encontrada')
+        // Tentar uma última vez recuperar a sessão
+        console.log('🔄 Tentando recuperar sessão...')
+        const { data: { session: recoveredSession } } = await supabase.auth.refreshSession()
+        
+        if (recoveredSession) {
+          console.log('✅ Sessão recuperada com sucesso!')
+          onSessionRefreshed?.()
+          return true
+        }
+        
+        onSessionExpired?.()
         return false
       }
 
@@ -33,20 +44,21 @@ export function useSessionPersistence({
 
       // Se a sessão expira em menos tempo que o threshold, tentar renovar
       if (expiresAt - now < thresholdSeconds) {
-        console.log('Session expiring soon, attempting refresh...')
+        console.log('⏰ Sessão expirando em breve, tentando renovar...')
 
         const { error: refreshError } = await supabase.auth.refreshSession()
 
         if (refreshError) {
-          console.error('Session refresh failed:', refreshError.message)
+          console.error('❌ Falha ao renovar sessão:', refreshError.message)
 
           // Se já expirou, chamar callback
           if (expiresAt < now) {
+            console.log('⚠️ Sessão expirada')
             onSessionExpired?.()
             return false
           }
         } else {
-          console.log('Session refreshed successfully')
+          console.log('✅ Sessão renovada com sucesso!')
           onSessionRefreshed?.()
           return true
         }
@@ -54,7 +66,7 @@ export function useSessionPersistence({
 
       return true
     } catch (error) {
-      console.error('Error checking session:', error)
+      console.error('❌ Erro ao verificar sessão:', error)
       return false
     }
   }, [refreshThreshold, onSessionExpired, onSessionRefreshed])

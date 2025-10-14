@@ -56,6 +56,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUserProfile(null)
   }
 
+  // Função para verificar se há tokens armazenados
+  const checkForStoredTokens = (): boolean => {
+    try {
+      if (typeof window === 'undefined') return false
+      
+      // Verificar localStorage
+      const keys = Object.keys(localStorage)
+      const hasSupabaseKeys = keys.some(key => 
+        key.includes('supabase') && key.includes('auth-token')
+      )
+      
+      if (hasSupabaseKeys) {
+        return true
+      }
+      
+      // Verificar cookies
+      const cookies = document.cookie.split(';')
+      const hasSupabaseCookies = cookies.some(cookie => 
+        cookie.trim().includes('supabase') && cookie.trim().includes('auth-token')
+      )
+      
+      return hasSupabaseCookies
+    } catch (error) {
+      console.warn('Erro ao verificar tokens armazenados:', error)
+      return false
+    }
+  }
+
   // Função para verificar se o erro é relacionado a token inválido
   const isTokenError = (error: unknown): boolean => {
     if (!error) return false
@@ -162,23 +190,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
     
-    // Carregamento simplificado - sem verificações complexas
+    // Carregamento com recuperação de sessão melhorada
     const getInitialSession = async () => {
       try {
-        console.log('🚀 Carregamento simplificado iniciado...')
+        console.log('🚀 Iniciando verificação de sessão...')
         
-        // Timeout muito reduzido - apenas 1.5 segundos
+        // Timeout de 3 segundos (um pouco mais generoso para recuperação)
         const timeoutId = setTimeout(() => {
           if (mounted) {
-            console.log('⏰ Timeout de 1.5s atingido - liberando UI')
+            console.log('⏰ Timeout de 3s atingido - liberando UI')
             setLoading(false)
           }
-        }, 1500)
+        }, 3000)
 
-        // Busca sessão simples sem verificações complexas
-        const { data } = await supabase.auth.getSession()
+        // Primeiro, verificar se há tokens no storage
+        const hasTokens = checkForStoredTokens()
+        console.log('🔍 Tokens encontrados no storage:', hasTokens)
+
+        // Buscar sessão atual
+        const { data, error } = await supabase.auth.getSession()
         
         clearTimeout(timeoutId)
+        
+        if (error) {
+          console.error('❌ Erro ao obter sessão:', error)
+          // Se o erro é de token inválido, limpar e tentar recuperar
+          if (isTokenError(error)) {
+            console.log('🔄 Tentando recuperar sessão...')
+            const { data: { session: recoveredSession } } = await supabase.auth.refreshSession()
+            if (recoveredSession) {
+              console.log('✅ Sessão recuperada com sucesso!')
+              if (mounted) {
+                setUser(recoveredSession.user)
+                fetchUserProfile(recoveredSession.user.id).catch(err => {
+                  console.warn('⚠️ Erro ao buscar perfil (não crítico):', err)
+                })
+              }
+              return
+            } else {
+              console.log('⚠️ Não foi possível recuperar sessão - limpando estado')
+              clearInvalidTokens()
+              clearAuthState()
+            }
+          }
+        }
         
         console.log('📡 Sessão obtida:', { hasSession: !!data.session, hasUser: !!data.session?.user })
         
@@ -198,12 +253,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error('❌ Erro ao obter sessão:', error)
         if (mounted) {
-          clearAuthState()
+          // Tentar uma última vez recuperar a sessão antes de desistir
+          try {
+            console.log('🔄 Última tentativa de recuperação de sessão...')
+            const { data: { session } } = await supabase.auth.refreshSession()
+            if (session && mounted) {
+              console.log('✅ Sessão recuperada na última tentativa!')
+              setUser(session.user)
+              fetchUserProfile(session.user.id).catch(() => {})
+            } else {
+              clearAuthState()
+            }
+          } catch {
+            clearAuthState()
+          }
         }
       } finally {
         if (mounted) {
           setLoading(false)
-          console.log('✅ Carregamento simplificado concluído')
+          console.log('✅ Carregamento concluído')
         }
       }
     }

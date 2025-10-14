@@ -28,6 +28,13 @@ export default function ProtectedLayout() {
           presentation: 'modal',
         }}
       />
+      <Stack.Screen
+        name="edit-client"
+        options={{
+          title: 'Editar cliente',
+          presentation: 'modal',
+        }}
+      />
     </Stack>
   )
 }

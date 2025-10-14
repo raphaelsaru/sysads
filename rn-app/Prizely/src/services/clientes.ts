@@ -56,9 +56,21 @@ export const clientesService = {
 
   async criar(payload: NovoCliente): Promise<Cliente> {
     const supabase = getSupabaseClient()
+
+    // Obter usuário autenticado
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      throw new Error('Usuário não autenticado')
+    }
+
     const { data, error } = await supabase
       .from('clientes')
       .insert({
+        user_id: user.id,
         data_contato: payload.dataContato,
         nome: payload.nome,
         whatsapp_instagram: payload.whatsappInstagram,
