@@ -23,7 +23,7 @@ interface AuthContextType {
   userProfile: UserProfile | null
   loading: boolean
   showConnectionFallback: boolean
-  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: Error | null }>
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signUp: (email: string, password: string, companyName: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>
@@ -50,256 +50,98 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [connectionHealth.isHealthy, showConnectionFallback])
 
-  // Função para limpar estado de autenticação
-  const clearAuthState = () => {
-    setUser(null)
-    setUserProfile(null)
-  }
-
-  // Função para verificar se há tokens armazenados
-  const checkForStoredTokens = (): boolean => {
+  const fetchUserProfile = useCallback(async (supabaseUser: User) => {
     try {
-      if (typeof window === 'undefined') return false
-      
-      // Verificar localStorage
-      const keys = Object.keys(localStorage)
-      const hasSupabaseKeys = keys.some(key => 
-        key.includes('supabase') && key.includes('auth-token')
-      )
-      
-      if (hasSupabaseKeys) {
-        return true
-      }
-      
-      // Verificar cookies
-      const cookies = document.cookie.split(';')
-      const hasSupabaseCookies = cookies.some(cookie => 
-        cookie.trim().includes('supabase') && cookie.trim().includes('auth-token')
-      )
-      
-      return hasSupabaseCookies
-    } catch (error) {
-      console.warn('Erro ao verificar tokens armazenados:', error)
-      return false
-    }
-  }
+      console.log('👤 Buscando perfil do usuário:', supabaseUser.id)
 
-  // Função para verificar se o erro é relacionado a token inválido
-  const isTokenError = (error: unknown): boolean => {
-    if (!error) return false
-    
-    const message = (error as { message?: string; status?: number }).message?.toLowerCase() || ''
-    return (
-      message.includes('refresh token') ||
-      message.includes('invalid token') ||
-      message.includes('jwt') ||
-      message.includes('session') ||
-      (error as { status?: number }).status === 401 ||
-      (error as { status?: number }).status === 403
-    )
-  }
-
-  // Função para limpar tokens inválidos do localStorage
-  const clearInvalidTokens = () => {
-    try {
-      // Remove tokens do Supabase do localStorage
-      const keys = Object.keys(localStorage)
-      keys.forEach(key => {
-        if (key.includes('supabase') || key.includes('auth')) {
-          localStorage.removeItem(key)
-        }
-      })
-    } catch (error) {
-      console.warn('Error clearing tokens:', error)
-    }
-  }
-
-  const fetchUserProfile = useCallback(async (userId: string) => {
-    try {
-      console.log('👤 Buscando perfil do usuário:', userId)
-
-      // Primeiro, obter dados básicos do auth (sempre funciona)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        console.warn('⚠️ Usuário não encontrado no auth')
-        return
-      }
-
-      // Verificar se é admin via user_metadata
-      const isAdmin = user.user_metadata?.role === 'admin'
+      const isAdmin = supabaseUser.user_metadata?.role === 'admin'
       
       const basicProfile: UserProfile = {
-        id: user.id,
-        email: user.email || '',
+        id: supabaseUser.id,
+        email: supabaseUser.email || '',
         role: isAdmin ? 'admin' : 'user',
         currency: 'BRL',
-        company_name: user.user_metadata?.company_name || 'Empresa',
-        created_at: user.created_at,
-        updated_at: user.updated_at || user.created_at
+        company_name: supabaseUser.user_metadata?.company_name || 'Empresa',
+        created_at: supabaseUser.created_at,
+        updated_at: supabaseUser.updated_at || supabaseUser.created_at
       }
-      console.log('✅ Perfil básico definido a partir do auth:', basicProfile)
+      
       setUserProfile(basicProfile)
 
-      // Tentar buscar perfil da tabela users em background (sem bloquear)
-      setTimeout(async () => {
-        try {
-          console.log('🔄 Tentando buscar perfil da tabela users em background...')
-          
-          const { data: userProfileData, error: profileError } = await supabase
-            .from('users')
-            .select('id, email, company_name, role, currency, created_at, updated_at')
-            .eq('id', userId)
-            .single()
+      // Tentar buscar perfil completo da tabela users
+      const { data: userProfileData, error: profileError } = await supabase
+        .from('users')
+        .select('id, email, company_name, role, currency, created_at, updated_at')
+        .eq('id', supabaseUser.id)
+        .single()
 
-          if (!profileError && userProfileData) {
-            const fullProfile: UserProfile = {
-              id: userProfileData.id,
-              email: userProfileData.email,
-              role: userProfileData.role || 'user',
-              currency: userProfileData.currency || 'BRL',
-              company_name: userProfileData.company_name || 'Empresa',
-              created_at: userProfileData.created_at,
-              updated_at: userProfileData.updated_at || userProfileData.created_at
-            }
-            console.log('✅ Perfil completo obtido da tabela users:', fullProfile)
-            setUserProfile(fullProfile)
-          } else {
-            console.warn('⚠️ Perfil não encontrado na tabela users:', profileError)
-          }
-        } catch (bgError) {
-          console.warn('⚠️ Erro ao buscar perfil em background:', bgError)
+      if (!profileError && userProfileData) {
+        const fullProfile: UserProfile = {
+          id: userProfileData.id,
+          email: userProfileData.email,
+          role: userProfileData.role || 'user',
+          currency: userProfileData.currency || 'BRL',
+          company_name: userProfileData.company_name || 'Empresa',
+          created_at: userProfileData.created_at,
+          updated_at: userProfileData.updated_at || userProfileData.created_at
         }
-      }, 100) // Muito rápido para não bloquear
+        setUserProfile(fullProfile)
+      }
       
     } catch (error) {
       console.error('❌ Erro ao buscar perfil do usuário:', error)
-      // Em caso de erro, usar perfil padrão
-      const defaultProfile: UserProfile = {
-        id: userId,
-        email: '',
-        role: 'user',
-        currency: 'BRL',
-        company_name: 'Empresa',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-      setUserProfile(defaultProfile)
     }
   }, [])
 
   useEffect(() => {
     let mounted = true
-    let timeoutId: NodeJS.Timeout
     
-    // Carregamento simplificado e robusto
     const getInitialSession = async () => {
       try {
-        console.log('🚀 Iniciando verificação de sessão...')
+        console.log('🚀 Verificando sessão...')
         
-        // Garantir que sempre libere a UI em 2 segundos no máximo
-        timeoutId = setTimeout(() => {
-          if (mounted && loading) {
-            console.warn('⏰ Timeout de 2s - liberando UI forçadamente')
-            setLoading(false)
-          }
-        }, 2000)
-
-        // Buscar sessão atual (simplificado)
-        const { data, error } = await supabase.auth.getSession()
-        
-        console.log('📡 Resposta do getSession:', { 
-          hasSession: !!data.session, 
-          hasUser: !!data.session?.user,
-          error: error?.message 
-        })
+        const { data } = await supabase.auth.getSession()
         
         if (mounted) {
           if (data.session?.user) {
-            // Tem sessão válida
-            console.log('✅ Sessão válida encontrada:', data.session.user.id)
+            console.log('✅ Sessão encontrada')
             setUser(data.session.user)
-            fetchUserProfile(data.session.user.id).catch(err => {
-              console.warn('⚠️ Erro ao buscar perfil:', err)
-            })
-          } else if (error && isTokenError(error)) {
-            // Token inválido, tentar refresh
-            console.log('🔄 Token inválido, tentando refresh...')
-            try {
-              const { data: refreshData } = await supabase.auth.refreshSession()
-              if (refreshData.session?.user && mounted) {
-                console.log('✅ Sessão recuperada via refresh')
-                setUser(refreshData.session.user)
-                fetchUserProfile(refreshData.session.user.id).catch(() => {})
-              } else {
-                console.log('⚠️ Refresh falhou - sem sessão')
-                clearAuthState()
-              }
-            } catch (refreshError) {
-              console.error('❌ Erro no refresh:', refreshError)
-              clearInvalidTokens()
-              clearAuthState()
-            }
+            await fetchUserProfile(data.session.user)
           } else {
-            // Sem sessão
             console.log('ℹ️ Nenhuma sessão encontrada')
             setUser(null)
             setUserProfile(null)
           }
+          setLoading(false)
         }
       } catch (error) {
-        console.error('❌ Erro crítico ao obter sessão:', error)
+        console.error('❌ Erro ao obter sessão:', error)
         if (mounted) {
-          clearAuthState()
-        }
-      } finally {
-        clearTimeout(timeoutId)
-        if (mounted) {
+          setUser(null)
+          setUserProfile(null)
           setLoading(false)
-          console.log('✅ Verificação de sessão concluída')
         }
       }
     }
 
     getInitialSession()
 
-    // Listen for auth changes com tratamento de erro melhorado
+    // Listener para mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
 
-        try {
-          // Se é um evento de erro ou token inválido, limpar estado
-          if (event === 'TOKEN_REFRESHED' && !session) {
-            console.warn('Token refresh failed - clearing auth state')
-            clearInvalidTokens()
-            clearAuthState()
-            return
-          }
+        console.log('Auth event:', event)
+        
+        setUser(session?.user ?? null)
 
-          // Se é um evento de sign out, limpar estado
-          if (event === 'SIGNED_OUT') {
-            clearAuthState()
-            return
-          }
-
-          setUser(session?.user ?? null)
-
-          if (session?.user) {
-            await fetchUserProfile(session.user.id)
-          } else {
-            setUserProfile(null)
-          }
-        } catch (error) {
-          console.error('Unexpected error during auth state change:', error)
-          if (mounted && isTokenError(error)) {
-            clearInvalidTokens()
-            clearAuthState()
-          }
-        } finally {
-          if (mounted) {
-            setLoading(false)
-          }
+        if (session?.user) {
+          await fetchUserProfile(session.user)
+        } else {
+          setUserProfile(null)
         }
+        
+        setLoading(false)
       }
     )
 
@@ -307,37 +149,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [fetchUserProfile, loading])
+  }, [fetchUserProfile])
 
-  const signIn = async (email: string, password: string, rememberMe: boolean = false) => {
+  const signIn = async (email: string, password: string) => {
     try {
-      console.log('🔐 Fazendo login com rememberMe:', rememberMe)
+      console.log('🔐 Fazendo login...')
       
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
       
-      if (error && isTokenError(error)) {
-        clearInvalidTokens()
-        clearAuthState()
-      }
-      
-      // Se o login foi bem-sucedido e rememberMe está marcado, salvar preferência
-      if (!error && rememberMe) {
-        console.log('💾 Salvando preferência de lembrar-me')
-        localStorage.setItem('prizely_remember_me', 'true')
-        localStorage.setItem('prizely_user_email', email)
-      } else if (!error && !rememberMe) {
-        // Se não marcou lembrar-me, limpar preferências salvas
-        console.log('🗑️ Limpando preferências de lembrar-me')
-        localStorage.removeItem('prizely_remember_me')
-        localStorage.removeItem('prizely_user_email')
-      }
-      
       return { error: error ? new Error(error.message) : null }
     } catch (error) {
-      console.error('Sign in error:', error)
+      console.error('Erro no login:', error)
       return { error: error instanceof Error ? error : new Error('Erro inesperado no login') }
     }
   }
@@ -363,25 +188,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      console.log('🚪 Fazendo logout e limpando preferências')
-      clearInvalidTokens()
+      console.log('🚪 Fazendo logout...')
       await supabase.auth.signOut()
-      clearAuthState()
-      
-      // Limpar preferências de lembrar-me ao fazer logout manual
-      localStorage.removeItem('prizely_remember_me')
-      localStorage.removeItem('prizely_user_email')
+      setUser(null)
+      setUserProfile(null)
     } catch (error) {
-      console.error('Sign out error:', error)
-      // Mesmo com erro, limpar estado local
-      clearAuthState()
-      localStorage.removeItem('prizely_remember_me')
-      localStorage.removeItem('prizely_user_email')
+      console.error('Erro no logout:', error)
+      setUser(null)
+      setUserProfile(null)
     }
   }
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
-    if (!user) return { error: new Error('No user logged in') }
+    if (!user) return { error: new Error('Nenhum usuário logado') }
 
     try {
       const { error } = await supabase
@@ -389,19 +208,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .update(updates)
         .eq('id', user.id)
 
-      if (error && isTokenError(error)) {
-        clearInvalidTokens()
-        clearAuthState()
-        return { error: new Error('Sessão expirada. Faça login novamente.') }
-      }
-
       if (!error) {
         setUserProfile(prev => prev ? { ...prev, ...updates } : null)
       }
 
       return { error: error ? new Error(error.message) : null }
     } catch (error) {
-      console.error('Update profile error:', error)
+      console.error('Erro ao atualizar perfil:', error)
       return { error: error instanceof Error ? error : new Error('Erro inesperado ao atualizar perfil') }
     }
   }
