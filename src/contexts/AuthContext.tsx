@@ -106,13 +106,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (data.session?.user) {
             console.log('✅ Sessão encontrada')
             setUser(data.session.user)
-            await fetchUserProfile(data.session.user)
+            setLoading(false)
+            void fetchUserProfile(data.session.user)
           } else {
             console.log('ℹ️ Nenhuma sessão encontrada')
             setUser(null)
             setUserProfile(null)
+            setLoading(false)
           }
-          setLoading(false)
         }
       } catch (error) {
         console.error('❌ Erro ao obter sessão:', error)
@@ -136,12 +137,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null)
 
         if (session?.user) {
-          await fetchUserProfile(session.user)
+          setLoading(false)
+          void fetchUserProfile(session.user)
         } else {
           setUserProfile(null)
+          setLoading(false)
         }
-        
-        setLoading(false)
       }
     )
 
