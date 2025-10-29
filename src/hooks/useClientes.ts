@@ -43,6 +43,7 @@ type ClienteSupabaseRow = {
   orcamento_enviado: boolean
   resultado: Cliente['resultado']
   qualidade_contato: Cliente['qualidadeContato']
+  nao_respondeu: boolean
   valor_fechado: number | null
   observacao: string | null
   created_at: string
@@ -77,6 +78,7 @@ export function useClientes(
         orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
         resultado: cliente.resultado,
         qualidadeContato: cliente.qualidade_contato,
+        naoRespondeu: cliente.nao_respondeu || false,
         valorFechadoNumero,
         valorFechado: valorFechadoNumero !== null ? formatCurrency(valorFechadoNumero, currency) : '',
         observacao: cliente.observacao ?? undefined,
@@ -218,6 +220,7 @@ export function useClientes(
           orcamento_enviado,
           resultado,
           qualidade_contato,
+          nao_respondeu,
           valor_fechado,
           observacao,
           created_at
@@ -303,6 +306,7 @@ export function useClientes(
           orcamento_enviado,
           resultado,
           qualidade_contato,
+          nao_respondeu,
           valor_fechado,
           observacao,
           created_at
@@ -368,6 +372,7 @@ export function useClientes(
           orcamento_enviado: novoCliente.orcamentoEnviado === 'Sim',
           resultado: novoCliente.resultado,
           qualidade_contato: novoCliente.qualidadeContato,
+          nao_respondeu: novoCliente.naoRespondeu || false,
           valor_fechado: valorFechadoNumero,
           observacao: novoCliente.observacao || null,
         })
@@ -422,6 +427,7 @@ export function useClientes(
         orcamento_enviado?: boolean
         resultado?: Cliente['resultado']
         qualidade_contato?: Cliente['qualidadeContato']
+        nao_respondeu?: boolean
         valor_fechado?: number | null
         observacao?: string | null
       }
@@ -434,6 +440,7 @@ export function useClientes(
       if (dadosAtualizados.orcamentoEnviado !== undefined) updateData.orcamento_enviado = dadosAtualizados.orcamentoEnviado === 'Sim'
       if (dadosAtualizados.resultado) updateData.resultado = dadosAtualizados.resultado
       if (dadosAtualizados.qualidadeContato) updateData.qualidade_contato = dadosAtualizados.qualidadeContato
+      if (dadosAtualizados.naoRespondeu !== undefined) updateData.nao_respondeu = dadosAtualizados.naoRespondeu
       if (dadosAtualizados.valorFechado !== undefined) {
         updateData.valor_fechado = parseCurrencyInput(dadosAtualizados.valorFechado)
       }

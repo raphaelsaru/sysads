@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
+import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUp, ArrowDown, UserX } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -342,7 +342,17 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
               {clientesOrdenados.map((cliente) => (
                 <TableRow key={cliente.id ?? cliente.nome}>
                   <TableCell className="font-medium">{formatDateBR(cliente.dataContato)}</TableCell>
-                  <TableCell className="font-semibold text-foreground">{cliente.nome}</TableCell>
+                  <TableCell className="font-semibold text-foreground">
+                    <div className="flex items-center gap-2">
+                      {cliente.naoRespondeu && (
+                        <UserX 
+                          className="h-4 w-4 text-destructive flex-shrink-0" 
+                          title="Cliente não respondeu"
+                        />
+                      )}
+                      <span>{cliente.nome}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <span className="text-sm font-medium text-primary">
                       {cliente.whatsappInstagram}

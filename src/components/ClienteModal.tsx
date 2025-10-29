@@ -51,6 +51,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
       orcamentoEnviado: 'Não',
       resultado: 'Orçamento em Processo',
       qualidadeContato: 'Regular',
+      naoRespondeu: false,
       valorFechado: '',
       observacao: '',
     }),
@@ -74,6 +75,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
         orcamentoEnviado: cliente.orcamentoEnviado,
         resultado: cliente.resultado,
         qualidadeContato: cliente.qualidadeContato,
+        naoRespondeu: cliente.naoRespondeu || false,
         valorFechado: cliente.valorFechado || '',
         observacao: cliente.observacao || '',
       })
@@ -100,7 +102,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
 
   const handleChange = (
     field: keyof NovoCliente,
-    value: string
+    value: string | boolean
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -277,6 +279,24 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Cliente não respondeu</Label>
+              <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Marcar como não responsivo</p>
+                  <p className="text-xs text-muted-foreground">
+                    Marque quando o cliente não respondeu às suas mensagens.
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.naoRespondeu || false}
+                  onCheckedChange={(checked) =>
+                    handleChange('naoRespondeu', checked)
+                  }
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

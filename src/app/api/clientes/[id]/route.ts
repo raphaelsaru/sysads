@@ -41,6 +41,7 @@ export async function GET(
       orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
       resultado: cliente.resultado as Cliente['resultado'],
       qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
+      naoRespondeu: cliente.nao_respondeu || false,
       valorFechado: cliente.valor_fechado?.toString(),
       observacao: cliente.observacao,
     };
@@ -72,7 +73,7 @@ export async function PUT(
     }
 
     // Prepare update data
-    const updateData: Record<string, string | number | boolean> = {};
+    const updateData: Record<string, string | number | boolean | null> = {};
     if (dadosAtualizados.dataContato) updateData.data_contato = dadosAtualizados.dataContato;
     if (dadosAtualizados.nome) updateData.nome = dadosAtualizados.nome;
     if (dadosAtualizados.whatsappInstagram) updateData.whatsapp_instagram = dadosAtualizados.whatsappInstagram;
@@ -80,6 +81,7 @@ export async function PUT(
     if (dadosAtualizados.orcamentoEnviado) updateData.orcamento_enviado = dadosAtualizados.orcamentoEnviado === 'Sim';
     if (dadosAtualizados.resultado) updateData.resultado = dadosAtualizados.resultado;
     if (dadosAtualizados.qualidadeContato) updateData.qualidade_contato = dadosAtualizados.qualidadeContato;
+    if (dadosAtualizados.naoRespondeu !== undefined) updateData.nao_respondeu = dadosAtualizados.naoRespondeu;
     if (dadosAtualizados.valorFechado) updateData.valor_fechado = parseFloat(dadosAtualizados.valorFechado);
     if (dadosAtualizados.observacao !== undefined) updateData.observacao = dadosAtualizados.observacao;
 
@@ -108,6 +110,7 @@ export async function PUT(
       orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
       resultado: cliente.resultado as Cliente['resultado'],
       qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
+      naoRespondeu: cliente.nao_respondeu || false,
       valorFechado: cliente.valor_fechado?.toString(),
       observacao: cliente.observacao,
     };

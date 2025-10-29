@@ -11,6 +11,7 @@ const baseSelect = `
   orcamento_enviado,
   resultado,
   qualidade_contato,
+  nao_respondeu,
   valor_fechado,
   observacao,
   created_at
@@ -32,6 +33,7 @@ const mapCliente = (row: Record<string, any>): Cliente => {
     orcamentoEnviado: row.orcamento_enviado ? 'Sim' : 'Não',
     resultado: row.resultado,
     qualidadeContato: row.qualidade_contato,
+    naoRespondeu: row.nao_respondeu || false,
     valorFechado: valorFechado !== null ? String(valorFechado) : undefined,
     valorFechadoNumero: valorFechado,
     observacao: row.observacao ?? undefined,
@@ -78,6 +80,7 @@ export const clientesService = {
         orcamento_enviado: payload.orcamentoEnviado === 'Sim',
         resultado: payload.resultado,
         qualidade_contato: payload.qualidadeContato,
+        nao_respondeu: payload.naoRespondeu || false,
         valor_fechado: parseCurrencyInput(payload.valorFechado),
         observacao: payload.observacao ?? null,
       })
@@ -106,6 +109,7 @@ export const clientesService = {
     if (payload.orcamentoEnviado) updateData.orcamento_enviado = payload.orcamentoEnviado === 'Sim'
     if (payload.resultado) updateData.resultado = payload.resultado
     if (payload.qualidadeContato) updateData.qualidade_contato = payload.qualidadeContato
+    if (payload.naoRespondeu !== undefined) updateData.nao_respondeu = payload.naoRespondeu
     if (payload.valorFechado !== undefined) {
       updateData.valor_fechado = parseCurrencyInput(payload.valorFechado)
     }
