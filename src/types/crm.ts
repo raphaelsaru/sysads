@@ -7,6 +7,7 @@ export interface Cliente {
   orcamentoEnviado: 'Sim' | 'Não';
   resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda';
   qualidadeContato: 'Bom' | 'Regular' | 'Ruim';
+  naoRespondeu?: boolean;
   valorFechado?: string;
   valorFechadoNumero?: number | null;
   observacao?: string;
@@ -21,6 +22,7 @@ export interface NovoCliente {
   orcamentoEnviado: Cliente['orcamentoEnviado'];
   resultado: Cliente['resultado'];
   qualidadeContato: Cliente['qualidadeContato'];
+  naoRespondeu?: boolean;
   valorFechado?: string;
   observacao?: string;
 }

@@ -25,6 +25,7 @@ export async function GET() {
         orcamento_enviado,
         resultado,
         qualidade_contato,
+        nao_respondeu,
         valor_fechado,
         observacao,
         created_at,
@@ -50,6 +51,7 @@ export async function GET() {
       orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
       resultado: cliente.resultado as Cliente['resultado'],
       qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
+      naoRespondeu: cliente.nao_respondeu || false,
       valorFechado: cliente.valor_fechado?.toString(),
       observacao: cliente.observacao,
     }));
@@ -88,6 +90,7 @@ export async function POST(request: NextRequest) {
         orcamento_enviado: novoCliente.orcamentoEnviado === 'Sim',
         resultado: novoCliente.resultado,
         qualidade_contato: novoCliente.qualidadeContato,
+        nao_respondeu: novoCliente.naoRespondeu || false,
         valor_fechado: novoCliente.valorFechado ? parseFloat(novoCliente.valorFechado) : null,
         observacao: novoCliente.observacao || null
       })
@@ -112,6 +115,7 @@ export async function POST(request: NextRequest) {
       orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
       resultado: cliente.resultado as Cliente['resultado'],
       qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
+      naoRespondeu: cliente.nao_respondeu || false,
       valorFechado: cliente.valor_fechado?.toString(),
       observacao: cliente.observacao,
     };

@@ -33,6 +33,7 @@ export default function EditClientScreen() {
     orcamentoEnviado: 'Não',
     resultado: RESULTADOS[1],
     qualidadeContato: QUALIDADES[1],
+    naoRespondeu: false,
     valorFechado: '',
     observacao: '',
   })
@@ -52,6 +53,7 @@ export default function EditClientScreen() {
         orcamentoEnviado: cliente.orcamentoEnviado,
         resultado: cliente.resultado,
         qualidadeContato: cliente.qualidadeContato,
+        naoRespondeu: cliente.naoRespondeu || false,
         valorFechado: cliente.valorFechadoNumero?.toString() ?? '',
         observacao: cliente.observacao ?? '',
       })
@@ -203,6 +205,18 @@ export default function EditClientScreen() {
                 value={form.qualidadeContato}
                 onChange={(value: typeof form.qualidadeContato) => updateField('qualidadeContato', value)}
               />
+            </Field>
+
+            <Field label="Cliente não respondeu">
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: theme.spacing.sm }}>
+                <Typography variant="body" style={{ flex: 1 }}>
+                  Marcar como não responsivo
+                </Typography>
+                <Switch
+                  value={form.naoRespondeu || false}
+                  onValueChange={(value) => updateField('naoRespondeu', value)}
+                />
+              </View>
             </Field>
           </View>
 
