@@ -347,7 +347,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                       {cliente.naoRespondeu && (
                         <UserX 
                           className="h-4 w-4 text-destructive flex-shrink-0" 
-                          title="Cliente não respondeu"
+                          aria-label="Cliente não respondeu"
                         />
                       )}
                       <span>{cliente.nome}</span>
