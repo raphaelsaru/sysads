@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUp, ArrowDown, UserX } from 'lucide-react'
+import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUp, ArrowDown, UserX, DollarSign, CheckCircle2, Bell } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -220,8 +220,32 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
             <CardHeader className="pb-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <CardTitle className="text-base font-semibold text-foreground">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
                     {cliente.nome}
+                    {cliente.naoRespondeu && (
+                      <UserX 
+                        className="h-4 w-4 text-destructive flex-shrink-0" 
+                        title="Cliente não respondeu"
+                      />
+                    )}
+                    {cliente.pagouSinal && (
+                      <DollarSign 
+                        className="h-4 w-4 text-primary flex-shrink-0" 
+                        title="Sinal pago"
+                      />
+                    )}
+                    {cliente.vendaPaga && (
+                      <CheckCircle2 
+                        className="h-4 w-4 text-success flex-shrink-0" 
+                        title="Venda paga"
+                      />
+                    )}
+                    {cliente.dataLembreteChamada && (
+                      <Bell 
+                        className="h-4 w-4 text-warning flex-shrink-0" 
+                        title={`Lembrete: ${formatDateBR(cliente.dataLembreteChamada)}`}
+                      />
+                    )}
                   </CardTitle>
                   <CardDescription className="mt-1 flex items-center gap-1 text-xs">
                     <CalendarDays className="h-3.5 w-3.5" />
@@ -348,6 +372,24 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                         <UserX 
                           className="h-4 w-4 text-destructive flex-shrink-0" 
                           aria-label="Cliente não respondeu"
+                        />
+                      )}
+                      {cliente.pagouSinal && (
+                        <DollarSign 
+                          className="h-4 w-4 text-primary flex-shrink-0" 
+                          title="Sinal pago"
+                        />
+                      )}
+                      {cliente.vendaPaga && (
+                        <CheckCircle2 
+                          className="h-4 w-4 text-success flex-shrink-0" 
+                          title="Venda paga"
+                        />
+                      )}
+                      {cliente.dataLembreteChamada && (
+                        <Bell 
+                          className="h-4 w-4 text-warning flex-shrink-0" 
+                          title={`Lembrete: ${formatDateBR(cliente.dataLembreteChamada)}`}
                         />
                       )}
                       <span>{cliente.nome}</span>

@@ -12,6 +12,15 @@ export interface Cliente {
   valorFechadoNumero?: number | null;
   observacao?: string;
   createdAt?: string;
+  // Campos de pagamento
+  pagouSinal?: boolean;
+  valorSinal?: string;
+  valorSinalNumero?: number | null;
+  dataPagamentoSinal?: string;
+  vendaPaga?: boolean;
+  dataPagamentoVenda?: string;
+  // Campo de notificação
+  dataLembreteChamada?: string;
 }
 
 export interface NovoCliente {
@@ -25,4 +34,12 @@ export interface NovoCliente {
   naoRespondeu?: boolean;
   valorFechado?: string;
   observacao?: string;
+  // Campos de pagamento
+  pagouSinal?: boolean;
+  valorSinal?: string;
+  dataPagamentoSinal?: string;
+  vendaPaga?: boolean;
+  dataPagamentoVenda?: string;
+  // Campo de notificação
+  dataLembreteChamada?: string;
 }

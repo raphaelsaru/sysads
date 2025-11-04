@@ -45,3 +45,9 @@ next-env.d.ts
 docs/leads-ac-tattoo.csv
 *storybook.log
 storybook-static
+
+# Supabase backups (mantém estrutura, ignora arquivos)
+supabase/backups/*.sql
+supabase/backups/*.dump
+supabase/backups/backup.log
+!supabase/backups/README.md

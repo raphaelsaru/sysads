@@ -29,7 +29,13 @@ export async function GET() {
         valor_fechado,
         observacao,
         created_at,
-        updated_at
+        updated_at,
+        pagou_sinal,
+        valor_sinal,
+        data_pagamento_sinal,
+        venda_paga,
+        data_pagamento_venda,
+        data_lembrete_chamada
       `)
       .order('data_contato', { ascending: false });
 
@@ -54,6 +60,12 @@ export async function GET() {
       naoRespondeu: cliente.nao_respondeu || false,
       valorFechado: cliente.valor_fechado?.toString(),
       observacao: cliente.observacao,
+      pagouSinal: cliente.pagou_sinal || false,
+      valorSinal: cliente.valor_sinal?.toString(),
+      dataPagamentoSinal: cliente.data_pagamento_sinal,
+      vendaPaga: cliente.venda_paga || false,
+      dataPagamentoVenda: cliente.data_pagamento_venda,
+      dataLembreteChamada: cliente.data_lembrete_chamada,
     }));
 
     return NextResponse.json(transformedClientes);
@@ -92,7 +104,13 @@ export async function POST(request: NextRequest) {
         qualidade_contato: novoCliente.qualidadeContato,
         nao_respondeu: novoCliente.naoRespondeu || false,
         valor_fechado: novoCliente.valorFechado ? parseFloat(novoCliente.valorFechado) : null,
-        observacao: novoCliente.observacao || null
+        observacao: novoCliente.observacao || null,
+        pagou_sinal: novoCliente.pagouSinal || false,
+        valor_sinal: novoCliente.valorSinal ? parseFloat(novoCliente.valorSinal) : null,
+        data_pagamento_sinal: novoCliente.dataPagamentoSinal || null,
+        venda_paga: novoCliente.vendaPaga || false,
+        data_pagamento_venda: novoCliente.dataPagamentoVenda || null,
+        data_lembrete_chamada: novoCliente.dataLembreteChamada || null,
       })
       .select()
       .single();
@@ -118,6 +136,12 @@ export async function POST(request: NextRequest) {
       naoRespondeu: cliente.nao_respondeu || false,
       valorFechado: cliente.valor_fechado?.toString(),
       observacao: cliente.observacao,
+      pagouSinal: cliente.pagou_sinal || false,
+      valorSinal: cliente.valor_sinal?.toString(),
+      dataPagamentoSinal: cliente.data_pagamento_sinal,
+      vendaPaga: cliente.venda_paga || false,
+      dataPagamentoVenda: cliente.data_pagamento_venda,
+      dataLembreteChamada: cliente.data_lembrete_chamada,
     };
 
     return NextResponse.json(transformedCliente, { status: 201 });

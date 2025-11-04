@@ -47,6 +47,14 @@ type ClienteSupabaseRow = {
   valor_fechado: number | null
   observacao: string | null
   created_at: string
+  // Campos de pagamento
+  pagou_sinal: boolean
+  valor_sinal: number | null
+  data_pagamento_sinal: string | null
+  venda_paga: boolean
+  data_pagamento_venda: string | null
+  // Campo de notificação
+  data_lembrete_chamada: string | null
 }
 
 type ClienteStatsRow = {
@@ -68,6 +76,7 @@ export function useClientes(
   const formatarCliente = useCallback(
     (cliente: ClienteSupabaseRow): Cliente => {
       const valorFechadoNumero = cliente.valor_fechado ?? null
+      const valorSinalNumero = cliente.valor_sinal ?? null
 
       return {
         id: cliente.id,
@@ -83,6 +92,15 @@ export function useClientes(
         valorFechado: valorFechadoNumero !== null ? formatCurrency(valorFechadoNumero, currency) : '',
         observacao: cliente.observacao ?? undefined,
         createdAt: cliente.created_at,
+        // Campos de pagamento
+        pagouSinal: cliente.pagou_sinal || false,
+        valorSinalNumero,
+        valorSinal: valorSinalNumero !== null ? formatCurrency(valorSinalNumero, currency) : '',
+        dataPagamentoSinal: cliente.data_pagamento_sinal ?? undefined,
+        vendaPaga: cliente.venda_paga || false,
+        dataPagamentoVenda: cliente.data_pagamento_venda ?? undefined,
+        // Campo de notificação
+        dataLembreteChamada: cliente.data_lembrete_chamada ?? undefined,
       }
     },
     [currency]
@@ -223,7 +241,13 @@ export function useClientes(
           nao_respondeu,
           valor_fechado,
           observacao,
-          created_at
+          created_at,
+          pagou_sinal,
+          valor_sinal,
+          data_pagamento_sinal,
+          venda_paga,
+          data_pagamento_venda,
+          data_lembrete_chamada
         `
         )
         .eq('user_id', effectiveUserId)
@@ -309,7 +333,13 @@ export function useClientes(
           nao_respondeu,
           valor_fechado,
           observacao,
-          created_at
+          created_at,
+          pagou_sinal,
+          valor_sinal,
+          data_pagamento_sinal,
+          venda_paga,
+          data_pagamento_venda,
+          data_lembrete_chamada
         `
         )
         .eq('user_id', effectiveUserId)
@@ -360,6 +390,7 @@ export function useClientes(
       }
 
       const valorFechadoNumero = parseCurrencyInput(novoCliente.valorFechado ?? null)
+      const valorSinalNumero = parseCurrencyInput(novoCliente.valorSinal ?? null)
 
       const { data: cliente, error } = await supabase
         .from('clientes')
@@ -375,6 +406,12 @@ export function useClientes(
           nao_respondeu: novoCliente.naoRespondeu || false,
           valor_fechado: valorFechadoNumero,
           observacao: novoCliente.observacao || null,
+          pagou_sinal: novoCliente.pagouSinal || false,
+          valor_sinal: valorSinalNumero,
+          data_pagamento_sinal: novoCliente.dataPagamentoSinal || null,
+          venda_paga: novoCliente.vendaPaga || false,
+          data_pagamento_venda: novoCliente.dataPagamentoVenda || null,
+          data_lembrete_chamada: novoCliente.dataLembreteChamada || null,
         })
         .select()
         .single()
@@ -430,6 +467,12 @@ export function useClientes(
         nao_respondeu?: boolean
         valor_fechado?: number | null
         observacao?: string | null
+        pagou_sinal?: boolean
+        valor_sinal?: number | null
+        data_pagamento_sinal?: string | null
+        venda_paga?: boolean
+        data_pagamento_venda?: string | null
+        data_lembrete_chamada?: string | null
       }
 
       const updateData: ClienteUpdatePayload = {}
@@ -445,6 +488,16 @@ export function useClientes(
         updateData.valor_fechado = parseCurrencyInput(dadosAtualizados.valorFechado)
       }
       if (dadosAtualizados.observacao !== undefined) updateData.observacao = dadosAtualizados.observacao || null
+      // Novos campos de pagamento
+      if (dadosAtualizados.pagouSinal !== undefined) updateData.pagou_sinal = dadosAtualizados.pagouSinal
+      if (dadosAtualizados.valorSinal !== undefined) {
+        updateData.valor_sinal = parseCurrencyInput(dadosAtualizados.valorSinal)
+      }
+      if (dadosAtualizados.dataPagamentoSinal !== undefined) updateData.data_pagamento_sinal = dadosAtualizados.dataPagamentoSinal || null
+      if (dadosAtualizados.vendaPaga !== undefined) updateData.venda_paga = dadosAtualizados.vendaPaga
+      if (dadosAtualizados.dataPagamentoVenda !== undefined) updateData.data_pagamento_venda = dadosAtualizados.dataPagamentoVenda || null
+      // Campo de notificação
+      if (dadosAtualizados.dataLembreteChamada !== undefined) updateData.data_lembrete_chamada = dadosAtualizados.dataLembreteChamada || null
 
       const { data: cliente, error } = await supabase
         .from('clientes')

@@ -7,6 +7,7 @@ import { Moon, Sun } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
+import NotificationsBell from '@/components/NotificationsBell'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,6 +89,7 @@ export default function Header() {
 
           {/* Botões de ação - lado direito */}
           <div className="flex items-center gap-2 sm:gap-3">
+            <NotificationsBell />
             <Button
               variant="outline"
               size="icon"

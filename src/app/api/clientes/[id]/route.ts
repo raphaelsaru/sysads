@@ -44,6 +44,12 @@ export async function GET(
       naoRespondeu: cliente.nao_respondeu || false,
       valorFechado: cliente.valor_fechado?.toString(),
       observacao: cliente.observacao,
+      pagouSinal: cliente.pagou_sinal || false,
+      valorSinal: cliente.valor_sinal?.toString(),
+      dataPagamentoSinal: cliente.data_pagamento_sinal,
+      vendaPaga: cliente.venda_paga || false,
+      dataPagamentoVenda: cliente.data_pagamento_venda,
+      dataLembreteChamada: cliente.data_lembrete_chamada,
     };
 
     return NextResponse.json(transformedCliente);
@@ -84,6 +90,14 @@ export async function PUT(
     if (dadosAtualizados.naoRespondeu !== undefined) updateData.nao_respondeu = dadosAtualizados.naoRespondeu;
     if (dadosAtualizados.valorFechado) updateData.valor_fechado = parseFloat(dadosAtualizados.valorFechado);
     if (dadosAtualizados.observacao !== undefined) updateData.observacao = dadosAtualizados.observacao;
+    // Novos campos de pagamento
+    if (dadosAtualizados.pagouSinal !== undefined) updateData.pagou_sinal = dadosAtualizados.pagouSinal;
+    if (dadosAtualizados.valorSinal) updateData.valor_sinal = parseFloat(dadosAtualizados.valorSinal);
+    if (dadosAtualizados.dataPagamentoSinal !== undefined) updateData.data_pagamento_sinal = dadosAtualizados.dataPagamentoSinal;
+    if (dadosAtualizados.vendaPaga !== undefined) updateData.venda_paga = dadosAtualizados.vendaPaga;
+    if (dadosAtualizados.dataPagamentoVenda !== undefined) updateData.data_pagamento_venda = dadosAtualizados.dataPagamentoVenda;
+    // Campo de notificação
+    if (dadosAtualizados.dataLembreteChamada !== undefined) updateData.data_lembrete_chamada = dadosAtualizados.dataLembreteChamada;
 
     // Update cliente - RLS will automatically filter by user_id
     const { data: cliente, error } = await supabase
@@ -113,6 +127,12 @@ export async function PUT(
       naoRespondeu: cliente.nao_respondeu || false,
       valorFechado: cliente.valor_fechado?.toString(),
       observacao: cliente.observacao,
+      pagouSinal: cliente.pagou_sinal || false,
+      valorSinal: cliente.valor_sinal?.toString(),
+      dataPagamentoSinal: cliente.data_pagamento_sinal,
+      vendaPaga: cliente.venda_paga || false,
+      dataPagamentoVenda: cliente.data_pagamento_venda,
+      dataLembreteChamada: cliente.data_lembrete_chamada,
     };
 
     return NextResponse.json(transformedCliente);

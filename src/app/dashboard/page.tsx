@@ -3,7 +3,7 @@
 import 'react-day-picker/dist/style.css'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Users, ShoppingBag, TrendingUp, CircleDollarSign, Loader2, RefreshCcw } from 'lucide-react'
+import { Users, ShoppingBag, TrendingUp, CircleDollarSign, Loader2, RefreshCcw, DollarSign, CheckCircle2, Bell } from 'lucide-react'
 import { eachDayOfInterval, endOfMonth, format, isValid, parseISO, startOfMonth } from 'date-fns'
 import {
   ResponsiveContainer,
@@ -44,6 +44,9 @@ interface PeriodoResumo {
   naoVenda: number
   valorEmProcesso: number
   valorVendido: number
+  vendasComSinal: number
+  vendasPagas: number
+  leadsComLembrete: number
 }
 
 function DashboardContent() {
@@ -68,6 +71,9 @@ function DashboardContent() {
     naoVenda: 0,
     valorEmProcesso: 0,
     valorVendido: 0,
+    vendasComSinal: 0,
+    vendasPagas: 0,
+    leadsComLembrete: 0,
   })
   const [historicoLoading, setHistoricoLoading] = useState(true)
   const [historicoError, setHistoricoError] = useState<string | null>(null)
@@ -96,6 +102,9 @@ function DashboardContent() {
           naoVenda: 0,
           valorEmProcesso: 0,
           valorVendido: 0,
+          vendasComSinal: 0,
+          vendasPagas: 0,
+          leadsComLembrete: 0,
         })
         setHistoricoLoading(false)
         setHistoricoError(null)
@@ -121,7 +130,7 @@ function DashboardContent() {
 
         const { data, error } = await supabase
           .from('clientes')
-          .select('data_contato, resultado, valor_fechado')
+          .select('data_contato, resultado, valor_fechado, pagou_sinal, venda_paga, data_lembrete_chamada')
           .eq('user_id', effectiveUserId)
           .gte('data_contato', inicioISO)
           .lte('data_contato', fimISO)
@@ -142,6 +151,9 @@ function DashboardContent() {
         let totalNaoVenda = 0
         let totalValorVendido = 0
         let totalValorEmProcesso = 0
+        let totalVendasComSinal = 0
+        let totalVendasPagas = 0
+        let totalLeadsComLembrete = 0
 
         for (const item of registros) {
           const dataContatoRaw = item.data_contato as string | null
@@ -166,6 +178,9 @@ function DashboardContent() {
               totalVendas += 1
               totalValorVendido += valorFechado
               valorPorDia.set(chave, (valorPorDia.get(chave) ?? 0) + valorFechado)
+              // Contar vendas com sinal e vendas pagas
+              if (item.pagou_sinal) totalVendasComSinal += 1
+              if (item.venda_paga) totalVendasPagas += 1
               break
             case 'Orçamento em Processo':
               totalEmProcesso += 1
@@ -176,6 +191,11 @@ function DashboardContent() {
               break
             default:
               break
+          }
+
+          // Contar leads com lembrete
+          if (item.data_lembrete_chamada) {
+            totalLeadsComLembrete += 1
           }
         }
 
@@ -197,6 +217,9 @@ function DashboardContent() {
           naoVenda: totalNaoVenda,
           valorEmProcesso: totalValorEmProcesso,
           valorVendido: totalValorVendido,
+          vendasComSinal: totalVendasComSinal,
+          vendasPagas: totalVendasPagas,
+          leadsComLembrete: totalLeadsComLembrete,
         })
       } catch (error) {
         console.error('Erro ao carregar histórico de clientes:', error)
@@ -208,6 +231,9 @@ function DashboardContent() {
           naoVenda: 0,
           valorEmProcesso: 0,
           valorVendido: 0,
+          vendasComSinal: 0,
+          vendasPagas: 0,
+          leadsComLembrete: 0,
         })
         setHistoricoError('Não foi possível carregar os gráficos para o período selecionado.')
       } finally {
@@ -260,6 +286,27 @@ function DashboardContent() {
       value: formatarValor(periodSummary.valorVendido),
       icon: CircleDollarSign,
       tone: 'from-primary/25 via-primary/10 to-primary/30',
+    },
+    {
+      id: 'vendasComSinal',
+      label: 'Vendas com sinal',
+      value: periodSummary.vendasComSinal,
+      icon: DollarSign,
+      tone: 'from-blue-500/20 via-blue-400/10 to-blue-500/20',
+    },
+    {
+      id: 'vendasPagas',
+      label: 'Vendas pagas',
+      value: periodSummary.vendasPagas,
+      icon: CheckCircle2,
+      tone: 'from-green-500/20 via-green-400/10 to-green-500/20',
+    },
+    {
+      id: 'leadsComLembrete',
+      label: 'Leads com lembrete',
+      value: periodSummary.leadsComLembrete,
+      icon: Bell,
+      tone: 'from-amber-500/20 via-amber-400/10 to-amber-500/20',
     },
   ]
 

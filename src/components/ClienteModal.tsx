@@ -54,12 +54,19 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
       naoRespondeu: false,
       valorFechado: '',
       observacao: '',
+      pagouSinal: false,
+      valorSinal: '',
+      dataPagamentoSinal: '',
+      vendaPaga: false,
+      dataPagamentoVenda: '',
+      dataLembreteChamada: '',
     }),
     []
   )
 
   const [formData, setFormData] = useState<NovoCliente>(baseState)
   const [valorNumerico, setValorNumerico] = useState<number | undefined>()
+  const [valorSinalNumerico, setValorSinalNumerico] = useState<number | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
@@ -78,15 +85,27 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
         naoRespondeu: cliente.naoRespondeu || false,
         valorFechado: cliente.valorFechado || '',
         observacao: cliente.observacao || '',
+        pagouSinal: cliente.pagouSinal || false,
+        valorSinal: cliente.valorSinal || '',
+        dataPagamentoSinal: cliente.dataPagamentoSinal || '',
+        vendaPaga: cliente.vendaPaga || false,
+        dataPagamentoVenda: cliente.dataPagamentoVenda || '',
+        dataLembreteChamada: cliente.dataLembreteChamada || '',
       })
       setValorNumerico(
         cliente.valorFechadoNumero !== null && cliente.valorFechadoNumero !== undefined
           ? cliente.valorFechadoNumero
           : undefined
       )
+      setValorSinalNumerico(
+        cliente.valorSinalNumero !== null && cliente.valorSinalNumero !== undefined
+          ? cliente.valorSinalNumero
+          : undefined
+      )
     } else {
       setFormData(baseState)
       setValorNumerico(undefined)
+      setValorSinalNumerico(undefined)
     }
   }, [cliente, isOpen, baseState])
 
@@ -119,9 +138,19 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
     }))
   }
 
+  const handleValorSinalChange = (valor: number | undefined) => {
+    setValorSinalNumerico(valor)
+
+    setFormData((prev) => ({
+      ...prev,
+      valorSinal: valor !== undefined ? formatCurrency(valor, currency) : '',
+    }))
+  }
+
   const resetAndClose = () => {
     setFormData(baseState)
     setValorNumerico(undefined)
+    setValorSinalNumerico(undefined)
     onClose()
   }
 
@@ -309,6 +338,97 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
                 currency={currency}
               />
             </div>
+          </div>
+
+          {/* Campos de pagamento - visíveis apenas quando resultado = Venda */}
+          {formData.resultado === 'Venda' && (
+            <>
+              <div className="space-y-2">
+                <Label>Pagamento do sinal</Label>
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Cliente pagou sinal</p>
+                    <p className="text-xs text-muted-foreground">
+                      Marque quando o cliente pagar o sinal da venda
+                    </p>
+                  </div>
+                  <Switch
+                    checked={formData.pagouSinal || false}
+                    onCheckedChange={(checked) =>
+                      handleChange('pagouSinal', checked)
+                    }
+                  />
+                </div>
+              </div>
+
+              {formData.pagouSinal && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="valorSinal">Valor do sinal *</Label>
+                    <MoneyInput
+                      id="valorSinal"
+                      name="valorSinal"
+                      value={valorSinalNumerico}
+                      onChangeValue={handleValorSinalChange}
+                      currency={currency}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dataPagamentoSinal">Data do pagamento do sinal *</Label>
+                    <DatePicker
+                      id="dataPagamentoSinal"
+                      value={formData.dataPagamentoSinal || ''}
+                      onChange={(value) => handleChange('dataPagamentoSinal', value ?? '')}
+                      placeholder="Selecione a data"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Status da venda</Label>
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Venda totalmente paga</p>
+                    <p className="text-xs text-muted-foreground">
+                      Marque quando o cliente finalizar o pagamento completo
+                    </p>
+                  </div>
+                  <Switch
+                    checked={formData.vendaPaga || false}
+                    onCheckedChange={(checked) =>
+                      handleChange('vendaPaga', checked)
+                    }
+                  />
+                </div>
+              </div>
+
+              {formData.vendaPaga && (
+                <div className="space-y-2">
+                  <Label htmlFor="dataPagamentoVenda">Data do pagamento completo *</Label>
+                  <DatePicker
+                    id="dataPagamentoVenda"
+                    value={formData.dataPagamentoVenda || ''}
+                    onChange={(value) => handleChange('dataPagamentoVenda', value ?? '')}
+                    placeholder="Selecione a data"
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Campo de data de lembrete - disponível para todos */}
+          <div className="space-y-2">
+            <Label htmlFor="dataLembreteChamada">Data para chamar novamente</Label>
+            <DatePicker
+              id="dataLembreteChamada"
+              value={formData.dataLembreteChamada || ''}
+              onChange={(value) => handleChange('dataLembreteChamada', value ?? '')}
+              placeholder="Selecione quando reativar essa lead"
+            />
+            <p className="text-xs text-muted-foreground">
+              Configure uma data para ser notificado sobre quando chamar este cliente novamente
+            </p>
           </div>
 
           <div className="space-y-2">
