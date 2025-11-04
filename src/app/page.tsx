@@ -25,6 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 
 export default function Home() {
   return (
@@ -44,7 +52,7 @@ const ORIGENS = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antig
 const RESULTADOS = ['Venda', 'Orçamento em Processo', 'Não Venda'] as const
 const QUALIDADES = ['Bom', 'Regular', 'Ruim'] as const
 
-type FiltroChave = 'busca' | 'origem' | 'status' | 'qualidade' | 'valorMin' | 'valorMax'
+type FiltroChave = 'busca' | 'origem' | 'status' | 'qualidade' | 'valorMin' | 'valorMax' | 'naoRespondeu' | 'comSinal'
 
 const filtrosIniciais = {
   busca: '',
@@ -53,13 +61,198 @@ const filtrosIniciais = {
   qualidade: 'todos',
   valorMin: '',
   valorMax: '',
+  naoRespondeu: 'todos',
+  comSinal: 'todos',
 } satisfies Record<FiltroChave, string>
+
+// Hook para detectar mobile
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      if (typeof window === 'undefined') return false
+      const isSmallScreen = window.innerWidth < 768
+      setIsMobile(isSmallScreen)
+    }
+
+    checkIsMobile()
+    window.addEventListener('resize', checkIsMobile)
+    return () => window.removeEventListener('resize', checkIsMobile)
+  }, [])
+
+  return isMobile
+}
+
+// Componente de Filtros
+function FiltrosClientes({
+  filtros,
+  atualizarFiltro,
+  isMobile,
+  filtrosAtivos,
+  limparFiltros,
+  clientesFiltrados,
+  clientes,
+}: {
+  filtros: typeof filtrosIniciais
+  atualizarFiltro: (campo: FiltroChave, valor: string) => void
+  isMobile: boolean
+  filtrosAtivos: boolean
+  limparFiltros: () => void
+  clientesFiltrados: Cliente[]
+  clientes: Cliente[]
+}) {
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  const conteudoFiltros = (
+    <>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+        <Input
+          placeholder="Buscar por nome ou contato"
+          value={filtros.busca}
+          onChange={(event) => atualizarFiltro('busca', event.target.value)}
+        />
+
+        <Select value={filtros.origem} onValueChange={(valor) => atualizarFiltro('origem', valor)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Origem" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todas as origens</SelectItem>
+            {ORIGENS.map((origem) => (
+              <SelectItem key={origem} value={origem}>
+                {origem}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filtros.status} onValueChange={(valor) => atualizarFiltro('status', valor)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os status</SelectItem>
+            {RESULTADOS.map((resultado) => (
+              <SelectItem key={resultado} value={resultado}>
+                {resultado}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filtros.qualidade} onValueChange={(valor) => atualizarFiltro('qualidade', valor)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Qualidade" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todas as qualidades</SelectItem>
+            {QUALIDADES.map((qualidade) => (
+              <SelectItem key={qualidade} value={qualidade}>
+                {qualidade}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filtros.naoRespondeu} onValueChange={(valor) => atualizarFiltro('naoRespondeu', valor)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Não respondeu" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="sim">Não respondeu</SelectItem>
+            <SelectItem value="nao">Respondeu</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filtros.comSinal} onValueChange={(valor) => atualizarFiltro('comSinal', valor)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Com sinal" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="sim">Com sinal</SelectItem>
+            <SelectItem value="nao">Sem sinal</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Input
+          type="number"
+          min={0}
+          placeholder="Valor mín"
+          value={filtros.valorMin}
+          onChange={(event) => atualizarFiltro('valorMin', event.target.value)}
+          className="xl:col-span-1"
+        />
+
+        <Input
+          type="number"
+          min={0}
+          placeholder="Valor máx"
+          value={filtros.valorMax}
+          onChange={(event) => atualizarFiltro('valorMax', event.target.value)}
+          className="xl:col-span-1"
+        />
+      </div>
+      <div className="mt-4 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <span>
+          Exibindo {clientesFiltrados.length} de {clientes.length} clientes
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="self-start sm:self-auto"
+          onClick={limparFiltros}
+          disabled={!filtrosAtivos}
+        >
+          Limpar filtros
+        </Button>
+      </div>
+    </>
+  )
+
+  if (isMobile) {
+    return (
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetTrigger asChild>
+          <Button variant="outline" className="w-full justify-start gap-2">
+            <Filter className="h-4 w-4" />
+            Filtros{filtrosAtivos && ' (ativos)'}
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Filtros avançados</SheetTitle>
+            <SheetDescription>
+              Filtre seus clientes para encontrar o que precisa rapidamente
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-4">
+            {conteudoFiltros}
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl border border-border/70 bg-card/70 p-4 shadow-soft">
+      <div className="flex items-center gap-2 pb-4 text-sm font-medium text-muted-foreground">
+        <Filter className="h-4 w-4" />
+        Filtros avançados
+      </div>
+      {conteudoFiltros}
+    </div>
+  )
+}
 
 function HomePage() {
   const { userProfile } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
   const { quote, loading: quoteLoading } = useDailyQuote()
   const searchParams = useSearchParams()
+  const isMobile = useIsMobile()
   
   // Usar moeda do usuário impersonado se houver, senão usar a do usuário logado
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
@@ -148,6 +341,8 @@ function HomePage() {
     const qualidade = filtros.qualidade
     const valorMin = filtros.valorMin !== '' ? Number(filtros.valorMin) : undefined
     const valorMax = filtros.valorMax !== '' ? Number(filtros.valorMax) : undefined
+    const naoRespondeu = filtros.naoRespondeu
+    const comSinal = filtros.comSinal
 
     return clientes.filter((clienteAtual) => {
       const nome = (clienteAtual.nome ?? '').toLowerCase()
@@ -178,6 +373,28 @@ function HomePage() {
         return false
       }
 
+      // Filtro de não respondeu
+      if (naoRespondeu !== 'todos') {
+        const clienteNaoRespondeu = clienteAtual.naoRespondeu || false
+        if (naoRespondeu === 'sim' && !clienteNaoRespondeu) {
+          return false
+        }
+        if (naoRespondeu === 'nao' && clienteNaoRespondeu) {
+          return false
+        }
+      }
+
+      // Filtro de com sinal (valorSinalNumero !== null, independente de estar pago)
+      if (comSinal !== 'todos') {
+        const clienteComSinal = clienteAtual.valorSinalNumero !== null && clienteAtual.valorSinalNumero !== undefined
+        if (comSinal === 'sim' && !clienteComSinal) {
+          return false
+        }
+        if (comSinal === 'nao' && clienteComSinal) {
+          return false
+        }
+      }
+
       return true
     })
   }, [clientes, filtros])
@@ -189,7 +406,9 @@ function HomePage() {
       filtros.status !== 'todos' ||
       filtros.qualidade !== 'todos' ||
       filtros.valorMin !== '' ||
-      filtros.valorMax !== ''
+      filtros.valorMax !== '' ||
+      filtros.naoRespondeu !== 'todos' ||
+      filtros.comSinal !== 'todos'
     )
   }, [filtros])
 
@@ -234,91 +453,15 @@ function HomePage() {
           </Button>
         </div>
 
-        <div className="rounded-2xl border border-border/70 bg-card/70 p-4 shadow-soft">
-          <div className="flex items-center gap-2 pb-4 text-sm font-medium text-muted-foreground">
-            <Filter className="h-4 w-4" />
-            Filtros avançados
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-            <Input
-              placeholder="Buscar por nome ou contato"
-              value={filtros.busca}
-              onChange={(event) => atualizarFiltro('busca', event.target.value)}
-            />
-
-            <Select value={filtros.origem} onValueChange={(valor) => atualizarFiltro('origem', valor)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Origem" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todas as origens</SelectItem>
-                {ORIGENS.map((origem) => (
-                  <SelectItem key={origem} value={origem}>
-                    {origem}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filtros.status} onValueChange={(valor) => atualizarFiltro('status', valor)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os status</SelectItem>
-                {RESULTADOS.map((resultado) => (
-                  <SelectItem key={resultado} value={resultado}>
-                    {resultado}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filtros.qualidade} onValueChange={(valor) => atualizarFiltro('qualidade', valor)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Qualidade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todas as qualidades</SelectItem>
-                {QUALIDADES.map((qualidade) => (
-                  <SelectItem key={qualidade} value={qualidade}>
-                    {qualidade}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Input
-              type="number"
-              min={0}
-              placeholder="Valor mín"
-              value={filtros.valorMin}
-              onChange={(event) => atualizarFiltro('valorMin', event.target.value)}
-            />
-
-            <Input
-              type="number"
-              min={0}
-              placeholder="Valor máx"
-              value={filtros.valorMax}
-              onChange={(event) => atualizarFiltro('valorMax', event.target.value)}
-            />
-          </div>
-          <div className="mt-4 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              Exibindo {clientesFiltrados.length} de {clientes.length} clientes
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="self-start sm:self-auto"
-              onClick={limparFiltros}
-              disabled={!filtrosAtivos}
-            >
-              Limpar filtros
-            </Button>
-          </div>
-        </div>
+        <FiltrosClientes
+          filtros={filtros}
+          atualizarFiltro={atualizarFiltro}
+          isMobile={isMobile}
+          filtrosAtivos={filtrosAtivos}
+          limparFiltros={limparFiltros}
+          clientesFiltrados={clientesFiltrados}
+          clientes={clientes}
+        />
 
         {loading && clientes.length === 0 ? (
           <Card className="border-border/70 bg-card/70">
