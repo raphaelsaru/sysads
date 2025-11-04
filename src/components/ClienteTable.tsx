@@ -225,25 +225,25 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                     {cliente.naoRespondeu && (
                       <UserX 
                         className="h-4 w-4 text-destructive flex-shrink-0" 
-                        title="Cliente não respondeu"
+                        aria-label="Cliente não respondeu"
                       />
                     )}
                     {cliente.pagouSinal && (
                       <DollarSign 
                         className="h-4 w-4 text-primary flex-shrink-0" 
-                        title="Sinal pago"
+                        aria-label="Sinal pago"
                       />
                     )}
                     {cliente.vendaPaga && (
                       <CheckCircle2 
                         className="h-4 w-4 text-success flex-shrink-0" 
-                        title="Venda paga"
+                        aria-label="Venda paga"
                       />
                     )}
                     {cliente.dataLembreteChamada && (
                       <Bell 
                         className="h-4 w-4 text-warning flex-shrink-0" 
-                        title={`Lembrete: ${formatDateBR(cliente.dataLembreteChamada)}`}
+                        aria-label={`Lembrete: ${formatDateBR(cliente.dataLembreteChamada)}`}
                       />
                     )}
                   </CardTitle>
@@ -377,19 +377,19 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                       {cliente.pagouSinal && (
                         <DollarSign 
                           className="h-4 w-4 text-primary flex-shrink-0" 
-                          title="Sinal pago"
+                          aria-label="Sinal pago"
                         />
                       )}
                       {cliente.vendaPaga && (
                         <CheckCircle2 
                           className="h-4 w-4 text-success flex-shrink-0" 
-                          title="Venda paga"
+                          aria-label="Venda paga"
                         />
                       )}
                       {cliente.dataLembreteChamada && (
                         <Bell 
                           className="h-4 w-4 text-warning flex-shrink-0" 
-                          title={`Lembrete: ${formatDateBR(cliente.dataLembreteChamada)}`}
+                          aria-label={`Lembrete: ${formatDateBR(cliente.dataLembreteChamada)}`}
                         />
                       )}
                       <span>{cliente.nome}</span>
