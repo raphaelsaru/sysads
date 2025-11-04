@@ -312,7 +312,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
 
             <div className="space-y-2">
               <Label>Cliente não respondeu</Label>
-              <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-4 py-3">
+              <div className="flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">Marcar como não responsivo</p>
                   <p className="text-xs text-muted-foreground">
@@ -328,36 +328,59 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="valorFechado">Valor fechado</Label>
-              <MoneyInput
-                id="valorFechado"
-                name="valorFechado"
-                value={valorNumerico}
-                onChangeValue={handleValorChange}
-                currency={currency}
-              />
-            </div>
+            {/* Campo valor fechado - só aparece quando orçamento enviado OU resultado = Venda */}
+            {(formData.orcamentoEnviado === 'Sim' || formData.resultado === 'Venda') && (
+              <div className="space-y-2">
+                <Label htmlFor="valorFechado">Valor fechado</Label>
+                <MoneyInput
+                  id="valorFechado"
+                  name="valorFechado"
+                  value={valorNumerico}
+                  onChangeValue={handleValorChange}
+                  currency={currency}
+                />
+              </div>
+            )}
           </div>
 
           {/* Campos de pagamento - visíveis apenas quando resultado = Venda */}
           {formData.resultado === 'Venda' && (
-            <>
-              <div className="space-y-2">
-                <Label>Pagamento do sinal</Label>
-                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-4 py-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Cliente pagou sinal</p>
-                    <p className="text-xs text-muted-foreground">
-                      Marque quando o cliente pagar o sinal da venda
-                    </p>
+            <div className="space-y-8">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Pagamento do sinal</Label>
+                  <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-4 py-3 h-full">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Cliente pagou sinal</p>
+                      <p className="text-xs text-muted-foreground">
+                        Marque quando o cliente pagar o sinal da venda
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.pagouSinal || false}
+                      onCheckedChange={(checked) =>
+                        handleChange('pagouSinal', checked)
+                      }
+                    />
                   </div>
-                  <Switch
-                    checked={formData.pagouSinal || false}
-                    onCheckedChange={(checked) =>
-                      handleChange('pagouSinal', checked)
-                    }
-                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Status da venda</Label>
+                  <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-4 py-3 h-full">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Venda totalmente paga</p>
+                      <p className="text-xs text-muted-foreground">
+                        Marque quando o cliente finalizar o pagamento completo
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.vendaPaga || false}
+                      onCheckedChange={(checked) =>
+                        handleChange('vendaPaga', checked)
+                      }
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -385,24 +408,6 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label>Status da venda</Label>
-                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-4 py-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Venda totalmente paga</p>
-                    <p className="text-xs text-muted-foreground">
-                      Marque quando o cliente finalizar o pagamento completo
-                    </p>
-                  </div>
-                  <Switch
-                    checked={formData.vendaPaga || false}
-                    onCheckedChange={(checked) =>
-                      handleChange('vendaPaga', checked)
-                    }
-                  />
-                </div>
-              </div>
-
               {formData.vendaPaga && (
                 <div className="space-y-2">
                   <Label htmlFor="dataPagamentoVenda">Data do pagamento completo *</Label>
@@ -414,11 +419,11 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
                   />
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* Campo de data de lembrete - disponível para todos */}
-          <div className="space-y-2">
+          <div className={cn("space-y-2", formData.resultado === 'Venda' && "!mt-12")}>
             <Label htmlFor="dataLembreteChamada">Data para chamar novamente</Label>
             <DatePicker
               id="dataLembreteChamada"
