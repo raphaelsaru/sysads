@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import { Bell } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useNotifications } from '@/hooks/useNotifications'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,16 +19,23 @@ import { cn } from '@/lib/utils'
 
 export default function NotificationsBell() {
   const { notifications, loading, totalCount } = useNotifications()
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00')
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
   }
 
+  const handleEditLead = (leadId: string) => {
+    setOpen(false) // Fechar dropdown antes de navegar
+    router.push(`/?edit=${leadId}`)
+  }
+
   const hasNotifications = totalCount > 0
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
@@ -80,10 +89,7 @@ export default function NotificationsBell() {
                     <DropdownMenuItem
                       key={lead.id}
                       className="cursor-pointer flex-col items-start gap-1 py-2"
-                      onClick={() => {
-                        // Abrir modal de edição ou redirecionar para a página de edição
-                        window.location.href = `/?edit=${lead.id}`
-                      }}
+                      onClick={() => handleEditLead(lead.id)}
                     >
                       <div className="flex w-full items-center justify-between">
                         <span className="font-semibold text-foreground">{lead.nome}</span>
@@ -112,9 +118,7 @@ export default function NotificationsBell() {
                     <DropdownMenuItem
                       key={lead.id}
                       className="cursor-pointer flex-col items-start gap-1 py-2"
-                      onClick={() => {
-                        window.location.href = `/?edit=${lead.id}`
-                      }}
+                      onClick={() => handleEditLead(lead.id)}
                     >
                       <div className="flex w-full items-center justify-between">
                         <span className="font-semibold text-foreground">{lead.nome}</span>
@@ -143,9 +147,7 @@ export default function NotificationsBell() {
                     <DropdownMenuItem
                       key={lead.id}
                       className="cursor-pointer flex-col items-start gap-1 py-2"
-                      onClick={() => {
-                        window.location.href = `/?edit=${lead.id}`
-                      }}
+                      onClick={() => handleEditLead(lead.id)}
                     >
                       <div className="flex w-full items-center justify-between">
                         <span className="font-semibold text-foreground">{lead.nome}</span>

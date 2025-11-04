@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Filter, Plus, Loader2 } from 'lucide-react'
 
 import MainLayout from '@/components/layout/MainLayout'
@@ -28,7 +29,13 @@ import {
 export default function Home() {
   return (
     <ProtectedRoute>
-      <HomePage />
+      <Suspense fallback={
+        <div className="flex h-screen items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      }>
+        <HomePage />
+      </Suspense>
     </ProtectedRoute>
   )
 }
@@ -52,6 +59,7 @@ function HomePage() {
   const { userProfile } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
   const { quote, loading: quoteLoading } = useDailyQuote()
+  const searchParams = useSearchParams()
   
   // Usar moeda do usuário impersonado se houver, senão usar a do usuário logado
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
@@ -71,12 +79,38 @@ function HomePage() {
   const [clienteEditando, setClienteEditando] = useState<Cliente | undefined>(undefined)
   const [filtros, setFiltros] = useState(filtrosIniciais)
 
+  // Verificar se há um ID na URL para abrir o modal de edição
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (editId) {
+      // Se os clientes ainda não foram carregados, aguardar
+      if (clientes.length === 0 && loading) {
+        return
+      }
+      
+      const clienteParaEditar = clientes.find((c) => c.id === editId)
+      if (clienteParaEditar) {
+        setClienteEditando(clienteParaEditar)
+        setMostrarModal(true)
+        // Limpar a URL para não manter o parâmetro
+        window.history.replaceState({}, '', window.location.pathname)
+      }
+    }
+  }, [searchParams, clientes, loading])
+
   const handleSubmitForm = async (dadosCliente: NovoCliente) => {
-    if (clienteEditando) {
-      await editarCliente(clienteEditando.id!, dadosCliente)
-      setClienteEditando(undefined)
-    } else {
-      await adicionarCliente(dadosCliente)
+    try {
+      if (clienteEditando) {
+        await editarCliente(clienteEditando.id!, dadosCliente)
+        setClienteEditando(undefined)
+      } else {
+        await adicionarCliente(dadosCliente)
+      }
+      // Disparar evento para atualizar notificações após salvar com sucesso
+      window.dispatchEvent(new CustomEvent('cliente-atualizado'))
+    } catch (error) {
+      // Não disparar evento se houver erro
+      throw error
     }
   }
 
@@ -88,6 +122,12 @@ function HomePage() {
   const handleFecharModal = () => {
     setMostrarModal(false)
     setClienteEditando(undefined)
+  }
+
+  const handleExcluirCliente = async (id: string) => {
+    await excluirCliente(id)
+    // Disparar evento para atualizar notificações após excluir
+    window.dispatchEvent(new CustomEvent('cliente-atualizado'))
   }
 
   const atualizarFiltro = (campo: FiltroChave, valor: string) => {
@@ -303,7 +343,7 @@ function HomePage() {
           <ClienteTable
             clientes={clientesFiltrados}
             onEdit={handleEditarCliente}
-            onDelete={excluirCliente}
+            onDelete={handleExcluirCliente}
             onLoadMore={carregarMaisClientes}
             hasMore={hasMore}
             isLoadingMore={loadingMais}

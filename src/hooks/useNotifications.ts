@@ -123,7 +123,17 @@ export function useNotifications() {
       void carregarNotificacoes()
     }, 5 * 60 * 1000)
 
-    return () => clearInterval(interval)
+    // Escutar evento customizado para recarregar notificações quando cliente for criado/editado
+    const handleClienteAtualizado = () => {
+      void carregarNotificacoes()
+    }
+
+    window.addEventListener('cliente-atualizado', handleClienteAtualizado)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('cliente-atualizado', handleClienteAtualizado)
+    }
   }, [carregarNotificacoes])
 
   return {

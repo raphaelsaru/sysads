@@ -8,6 +8,13 @@ const BRAZIL_TIMEZONE = 'America/Sao_Paulo';
 export function formatDateBR(date: string | Date): string {
   if (!date) return '';
 
+  // Se for string no formato ISO (YYYY-MM-DD), processar diretamente sem timezone
+  if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = date.split('-');
+    return `${day}/${month}/${year}`;
+  }
+
+  // Para outros formatos, usar Date com timezone
   const dateObj = typeof date === 'string' ? new Date(date) : date;
 
   return dateObj.toLocaleDateString('pt-BR', {
