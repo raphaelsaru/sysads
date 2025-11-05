@@ -48,7 +48,7 @@ export async function GET() {
 
     // Buscar informações dos tenants separadamente
     const tenantIds = [...new Set((userProfiles || []).map(p => p.tenant_id).filter(Boolean) as string[])]
-    let tenantsMap = new Map<string, { id: string; name: string }>()
+    const tenantsMap = new Map<string, { id: string; name: string }>()
     
     if (tenantIds.length > 0) {
       const { data: tenants, error: tenantsError } = await supabase
