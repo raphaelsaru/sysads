@@ -55,7 +55,9 @@ export async function GET() {
 
     // Mapear os dados para o formato esperado
     const users = (userProfiles || []).map((profile) => {
-      const tenant = profile.tenants as { id: string; name: string } | null
+      // O Supabase pode retornar tenants como array ou objeto único dependendo do relacionamento
+      const tenantsData = profile.tenants as { id: string; name: string } | { id: string; name: string }[] | null
+      const tenant = Array.isArray(tenantsData) ? tenantsData[0] : tenantsData
       const authUser = authUsers?.users.find(u => u.id === profile.id)
       
       return {
