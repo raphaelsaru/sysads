@@ -50,7 +50,8 @@ interface PeriodoResumo {
 }
 
 function DashboardContent() {
-  const { impersonatedUserId } = useAdmin()
+  const { userProfile } = useAuth()
+  const { impersonatedUserId, impersonatedUser } = useAdmin()
   
   // Usar moeda padrão (currency não está implementada por usuário ainda)
   const currency = FALLBACK_CURRENCY_VALUE as 'BRL' | 'USD' | 'EUR'
