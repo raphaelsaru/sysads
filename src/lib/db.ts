@@ -1,4 +1,3 @@
-// @ts-expect-error - pg é resolvido apenas em ambiente de servidor
 import { Pool } from 'pg';
 
 const pool = new Pool({
