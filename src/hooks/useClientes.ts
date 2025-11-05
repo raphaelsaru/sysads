@@ -246,7 +246,7 @@ export function useClientes(
       
       // Se for admin e estiver impersonando, precisamos fazer a query de forma diferente
       // porque as políticas RLS podem estar bloqueando por tenant_id
-      let query = supabase
+      const query = supabase
         .from('clientes')
         .select(
           `
@@ -306,7 +306,7 @@ export function useClientes(
         .range(0, PAGE_SIZE - 1)
       
       // Debug adicional: contar total de clientes do usuário
-      let countQuery = supabase
+      const countQuery = supabase
         .from('clientes')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', effectiveUserId)
