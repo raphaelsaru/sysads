@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Loader2, LockKeyhole, Mail, Building2 } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import EmailConfirmation from './EmailConfirmation'
 
 export default function LoginForm() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [companyName, setCompanyName] = useState('')
@@ -19,7 +21,7 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false)
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, user, loading: authLoading } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,6 +45,19 @@ export default function LoginForm() {
       }
     } else {
       result = await signIn(email, password)
+      
+      // Se o login foi bem-sucedido, o useEffect vai cuidar do redirecionamento
+      // quando o user for atualizado no contexto
+      if (result.error) {
+        setError(result.error.message)
+        setLoading(false)
+        return
+      }
+      
+      // Aguardar que o user seja atualizado no contexto
+      // O useEffect vai fazer o redirecionamento
+      setLoading(false)
+      return
     }
 
     if (result.error) {
@@ -51,6 +66,14 @@ export default function LoginForm() {
 
     setLoading(false)
   }
+
+  // Redirecionar automaticamente quando o usuário estiver autenticado
+  useEffect(() => {
+    if (!authLoading && user && !needsEmailConfirmation) {
+      // Usar window.location para garantir um reload completo e que o middleware seja executado
+      window.location.href = '/dashboard'
+    }
+  }, [user, authLoading, needsEmailConfirmation])
 
   const handleBackToLogin = () => {
     setNeedsEmailConfirmation(false)

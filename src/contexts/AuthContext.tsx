@@ -24,8 +24,6 @@ type ProfileRow = {
   tenant_id: string | null
   role: UserRole
   full_name: string | null
-  company_name: string | null
-  currency: 'BRL' | 'USD' | 'EUR' | null
   avatar_url: string | null
   phone: string | null
   preferences: Record<string, unknown> | null
@@ -78,8 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           tenant_id,
           role,
           full_name,
-          company_name,
-          currency,
           avatar_url,
           phone,
           preferences,
@@ -95,17 +91,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (profileError) {
         console.error('❌ Erro ao buscar user_profile:', profileError)
         // Criar perfil básico se não existir
+        const preferences = supabaseUser.user_metadata?.preferences || {}
         const basicProfile: UserProfile = {
           id: supabaseUser.id,
           email: supabaseUser.email || '',
           tenant_id: null,
           role: 'tenant_user',
           full_name: supabaseUser.user_metadata?.full_name || supabaseUser.email || '',
-          company_name: supabaseUser.user_metadata?.company_name || null,
-          currency: (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? null,
+          company_name: supabaseUser.user_metadata?.company_name || (preferences as Record<string, unknown>)?.company_name as string | null || null,
+          currency: (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? (preferences as Record<string, unknown>)?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined ?? null,
           avatar_url: null,
           phone: null,
-          preferences: {},
+          preferences: preferences || {},
           created_at: supabaseUser.created_at,
           updated_at: supabaseUser.created_at,
           tenant: null
@@ -116,17 +113,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!profileData) {
         console.warn('ℹ️ Perfil não encontrado, usando dados básicos')
+        const preferences = supabaseUser.user_metadata?.preferences || {}
         const basicProfile: UserProfile = {
           id: supabaseUser.id,
           email: supabaseUser.email || '',
           tenant_id: null,
           role: 'tenant_user',
           full_name: supabaseUser.user_metadata?.full_name || supabaseUser.email || '',
-          company_name: supabaseUser.user_metadata?.company_name || null,
-          currency: (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? null,
+          company_name: supabaseUser.user_metadata?.company_name || (preferences as Record<string, unknown>)?.company_name as string | null || null,
+          currency: (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? (preferences as Record<string, unknown>)?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined ?? null,
           avatar_url: null,
           phone: null,
-          preferences: {},
+          preferences: preferences || {},
           created_at: supabaseUser.created_at,
           updated_at: supabaseUser.created_at,
           tenant: null
@@ -149,17 +147,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // Extrair company_name e currency de preferences
+      const preferences = profileData.preferences || {}
+      const company_name = (preferences as Record<string, unknown>)?.company_name as string | null | undefined
+      const currency = (preferences as Record<string, unknown>)?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined
+
       const fullProfile: UserProfile = {
         id: profileData.id,
         email: supabaseUser.email || '',
         tenant_id: profileData.tenant_id,
         role: profileData.role,
         full_name: profileData.full_name,
-        company_name: profileData.company_name,
-        currency: profileData.currency,
+        company_name: company_name ?? supabaseUser.user_metadata?.company_name ?? null,
+        currency: currency ?? (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? null,
         avatar_url: profileData.avatar_url,
         phone: profileData.phone,
-        preferences: profileData.preferences || {},
+        preferences: preferences,
         created_at: profileData.created_at,
         updated_at: profileData.updated_at,
         last_seen_at: profileData.last_seen_at,
