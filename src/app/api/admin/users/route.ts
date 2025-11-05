@@ -11,6 +11,7 @@ export async function GET() {
     // Verificar autenticação
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
+      console.error('❌ [API Admin] Erro de autenticação:', authError)
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
     
@@ -22,13 +23,13 @@ export async function GET() {
       .single()
 
     if (profileError || !userProfile || userProfile.role !== 'admin_global') {
-      console.log('❌ [API Admin] Usuário não é admin global')
+      console.log('❌ [API Admin] Usuário não é admin global. Role:', userProfile?.role, 'Erro:', profileError)
       return NextResponse.json({ error: 'Acesso negado - apenas super administradores' }, { status: 403 })
     }
 
     console.log('✅ [API Admin] Usuário admin global verificado:', user.email)
 
-    // Buscar todos os perfis de usuários com informações dos tenants
+    // Buscar todos os perfis de usuários (sem relacionamento tenants primeiro para evitar erros)
     const { data: userProfiles, error: usersError } = await supabase
       .from('user_profiles')
       .select(`
@@ -36,28 +37,54 @@ export async function GET() {
         role,
         full_name,
         created_at,
-        tenant_id,
-        tenants (
-          id,
-          name
-        )
+        tenant_id
       `)
       .order('created_at', { ascending: false })
 
     if (usersError) {
       console.error('❌ [API Admin] Erro ao buscar perfis de usuários:', usersError)
-      return NextResponse.json({ error: 'Erro ao buscar usuários' }, { status: 500 })
+      return NextResponse.json({ error: 'Erro ao buscar usuários', details: usersError.message }, { status: 500 })
+    }
+
+    // Buscar informações dos tenants separadamente
+    const tenantIds = [...new Set((userProfiles || []).map(p => p.tenant_id).filter(Boolean) as string[])]
+    let tenantsMap = new Map<string, { id: string; name: string }>()
+    
+    if (tenantIds.length > 0) {
+      const { data: tenants, error: tenantsError } = await supabase
+        .from('tenants')
+        .select('id, name')
+        .in('id', tenantIds)
+
+      if (!tenantsError && tenants) {
+        tenants.forEach(t => {
+          tenantsMap.set(t.id, t)
+        })
+      } else if (tenantsError) {
+        console.warn('⚠️ [API Admin] Erro ao buscar tenants (continuando sem):', tenantsError)
+      }
     }
 
     // Buscar emails dos usuários usando Admin Client
-    const adminClient = createAdminClient()
-    const { data: authUsers } = await adminClient.auth.admin.listUsers()
+    let authUsers: { users: Array<{ id: string; email?: string }> } | null = null
+    try {
+      const adminClient = createAdminClient()
+      const { data, error: adminError } = await adminClient.auth.admin.listUsers()
+      
+      if (adminError) {
+        console.error('❌ [API Admin] Erro ao buscar usuários do Auth:', adminError)
+        // Continuar sem os emails, mas logar o erro
+      } else {
+        authUsers = data
+      }
+    } catch (adminClientError) {
+      console.error('❌ [API Admin] Erro ao criar admin client:', adminClientError)
+      // Continuar sem os emails se o admin client falhar
+    }
 
     // Mapear os dados para o formato esperado
     const users = (userProfiles || []).map((profile) => {
-      // O Supabase pode retornar tenants como array ou objeto único dependendo do relacionamento
-      const tenantsData = profile.tenants as { id: string; name: string } | { id: string; name: string }[] | null
-      const tenant = Array.isArray(tenantsData) ? tenantsData[0] : tenantsData
+      const tenant = profile.tenant_id ? tenantsMap.get(profile.tenant_id) : null
       const authUser = authUsers?.users.find(u => u.id === profile.id)
       
       return {
@@ -77,7 +104,11 @@ export async function GET() {
     return NextResponse.json({ users })
   } catch (error) {
     console.error('❌ [API Admin] Erro interno:', error)
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor'
+    return NextResponse.json({ 
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+    }, { status: 500 })
   }
 }
 

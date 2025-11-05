@@ -6,11 +6,19 @@ import { createClient } from '@supabase/supabase-js'
  * NUNCA exponha a SERVICE_ROLE_KEY no cliente (browser)
  */
 export function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL não está configurada nas variáveis de ambiente')
+  }
 
   if (!supabaseServiceRoleKey) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY não está configurada nas variáveis de ambiente')
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY não está configurada nas variáveis de ambiente. ' +
+      'Configure esta variável no seu ambiente de produção (Vercel, etc.) ' +
+      'com a Service Role Key do seu projeto Supabase.'
+    )
   }
 
   return createClient(supabaseUrl, supabaseServiceRoleKey, {
