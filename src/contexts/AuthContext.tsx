@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { User } from '@supabase/supabase-js'
+import { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase-browser'
 import ConnectionFallback from '@/components/auth/ConnectionFallback'
 import { useConnectionHealth } from '@/hooks/useConnectionHealth'
@@ -210,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listener para mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: AuthChangeEvent, session: Session | null) => {
         if (!mounted) return
 
         console.log('Auth event:', event)

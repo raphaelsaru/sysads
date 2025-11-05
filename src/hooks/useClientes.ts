@@ -12,6 +12,8 @@ import {
 } from '@/lib/currency'
 
 const supabase = createClient()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const clientesTable = () => supabase.from('clientes') as any
 
 const PAGE_SIZE = 15
 const STATS_PAGE_SIZE = 500
@@ -37,6 +39,16 @@ const estatisticasIniciais: EstatisticasClientes = {
 type PerfilResumo = {
   role: UserRole
   tenant_id: string | null
+}
+
+type TargetUserProfile = {
+  tenant_id: string | null
+  full_name: string | null
+  role: UserRole
+}
+
+type TenantResumo = {
+  name: string | null
 }
 
 type ClienteSupabaseRow = {
@@ -139,8 +151,7 @@ export function useClientes(
       // Pagina manualmente para garantir que todos os registros sejam considerados
       // independentemente da paginação utilizada na tabela.
       while (true) {
-        const { data, error } = await supabase
-          .from('clientes')
+        const { data, error } = await clientesTable()
           .select('resultado, valor_fechado')
           .eq('user_id', effectiveUserId)
           .order('id', { ascending: true })
@@ -252,8 +263,7 @@ export function useClientes(
       
       // Se for admin e estiver impersonando, precisamos fazer a query de forma diferente
       // porque as políticas RLS podem estar bloqueando por tenant_id
-      const query = supabase
-        .from('clientes')
+      const query = clientesTable()
         .select(
           `
           id,
@@ -285,19 +295,21 @@ export function useClientes(
       if (isAdmin && isImpersonating) {
         console.log('🔍 Debug - Admin visualizando cliente de outro usuário')
         // Verificar tenant_id do usuário sendo visualizado
-        const { data: targetUserProfile } = await supabase
+        const { data: targetUserProfileRaw } = await supabase
           .from('user_profiles')
           .select('tenant_id, full_name, role')
           .eq('id', effectiveUserId)
           .single()
+        const targetUserProfile = targetUserProfileRaw as TargetUserProfile | null
         
         // Buscar nome do tenant se houver
         if (targetUserProfile?.tenant_id) {
-          const { data: tenant } = await supabase
+          const { data: tenantRaw } = await supabase
             .from('tenants')
             .select('name')
             .eq('id', targetUserProfile.tenant_id)
             .single()
+          const tenant = tenantRaw as TenantResumo | null
           console.log('🔍 Debug - Perfil do usuário sendo visualizado:', {
             ...targetUserProfile,
             tenant_name: tenant?.name
@@ -312,8 +324,7 @@ export function useClientes(
         .range(0, PAGE_SIZE - 1)
       
       // Debug adicional: contar total de clientes do usuário
-      const countQuery = supabase
-        .from('clientes')
+      const countQuery = clientesTable()
         .select('*', { count: 'exact', head: true })
         .eq('user_id', effectiveUserId)
       
@@ -386,8 +397,7 @@ export function useClientes(
       const start = page * PAGE_SIZE
       const end = start + PAGE_SIZE - 1
 
-      const { data: clientesData, error } = await supabase
-        .from('clientes')
+      const { data: clientesData, error } = await clientesTable()
         .select(
           `
           id,
@@ -460,8 +470,7 @@ export function useClientes(
       const valorFechadoNumero = parseCurrencyInput(novoCliente.valorFechado ?? null)
       const valorSinalNumero = parseCurrencyInput(novoCliente.valorSinal ?? null)
 
-      const { data: cliente, error } = await supabase
-        .from('clientes')
+      const { data: cliente, error } = await clientesTable()
         .insert({
           user_id: user.id,
           data_contato: novoCliente.dataContato,
@@ -567,8 +576,7 @@ export function useClientes(
       // Campo de notificação
       if (dadosAtualizados.dataLembreteChamada !== undefined) updateData.data_lembrete_chamada = dadosAtualizados.dataLembreteChamada || null
 
-      const { data: cliente, error } = await supabase
-        .from('clientes')
+      const { data: cliente, error } = await clientesTable()
         .update(updateData)
         .eq('id', id)
         .select()
@@ -602,7 +610,7 @@ export function useClientes(
   const excluirCliente = async (id: string) => {
     setLoading(true)
     try {
-      const { error } = await supabase.from('clientes').delete().eq('id', id)
+      const { error } = await clientesTable().delete().eq('id', id)
 
       if (error) {
         console.error('Erro ao excluir cliente:', error)

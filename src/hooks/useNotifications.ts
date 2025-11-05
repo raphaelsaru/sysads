@@ -6,6 +6,14 @@ import { Cliente } from '@/types/crm'
 
 const supabase = createClient()
 
+type LeadRow = {
+  id: string
+  nome: string
+  whatsapp_instagram: string
+  data_lembrete_chamada: string
+  resultado: Cliente['resultado'] | null
+}
+
 export interface LeadNotification {
   id: string
   nome: string
@@ -50,7 +58,7 @@ export function useNotifications() {
       tresDiasDepois.setDate(tresDiasDepois.getDate() + 3)
 
       // Buscar leads com data_lembrete_chamada nos próximos 3 dias
-      const { data: leads, error } = await supabase
+      const { data: leadsRaw, error } = await supabase
         .from('clientes')
         .select('id, nome, whatsapp_instagram, data_lembrete_chamada, resultado')
         .eq('user_id', user.id)
@@ -58,13 +66,14 @@ export function useNotifications() {
         .gte('data_lembrete_chamada', hoje.toISOString().split('T')[0])
         .lte('data_lembrete_chamada', tresDiasDepois.toISOString().split('T')[0])
         .order('data_lembrete_chamada', { ascending: true })
+      const leads = (leadsRaw as LeadRow[] | null) ?? []
 
       if (error) {
         console.error('❌ Erro ao carregar notificações:', error)
         return
       }
 
-      if (!leads || leads.length === 0) {
+      if (leads.length === 0) {
         setNotifications({ hoje: [], amanha: [], proximos: [] })
         setTotalCount(0)
         return
@@ -143,4 +152,3 @@ export function useNotifications() {
     recarregar: carregarNotificacoes,
   }
 }
-
