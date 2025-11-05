@@ -13,7 +13,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch clientes - RLS will automatically filter by user_id
+    // Fetch clientes - RLS will automatically filter by tenant_id
+    // Users will only see clientes from their tenant
     const { data: clientes, error } = await supabase
       .from('clientes')
       .select(`
@@ -91,6 +92,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert cliente with user_id
+    // tenant_id will be auto-populated by trigger
+    // created_by will be set to current user
     const { data: cliente, error } = await supabase
       .from('clientes')
       .insert({

@@ -52,7 +52,32 @@ const ORIGENS = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antig
 const RESULTADOS = ['Venda', 'Orçamento em Processo', 'Não Venda'] as const
 const QUALIDADES = ['Bom', 'Regular', 'Ruim'] as const
 
-type FiltroChave = 'busca' | 'origem' | 'status' | 'qualidade' | 'valorMin' | 'valorMax' | 'naoRespondeu' | 'comSinal'
+// Função para obter o mês vigente no formato YYYY-MM
+function getMesVigente(): string {
+  const agora = new Date()
+  const ano = agora.getFullYear()
+  const mes = String(agora.getMonth() + 1).padStart(2, '0')
+  return `${ano}-${mes}`
+}
+
+// Função para gerar lista de meses do ano vigente
+function gerarMesesAnoVigente(): Array<{ valor: string; label: string }> {
+  const agora = new Date()
+  const ano = agora.getFullYear()
+  const meses = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ]
+  
+  return meses.map((mes, index) => ({
+    valor: `${ano}-${String(index + 1).padStart(2, '0')}`,
+    label: `${mes} ${ano}`
+  }))
+}
+
+type FiltroChave = 'busca' | 'origem' | 'status' | 'qualidade' | 'valorMin' | 'valorMax' | 'naoRespondeu' | 'comSinal' | 'mes'
+
+const TODOS_MESES = 'todos'
 
 const filtrosIniciais = {
   busca: '',
@@ -63,6 +88,7 @@ const filtrosIniciais = {
   valorMax: '',
   naoRespondeu: 'todos',
   comSinal: 'todos',
+  mes: TODOS_MESES,
 } satisfies Record<FiltroChave, string>
 
 // Hook para detectar mobile
@@ -104,9 +130,25 @@ function FiltrosClientes({
 }) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
+  const mesesAno = gerarMesesAnoVigente()
+
   const conteudoFiltros = (
     <>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+        <Select value={filtros.mes} onValueChange={(valor) => atualizarFiltro('mes', valor)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Mês" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TODOS_MESES}>Todos os meses</SelectItem>
+            {mesesAno.map((mes) => (
+              <SelectItem key={mes.valor} value={mes.valor}>
+                {mes.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Input
           placeholder="Buscar por nome ou contato"
           value={filtros.busca}
@@ -343,11 +385,33 @@ function HomePage() {
     const valorMax = filtros.valorMax !== '' ? Number(filtros.valorMax) : undefined
     const naoRespondeu = filtros.naoRespondeu
     const comSinal = filtros.comSinal
+    const mesSelecionado = filtros.mes
 
     return clientes.filter((clienteAtual) => {
       const nome = (clienteAtual.nome ?? '').toLowerCase()
       const contato = (clienteAtual.whatsappInstagram ?? '').toLowerCase()
       const valorNumero = clienteAtual.valorFechadoNumero ?? 0
+
+      // Filtro por mês - verifica se a dataContato está no mês selecionado
+      if (mesSelecionado && mesSelecionado !== TODOS_MESES && clienteAtual.dataContato) {
+        // dataContato pode estar no formato YYYY-MM-DD ou DD/MM/YYYY
+        let dataCliente: string
+        if (clienteAtual.dataContato.includes('/')) {
+          // Formato DD/MM/YYYY - converter para YYYY-MM-DD
+          const [dia, mes, ano] = clienteAtual.dataContato.split('/')
+          dataCliente = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`
+        } else {
+          // Já está no formato YYYY-MM-DD
+          dataCliente = clienteAtual.dataContato
+        }
+        
+        // Extrair YYYY-MM da data do cliente
+        const mesCliente = dataCliente.substring(0, 7) // YYYY-MM
+        
+        if (mesCliente !== mesSelecionado) {
+          return false
+        }
+      }
 
       if (termo && !nome.includes(termo) && !contato.includes(termo)) {
         return false

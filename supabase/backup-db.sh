@@ -126,3 +126,5 @@ echo -e "${GREEN}Arquivos salvos em: $BACKUP_DIR${NC}"
 ls -lh "$BACKUP_DIR"/*"$TIMESTAMP"* 2>/dev/null || true
 
 
+
+

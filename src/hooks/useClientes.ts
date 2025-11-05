@@ -225,8 +225,28 @@ export function useClientes(
       // Usar targetUserId se fornecido, senão usar o user.id
       const effectiveUserId = targetUserId || user.id
       console.log('👤 Carregando clientes para usuário:', effectiveUserId)
+      console.log('🔍 Debug - targetUserId:', targetUserId)
+      console.log('🔍 Debug - user.id:', user.id)
       
-      const { data: clientesData, error } = await supabase
+      // Verificar se o usuário é admin para debug
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('role, tenant_id')
+        .eq('id', user.id)
+        .single()
+      
+      console.log('🔍 Debug - Perfil do usuário logado:', userProfile)
+      
+      // Se estiver visualizando como outro usuário, verificar se é admin
+      const isAdmin = userProfile?.role === 'admin_global' || userProfile?.role === 'tenant_admin'
+      const isImpersonating = targetUserId && targetUserId !== user.id
+      
+      console.log('🔍 Debug - É admin?', isAdmin)
+      console.log('🔍 Debug - Está impersonando?', isImpersonating)
+      
+      // Se for admin e estiver impersonando, precisamos fazer a query de forma diferente
+      // porque as políticas RLS podem estar bloqueando por tenant_id
+      let query = supabase
         .from('clientes')
         .select(
           `
@@ -247,12 +267,54 @@ export function useClientes(
           data_pagamento_sinal,
           venda_paga,
           data_pagamento_venda,
-          data_lembrete_chamada
+          data_lembrete_chamada,
+          user_id,
+          tenant_id
         `
         )
         .eq('user_id', effectiveUserId)
+      
+      // Se for admin impersonando, não filtrar por tenant_id (RLS já deve permitir)
+      // Mas adicionar um log para debug
+      if (isAdmin && isImpersonating) {
+        console.log('🔍 Debug - Admin visualizando cliente de outro usuário')
+        // Verificar tenant_id do usuário sendo visualizado
+        const { data: targetUserProfile } = await supabase
+          .from('user_profiles')
+          .select('tenant_id, full_name, role')
+          .eq('id', effectiveUserId)
+          .single()
+        
+        // Buscar nome do tenant se houver
+        if (targetUserProfile?.tenant_id) {
+          const { data: tenant } = await supabase
+            .from('tenants')
+            .select('name')
+            .eq('id', targetUserProfile.tenant_id)
+            .single()
+          console.log('🔍 Debug - Perfil do usuário sendo visualizado:', {
+            ...targetUserProfile,
+            tenant_name: tenant?.name
+          })
+        } else {
+          console.log('🔍 Debug - Perfil do usuário sendo visualizado:', targetUserProfile)
+        }
+      }
+      
+      const { data: clientesData, error } = await query
         .order('created_at', { ascending: false })
         .range(0, PAGE_SIZE - 1)
+      
+      // Debug adicional: contar total de clientes do usuário
+      let countQuery = supabase
+        .from('clientes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', effectiveUserId)
+      
+      const { count: totalClientes } = await countQuery
+      
+      console.log('🔍 Debug - Total de clientes do usuário:', totalClientes)
+      console.log('🔍 Debug - Clientes retornados pela query:', clientesData?.length || 0)
 
       if (error) {
         console.error('❌ Erro ao carregar clientes:', error)

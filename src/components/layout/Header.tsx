@@ -1,12 +1,15 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun, Building2, Users, Palette } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { useTenant } from '@/contexts/TenantContext'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import NotificationsBell from '@/components/NotificationsBell'
 import {
   DropdownMenu,
@@ -20,6 +23,7 @@ import { cn } from '@/lib/utils'
 
 export default function Header() {
   const { userProfile, signOut } = useAuth()
+  const { branding } = useTenant()
   const [isDarkMode, setIsDarkMode] = useState(false)
   const pathname = usePathname()
 
@@ -44,14 +48,36 @@ export default function Header() {
     }
   }
 
-  const companyInitial = userProfile?.company_name?.charAt(0)?.toUpperCase() ?? 'U'
+  const companyName = branding?.companyName || userProfile?.full_name || 'Prizely'
+  const companyInitial = companyName.charAt(0)?.toUpperCase() ?? 'P'
   
-  // Adicionar link Admin apenas se o usuário for admin
+  // Navegação baseada em role
   const navItems = [
     { href: '/', label: 'Clientes CRM' },
     { href: '/dashboard', label: 'Dashboard' },
-    ...(userProfile?.role === 'admin' ? [{ href: '/admin', label: 'Admin' }] : []),
+    ...(userProfile?.role === 'admin_global' ? [
+      { href: '/admin', label: 'Admin' },
+      { href: '/admin/tenants', label: 'Tenants' }
+    ] : []),
+    ...(userProfile?.role === 'tenant_admin' ? [
+      { href: '/settings/users', label: 'Usuários', icon: Users },
+      { href: '/settings/branding', label: 'Branding', icon: Palette }
+    ] : []),
   ]
+  
+  // Role badge
+  const getRoleBadge = () => {
+    switch (userProfile?.role) {
+      case 'admin_global':
+        return <Badge variant="destructive" className="text-xs">Super Admin</Badge>
+      case 'tenant_admin':
+        return <Badge variant="default" className="text-xs">Admin</Badge>
+      case 'tenant_user':
+        return <Badge variant="secondary" className="text-xs">Usuário</Badge>
+      default:
+        return null
+    }
+  }
 
   return (
     <header className="border-b border-border/70 bg-background">
@@ -59,12 +85,26 @@ export default function Header() {
         <div className="flex items-center justify-between gap-4 py-6">
           {/* Logo e título - lado esquerdo */}
           <div className="flex items-center gap-3">
+            {branding?.logo ? (
+              <div className="relative h-10 w-10 sm:h-12 sm:w-12">
+                <Image
+                  src={branding.logo}
+                  alt={`Logo ${companyName}`}
+                  fill
+                  className="object-contain"
+                />
+              </div>
+            ) : (
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
+              </div>
+            )}
             <div className="flex flex-col">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                CRM Prizely
+                {companyName}
               </span>
               <h1 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">
-                Painel de relacionamento
+                Painel de Gestão
               </h1>
             </div>
           </div>
@@ -118,11 +158,14 @@ export default function Header() {
                   </span>
                   {/* Texto do perfil - apenas em desktop */}
                   <span className="hidden text-left lg:flex lg:flex-col">
-                    <span className="text-sm font-semibold text-foreground">
-                      {userProfile?.company_name || 'Usuário'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">
+                        {userProfile?.full_name || 'Usuário'}
+                      </span>
+                      {getRoleBadge()}
+                    </div>
                     <span className="text-xs font-medium text-muted-foreground">
-                      {userProfile?.role === 'admin' ? 'Administrador' : 'Conta Pro'}
+                      {userProfile?.tenant?.name || companyName}
                     </span>
                   </span>
                 </Button>
@@ -130,20 +173,23 @@ export default function Header() {
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-foreground">
-                      {userProfile?.company_name || 'Conta'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">
+                        {userProfile?.full_name || 'Conta'}
+                      </span>
+                      {getRoleBadge()}
+                    </div>
                     <span className="break-all text-xs text-muted-foreground">
                       {userProfile?.email}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-info">
-                        Moeda: {userProfile?.currency || 'BRL'}
-                      </span>
-                      <span className="text-xs font-medium text-primary">
-                        {userProfile?.role === 'admin' ? 'Administrador' : 'Conta Pro'}
-                      </span>
-                    </div>
+                    {userProfile?.tenant && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <Building2 className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          {userProfile.tenant.name}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />

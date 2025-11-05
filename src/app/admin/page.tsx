@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Users, Eye, Shield, Mail, Building2, Calendar, Loader2, X } from 'lucide-react'
+import { Users, Eye, Shield, Mail, Building2, Calendar, Loader2, X, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -13,6 +13,23 @@ import { useAdmin } from '@/contexts/AdminContext'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface User {
   id: string
@@ -30,13 +47,43 @@ function AdminPageContent() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [tenants, setTenants] = useState<Array<{ id: string; name: string }>>([])
+  const [newUser, setNewUser] = useState({
+    email: '',
+    password: '',
+    full_name: '',
+    phone: '',
+    role: 'tenant_user' as 'admin_global' | 'tenant_admin' | 'tenant_user',
+    tenant_id: '',
+  })
 
-  // Verificar se é admin
+  // Verificar se é admin global
   useEffect(() => {
-    if (userProfile && userProfile.role !== 'admin') {
+    if (userProfile && userProfile.role !== 'admin_global') {
       router.push('/dashboard')
     }
   }, [userProfile, router])
+
+  // Carregar tenants para o select
+  useEffect(() => {
+    const fetchTenants = async () => {
+      try {
+        const response = await fetch('/api/admin/tenants')
+        if (response.ok) {
+          const data = await response.json()
+          setTenants(data.tenants || [])
+        }
+      } catch (err) {
+        console.error('Erro ao carregar tenants:', err)
+      }
+    }
+
+    if (userProfile?.role === 'admin_global') {
+      fetchTenants()
+    }
+  }, [userProfile])
 
   // Carregar usuários
   useEffect(() => {
@@ -62,10 +109,59 @@ function AdminPageContent() {
       }
     }
 
-    if (userProfile?.role === 'admin') {
+    if (userProfile?.role === 'admin_global') {
       fetchUsers()
     }
   }, [userProfile])
+
+  const handleCreateUser = async () => {
+    if (!newUser.email || !newUser.password || !newUser.full_name) {
+      alert('Email, senha e nome completo são obrigatórios')
+      return
+    }
+
+    if (newUser.role !== 'admin_global' && !newUser.tenant_id) {
+      alert('Tenant é obrigatório para roles tenant_admin e tenant_user')
+      return
+    }
+
+    try {
+      setCreating(true)
+
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newUser),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Erro ao criar usuário')
+      }
+
+      const data = await response.json()
+      
+      // Adicionar à lista
+      setUsers([data.user, ...users])
+      setCreateDialogOpen(false)
+      setNewUser({
+        email: '',
+        password: '',
+        full_name: '',
+        phone: '',
+        role: 'tenant_user',
+        tenant_id: '',
+      })
+      alert('Usuário criado com sucesso!')
+    } catch (err) {
+      console.error('Erro ao criar usuário:', err)
+      alert(err instanceof Error ? err.message : 'Erro ao criar usuário')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const handleImpersonate = (user: User) => {
     startImpersonation({
@@ -81,7 +177,7 @@ function AdminPageContent() {
     stopImpersonation()
   }
 
-  if (userProfile?.role !== 'admin') {
+  if (userProfile?.role !== 'admin_global') {
     return (
       <MainLayout>
         <div className="flex min-h-[60vh] items-center justify-center">
@@ -103,14 +199,20 @@ function AdminPageContent() {
     <MainLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">Painel de Administração</h1>
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Shield className="h-6 w-6 text-primary" />
+              <h1 className="text-2xl font-bold">Painel de Administração</h1>
+            </div>
+            <p className="text-muted-foreground">
+              Gerencie usuários e visualize o sistema como qualquer usuário
+            </p>
           </div>
-          <p className="text-muted-foreground">
-            Gerencie usuários e visualize o sistema como qualquer usuário
-          </p>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Criar Usuário
+          </Button>
         </div>
 
         {/* Banner de Impersonação */}
@@ -186,10 +288,10 @@ function AdminPageContent() {
                                 <h3 className="font-semibold">
                                   {user.company_name || 'Sem nome'}
                                 </h3>
-                                {user.role === 'admin' && (
-                                  <Badge variant="secondary" className="gap-1 text-xs">
+                                {user.role === 'admin_global' && (
+                                  <Badge variant="destructive" className="gap-1 text-xs">
                                     <Shield className="h-3 w-3" />
-                                    Admin
+                                    Super Admin
                                   </Badge>
                                 )}
                                 <Badge variant="outline" className="text-xs">
@@ -214,7 +316,7 @@ function AdminPageContent() {
 
                         {/* Ações */}
                         <div className="flex flex-col gap-2">
-                          {user.role !== 'admin' && (
+                          {user.role !== 'admin_global' && (
                             <Button
                               onClick={() => handleImpersonate(user)}
                               variant="outline"
@@ -235,6 +337,124 @@ function AdminPageContent() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de Criar Usuário */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Criar Novo Usuário</DialogTitle>
+            <DialogDescription>
+              Crie um novo usuário no sistema. Você pode criar super admins, admins de tenant ou usuários comuns.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  placeholder="usuario@exemplo.com"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="password">Senha *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="full_name">Nome Completo *</Label>
+                <Input
+                  id="full_name"
+                  value={newUser.full_name}
+                  onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                  placeholder="João Silva"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Telefone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={newUser.phone}
+                  onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                  placeholder="(11) 99999-9999"
+                />
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="role">Role *</Label>
+                <Select
+                  value={newUser.role}
+                  onValueChange={(value: 'admin_global' | 'tenant_admin' | 'tenant_user') => 
+                    setNewUser({ ...newUser, role: value, tenant_id: value === 'admin_global' ? '' : newUser.tenant_id })
+                  }
+                >
+                  <SelectTrigger id="role">
+                    <SelectValue placeholder="Selecione a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin_global">Super Admin</SelectItem>
+                    <SelectItem value="tenant_admin">Admin do Tenant</SelectItem>
+                    <SelectItem value="tenant_user">Usuário Comum</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {newUser.role !== 'admin_global' && (
+                <div>
+                  <Label htmlFor="tenant_id">Tenant *</Label>
+                  <Select
+                    value={newUser.tenant_id}
+                    onValueChange={(value) => setNewUser({ ...newUser, tenant_id: value })}
+                  >
+                    <SelectTrigger id="tenant_id">
+                      <SelectValue placeholder="Selecione o tenant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenants.map((tenant) => (
+                        <SelectItem key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateUser} disabled={creating}>
+              {creating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Usuário
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   )
 }
