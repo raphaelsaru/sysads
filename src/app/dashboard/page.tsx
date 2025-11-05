@@ -49,6 +49,15 @@ interface PeriodoResumo {
   leadsComLembrete: number
 }
 
+type ClienteRegistro = {
+  data_contato: string | null
+  resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda' | null
+  valor_fechado: number | string | null
+  pagou_sinal: boolean | null
+  venda_paga: boolean | null
+  data_lembrete_chamada: string | null
+}
+
 function DashboardContent() {
   const { userProfile } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
@@ -140,7 +149,9 @@ function DashboardContent() {
           throw error
         }
 
-        const registros = data ?? []
+        const registros: ClienteRegistro[] = data
+          ? (data as ClienteRegistro[])
+          : []
 
         const diasIntervalo = eachDayOfInterval({ start: dateRange.from, end: dateRange.to })
         const leadsPorDia = new Map<string, number>()

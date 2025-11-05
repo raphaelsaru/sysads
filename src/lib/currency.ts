@@ -1,6 +1,6 @@
 import type { UserProfile } from '@/contexts/AuthContext'
 
-export type SupportedCurrency = UserProfile['currency']
+export type SupportedCurrency = NonNullable<UserProfile['currency']>
 
 const FALLBACK_CURRENCY: SupportedCurrency = 'BRL'
 

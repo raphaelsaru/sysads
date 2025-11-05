@@ -1,6 +1,3 @@
-// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
-import storybook from "eslint-plugin-storybook";
-
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { FlatCompat } from "@eslint/eslintrc";
@@ -11,6 +8,20 @@ const __dirname = dirname(__filename);
 const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
+
+let storybookConfigs = [];
+
+try {
+  // eslint-plugin-storybook is opcional em ambientes sem dependências de desenvolvimento.
+  const storybookModule = await import("eslint-plugin-storybook");
+  const configs = storybookModule?.default?.configs ?? storybookModule?.configs;
+
+  if (configs?.["flat/recommended"]) {
+    storybookConfigs = configs["flat/recommended"];
+  }
+} catch (error) {
+  console.warn("[eslint] eslint-plugin-storybook não disponível, ignorando configurações específicas.");
+}
 
 const eslintConfig = [...compat.extends("next/core-web-vitals", "next/typescript"), {
   rules: {
@@ -25,6 +36,6 @@ const eslintConfig = [...compat.extends("next/core-web-vitals", "next/typescript
     "build/**",
     "next-env.d.ts",
   ],
-}, ...storybook.configs["flat/recommended"]];
+}, ...storybookConfigs];
 
 export default eslintConfig;

@@ -9,6 +9,8 @@ export interface UserProfile {
   tenant_id: string | null
   role: UserRole
   full_name: string | null
+  company_name?: string | null
+  currency?: 'BRL' | 'USD' | 'EUR' | null
   avatar_url?: string | null
   phone?: string | null
   preferences?: Record<string, any>

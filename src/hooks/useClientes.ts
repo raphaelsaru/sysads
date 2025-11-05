@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 
-import { Cliente, NovoCliente } from '@/types/crm'
+import { Cliente, NovoCliente, UserRole } from '@/types/crm'
 import { createClient } from '@/lib/supabase-browser'
 import {
   FALLBACK_CURRENCY_VALUE,
@@ -32,6 +32,11 @@ const estatisticasIniciais: EstatisticasClientes = {
   naoVenda: 0,
   valorEmProcesso: 0,
   valorVendido: 0,
+}
+
+type PerfilResumo = {
+  role: UserRole
+  tenant_id: string | null
 }
 
 type ClienteSupabaseRow = {
@@ -229,11 +234,12 @@ export function useClientes(
       console.log('🔍 Debug - user.id:', user.id)
       
       // Verificar se o usuário é admin para debug
-      const { data: userProfile } = await supabase
+      const { data: userProfileRaw } = await supabase
         .from('user_profiles')
         .select('role, tenant_id')
         .eq('id', user.id)
         .single()
+      const userProfile = userProfileRaw as PerfilResumo | null
       
       console.log('🔍 Debug - Perfil do usuário logado:', userProfile)
       

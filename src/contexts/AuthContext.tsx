@@ -19,6 +19,21 @@ export interface UserProfile extends UserProfileType {
   } | null
 }
 
+type ProfileRow = {
+  id: string
+  tenant_id: string | null
+  role: UserRole
+  full_name: string | null
+  company_name: string | null
+  currency: 'BRL' | 'USD' | 'EUR' | null
+  avatar_url: string | null
+  phone: string | null
+  preferences: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
+  last_seen_at: string | null
+}
+
 interface AuthContextType {
   user: User | null
   userProfile: UserProfile | null
@@ -56,13 +71,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('👤 Buscando perfil do usuário:', supabaseUser.id)
 
       // Buscar perfil do user_profiles
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileDataRaw, error: profileError } = await supabase
         .from('user_profiles')
         .select(`
           id,
           tenant_id,
           role,
           full_name,
+          company_name,
+          currency,
           avatar_url,
           phone,
           preferences,
@@ -72,6 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         `)
         .eq('id', supabaseUser.id)
         .single()
+      
+      const profileData = profileDataRaw as ProfileRow | null
 
       if (profileError) {
         console.error('❌ Erro ao buscar user_profile:', profileError)
@@ -82,6 +101,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           tenant_id: null,
           role: 'tenant_user',
           full_name: supabaseUser.user_metadata?.full_name || supabaseUser.email || '',
+          company_name: supabaseUser.user_metadata?.company_name || null,
+          currency: (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? null,
+          avatar_url: null,
+          phone: null,
+          preferences: {},
+          created_at: supabaseUser.created_at,
+          updated_at: supabaseUser.created_at,
+          tenant: null
+        }
+        setUserProfile(basicProfile)
+        return
+      }
+
+      if (!profileData) {
+        console.warn('ℹ️ Perfil não encontrado, usando dados básicos')
+        const basicProfile: UserProfile = {
+          id: supabaseUser.id,
+          email: supabaseUser.email || '',
+          tenant_id: null,
+          role: 'tenant_user',
+          full_name: supabaseUser.user_metadata?.full_name || supabaseUser.email || '',
+          company_name: supabaseUser.user_metadata?.company_name || null,
+          currency: (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? null,
           avatar_url: null,
           phone: null,
           preferences: {},
@@ -113,6 +155,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         tenant_id: profileData.tenant_id,
         role: profileData.role,
         full_name: profileData.full_name,
+        company_name: profileData.company_name,
+        currency: profileData.currency,
         avatar_url: profileData.avatar_url,
         phone: profileData.phone,
         preferences: profileData.preferences || {},
@@ -242,11 +286,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // Não permitir atualização de campos sensíveis
-      const { email, tenant, tenant_id, role, ...safeUpdates } = updates
-      
-      const { error } = await supabase
-        .from('user_profiles')
-        .update(safeUpdates)
+      const safeUpdates: Partial<UserProfile> = { ...updates }
+      delete safeUpdates.email
+      delete safeUpdates.tenant
+      delete safeUpdates.tenant_id
+      delete safeUpdates.role
+
+      const updatesPayload = safeUpdates as Partial<ProfileRow>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userProfilesTable = supabase.from('user_profiles') as any
+      const { error } = await userProfilesTable
+        .update(updatesPayload)
         .eq('id', user.id)
 
       if (!error) {
