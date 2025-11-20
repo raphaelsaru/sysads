@@ -1,0 +1,17 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="64" cy="64" r="60" fill="#3B82F6"/>
+  
+  <!-- WhatsApp-style chat bubble -->
+  <path d="M40 50C40 44.4772 44.4772 40 50 40H78C83.5228 40 88 44.4772 88 50V68C88 73.5228 83.5228 78 78 78H65L52 88V78H50C44.4772 78 40 73.5228 40 68V50Z" fill="white"/>
+  
+  <!-- P Letter -->
+  <text x="64" y="68" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#3B82F6" text-anchor="middle">P</text>
+  
+  <!-- Arrow indicator -->
+  <path d="M70 82L78 88L86 82" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
+
+
+
+

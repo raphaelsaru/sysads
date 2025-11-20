@@ -1,0 +1,459 @@
+/* Modal Centralizado Prizely - Estilo do CRM */
+
+/* Overlay escuro de fundo */
+#prizely-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  z-index: 999998 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  animation: fadeIn 0.2s ease-out !important;
+}
+
+#prizely-modal-overlay.hidden {
+  display: none !important;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Container */
+#prizely-modal {
+  position: relative !important;
+  background: white !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  width: 90% !important;
+  max-width: 600px !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  z-index: 999999 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  animation: slideUp 0.3s ease-out !important;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#prizely-modal.hidden {
+  display: none !important;
+}
+
+/* Container interno */
+#prizely-modal .prizely-container {
+  padding: 24px !important;
+}
+
+/* Header do Modal */
+#prizely-modal .prizely-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  margin-bottom: 24px !important;
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+#prizely-modal .prizely-header-content h1 {
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  color: #111827 !important;
+  margin: 0 0 4px 0 !important;
+}
+
+#prizely-modal .prizely-header-content .subtitle {
+  font-size: 14px !important;
+  color: #6b7280 !important;
+  margin: 0 !important;
+}
+
+#prizely-modal .prizely-close-btn {
+  background: none !important;
+  border: none !important;
+  font-size: 28px !important;
+  line-height: 1 !important;
+  color: #9ca3af !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  transition: all 0.2s !important;
+}
+
+#prizely-modal .prizely-close-btn:hover {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+/* Mensagens de erro e sucesso */
+#prizely-modal .error-container {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  margin-bottom: 16px !important;
+  font-size: 14px !important;
+  border-left: 4px solid #dc2626 !important;
+}
+
+#prizely-modal .success-container {
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  margin-bottom: 16px !important;
+  font-size: 14px !important;
+  border-left: 4px solid #10b981 !important;
+}
+
+#prizely-modal .error-container.hidden,
+#prizely-modal .success-container.hidden {
+  display: none !important;
+}
+
+/* Alerta de instrução */
+#prizely-modal .info-container {
+  background: #dbeafe !important;
+  color: #1e40af !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  margin-bottom: 16px !important;
+  font-size: 14px !important;
+  border-left: 4px solid #3b82f6 !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+}
+
+#prizely-modal .info-container.hidden {
+  display: none !important;
+}
+
+#prizely-modal .info-icon {
+  font-size: 16px !important;
+  font-weight: bold !important;
+  flex-shrink: 0 !important;
+}
+
+/* Formulário */
+#prizely-modal .prizely-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+
+#prizely-modal .form-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+#prizely-modal .form-group label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
+}
+
+#prizely-modal .form-group input,
+#prizely-modal .form-group select,
+#prizely-modal .form-group textarea {
+  padding: 10px 12px !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  color: #111827 !important;
+  background: white !important;
+  transition: all 0.2s !important;
+  font-family: inherit !important;
+}
+
+#prizely-modal .form-group input:focus,
+#prizely-modal .form-group select:focus,
+#prizely-modal .form-group textarea:focus {
+  outline: none !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+#prizely-modal .form-group textarea {
+  resize: vertical !important;
+  min-height: 80px !important;
+}
+
+#prizely-modal .field-hint {
+  font-size: 12px !important;
+  color: #6b7280 !important;
+  margin-top: 4px !important;
+}
+
+/* Toggle Switch */
+#prizely-modal .toggle-group {
+  background: #f9fafb !important;
+  padding: 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+#prizely-modal .toggle-label {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  cursor: pointer !important;
+  gap: 12px !important;
+}
+
+#prizely-modal .toggle-text {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  flex: 1 !important;
+}
+
+#prizely-modal .toggle-title {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #111827 !important;
+}
+
+#prizely-modal .toggle-description {
+  font-size: 12px !important;
+  color: #6b7280 !important;
+}
+
+#prizely-modal .switch {
+  position: relative !important;
+  display: inline-block !important;
+  width: 44px !important;
+  height: 24px !important;
+  flex-shrink: 0 !important;
+}
+
+#prizely-modal .switch input {
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+#prizely-modal .slider {
+  position: absolute !important;
+  cursor: pointer !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-color: #d1d5db !important;
+  transition: 0.3s !important;
+  border-radius: 24px !important;
+}
+
+#prizely-modal .slider:before {
+  position: absolute !important;
+  content: "" !important;
+  height: 18px !important;
+  width: 18px !important;
+  left: 3px !important;
+  bottom: 3px !important;
+  background-color: white !important;
+  transition: 0.3s !important;
+  border-radius: 50% !important;
+}
+
+#prizely-modal input:checked + .slider {
+  background-color: #3b82f6 !important;
+}
+
+#prizely-modal input:checked + .slider:before {
+  transform: translateX(20px) !important;
+}
+
+/* Seção de pagamento */
+#prizely-modal .section-divider {
+  height: 1px !important;
+  background: #e5e7eb !important;
+  margin: 24px 0 !important;
+}
+
+#prizely-modal .section-title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #111827 !important;
+  margin: 0 0 16px 0 !important;
+}
+
+/* Botões */
+#prizely-modal .form-actions {
+  display: flex !important;
+  gap: 12px !important;
+  margin-top: 24px !important;
+  padding-top: 16px !important;
+  border-top: 1px solid #e5e7eb !important;
+}
+
+#prizely-modal .btn {
+  padding: 10px 20px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+  border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+
+#prizely-modal .btn-primary {
+  background: #3b82f6 !important;
+  color: white !important;
+  flex: 1 !important;
+}
+
+#prizely-modal .btn-primary:hover:not(:disabled) {
+  background: #2563eb !important;
+}
+
+#prizely-modal .btn-primary:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+#prizely-modal .btn-secondary {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+}
+
+#prizely-modal .btn-secondary:hover {
+  background: #e5e7eb !important;
+}
+
+/* Loader */
+#prizely-modal .loader {
+  border: 2px solid #ffffff !important;
+  border-top: 2px solid transparent !important;
+  border-radius: 50% !important;
+  width: 16px !important;
+  height: 16px !important;
+  animation: spin 0.8s linear infinite !important;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg) !important;
+  }
+  100% {
+    transform: rotate(360deg) !important;
+  }
+}
+
+#prizely-modal .loader.hidden {
+  display: none !important;
+}
+
+/* Modal de Configurações (interno) */
+#prizely-modal .modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 1000001 !important;
+}
+
+#prizely-modal .modal.hidden {
+  display: none !important;
+}
+
+#prizely-modal .modal-content {
+  background: white !important;
+  padding: 24px !important;
+  border-radius: 12px !important;
+  width: 90% !important;
+  max-width: 400px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  position: relative !important;
+  z-index: 1000002 !important;
+  pointer-events: auto !important;
+}
+
+#prizely-modal .modal-content h2 {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #111827 !important;
+  margin-bottom: 16px !important;
+}
+
+#prizely-modal .modal-actions {
+  display: flex !important;
+  gap: 12px !important;
+  margin-top: 20px !important;
+}
+
+#prizely-modal .modal-actions .btn {
+  flex: 1 !important;
+}
+
+/* Scrollbar */
+#prizely-modal::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+#prizely-modal::-webkit-scrollbar-track {
+  background: #f3f4f6 !important;
+}
+
+#prizely-modal::-webkit-scrollbar-thumb {
+  background: #d1d5db !important;
+  border-radius: 4px !important;
+}
+
+#prizely-modal::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af !important;
+}
+
+/* Responsivo */
+@media (max-width: 640px) {
+  #prizely-modal {
+    width: 95% !important;
+    max-height: 95vh !important;
+  }
+  
+  #prizely-modal .prizely-container {
+    padding: 16px !important;
+  }
+}
+
+
+
+

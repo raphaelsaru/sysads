@@ -152,6 +152,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const company_name = (preferences as Record<string, unknown>)?.company_name as string | null | undefined
       const currency = (preferences as Record<string, unknown>)?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined
 
+      console.log('🔍 Debug currency:', {
+        userId: profileData.id,
+        preferences,
+        currencyFromPreferences: currency,
+        currencyFromMetadata: supabaseUser.user_metadata?.currency,
+      })
+
       const fullProfile: UserProfile = {
         id: profileData.id,
         email: supabaseUser.email || '',
@@ -170,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUserProfile(fullProfile)
-      console.log('✅ Perfil carregado:', fullProfile.role, fullProfile.tenant_id ? `(Tenant: ${fullProfile.tenant?.name})` : '')
+      console.log('✅ Perfil carregado:', fullProfile.role, fullProfile.tenant_id ? `(Tenant: ${fullProfile.tenant?.name})` : '', `Currency: ${fullProfile.currency || 'null'}`)
       
     } catch (error) {
       console.error('❌ Erro ao buscar perfil do usuário:', error)

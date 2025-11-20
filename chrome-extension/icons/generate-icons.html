@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de Ícones - Prizely</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .instructions {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      max-width: 600px;
+    }
+    .icons-container {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .icon-box {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #3B82F6;
+      border-radius: 8px;
+      color: white;
+      font-weight: bold;
+      margin: 10px auto;
+    }
+    .icon-16 { width: 16px; height: 16px; font-size: 10px; }
+    .icon-48 { width: 48px; height: 48px; font-size: 28px; }
+    .icon-128 { width: 128px; height: 128px; font-size: 72px; }
+    button {
+      background: #3B82F6;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #2563EB;
+    }
+  </style>
+</head>
+<body>
+  <div class="instructions">
+    <h1>Gerador de Ícones - Prizely WhatsApp Exporter</h1>
+    <p>Para gerar os ícones PNG necessários para a extensão:</p>
+    <ol>
+      <li>Use uma ferramenta online de conversão SVG → PNG:
+        <ul>
+          <li><a href="https://svgtopng.com" target="_blank">SVGtoPNG.com</a></li>
+          <li><a href="https://cloudconvert.com/svg-to-png" target="_blank">CloudConvert</a></li>
+        </ul>
+      </li>
+      <li>Converta os arquivos SVG da pasta icons/:
+        <ul>
+          <li>icon16.svg → icon16.png</li>
+          <li>icon48.svg → icon48.png</li>
+          <li>icon128.svg → icon128.png</li>
+        </ul>
+      </li>
+      <li>Ou use o script Node.js: <code>node icons/convert-icons.js</code> (requer npm install canvas)</li>
+    </ol>
+    <p><strong>Ícones de preview:</strong></p>
+  </div>
+
+  <div class="icons-container">
+    <div class="icon-box">
+      <h3>16x16</h3>
+      <div class="icon icon-16">P</div>
+      <p>Barra de ferramentas</p>
+    </div>
+
+    <div class="icon-box">
+      <h3>48x48</h3>
+      <div class="icon icon-48">P</div>
+      <p>Gerenciador de extensões</p>
+    </div>
+
+    <div class="icon-box">
+      <h3>128x128</h3>
+      <div class="icon icon-128">P</div>
+      <p>Chrome Web Store</p>
+    </div>
+  </div>
+
+  <div class="instructions" style="margin-top: 20px;">
+    <h3>Método Alternativo: Screenshot dos SVGs</h3>
+    <p>Você também pode abrir cada arquivo SVG no navegador e fazer screenshot:</p>
+    <ol>
+      <li>Abra <code>icon16.svg</code> no navegador</li>
+      <li>Faça screenshot do ícone</li>
+      <li>Salve como PNG com o tamanho correto</li>
+      <li>Repita para os outros tamanhos</li>
+    </ol>
+  </div>
+</body>
+</html>
+
+
+
+

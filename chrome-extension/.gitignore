@@ -1,0 +1,13 @@
+# Arquivos temporários
+.DS_Store
+Thumbs.db
+
+# Node modules (se usar script de conversão)
+node_modules/
+
+# Arquivos de build/teste
+*.log
+*.tmp
+
+# Configurações locais do usuário
+chrome-extension-config.json

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prizely WhatsApp Exporter</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Exportar para CRM</h1>
+      <p class="subtitle">Adicionar contato do WhatsApp ao Prizely</p>
+    </header>
+
+    <div id="errorContainer" class="error-container hidden"></div>
+    <div id="successContainer" class="success-container hidden"></div>
+
+    <form id="clienteForm" class="form">
+      <!-- Data de Contato -->
+      <div class="form-group">
+        <label for="dataContato">Data de contato *</label>
+        <input type="date" id="dataContato" name="dataContato" required>
+      </div>
+
+      <!-- Nome do Cliente -->
+      <div class="form-group">
+        <label for="nome">Nome do cliente *</label>
+        <input type="text" id="nome" name="nome" placeholder="Nome completo" required>
+      </div>
+
+      <!-- WhatsApp/Instagram -->
+      <div class="form-group">
+        <label for="whatsappInstagram">WhatsApp / Instagram *</label>
+        <input type="text" id="whatsappInstagram" name="whatsappInstagram" placeholder="@usuario ou telefone" required>
+      </div>
+
+      <!-- Origem -->
+      <div class="form-group">
+        <label for="origem">Origem *</label>
+        <select id="origem" name="origem" required>
+          <option value="Indicação">Indicação</option>
+          <option value="Orgânico / Perfil" selected>Orgânico / Perfil</option>
+          <option value="Anúncio">Anúncio</option>
+          <option value="Cliente antigo">Cliente antigo</option>
+        </select>
+      </div>
+
+      <!-- Orçamento Enviado -->
+      <div class="form-group toggle-group">
+        <label class="toggle-label">
+          <div class="toggle-text">
+            <span class="toggle-title">Orçamento enviado</span>
+            <span class="toggle-description">Marque se o orçamento foi enviado</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="orcamentoEnviado" name="orcamentoEnviado">
+            <span class="slider"></span>
+          </label>
+        </label>
+      </div>
+
+      <!-- Resultado -->
+      <div class="form-group">
+        <label for="resultado">Resultado *</label>
+        <select id="resultado" name="resultado" required>
+          <option value="Venda">Venda</option>
+          <option value="Orçamento em Processo" selected>Orçamento em Processo</option>
+          <option value="Não Venda">Não Venda</option>
+        </select>
+      </div>
+
+      <!-- Qualidade do Contato -->
+      <div class="form-group">
+        <label for="qualidadeContato">Qualidade do contato *</label>
+        <select id="qualidadeContato" name="qualidadeContato" required>
+          <option value="Bom">Bom</option>
+          <option value="Regular" selected>Regular</option>
+          <option value="Ruim">Ruim</option>
+        </select>
+      </div>
+
+      <!-- Cliente Não Respondeu -->
+      <div class="form-group toggle-group">
+        <label class="toggle-label">
+          <div class="toggle-text">
+            <span class="toggle-title">Cliente não respondeu</span>
+            <span class="toggle-description">Marque se o cliente não respondeu</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="naoRespondeu" name="naoRespondeu">
+            <span class="slider"></span>
+          </label>
+        </label>
+      </div>
+
+      <!-- Valor Fechado (condicional) -->
+      <div class="form-group" id="valorFechadoGroup" style="display: none;">
+        <label for="valorFechado">Valor fechado</label>
+        <input type="text" id="valorFechado" name="valorFechado" placeholder="R$ 0,00">
+      </div>
+
+      <!-- Campos de Pagamento (condicionais - aparecem quando resultado = Venda) -->
+      <div id="pagamentoFields" style="display: none;">
+        <div class="section-divider"></div>
+        <h3 class="section-title">Pagamento</h3>
+
+        <!-- Pagou Sinal -->
+        <div class="form-group toggle-group">
+          <label class="toggle-label">
+            <div class="toggle-text">
+              <span class="toggle-title">Cliente pagou sinal</span>
+              <span class="toggle-description">Marque quando o cliente pagar o sinal</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="pagouSinal" name="pagouSinal">
+              <span class="slider"></span>
+            </label>
+          </label>
+        </div>
+
+        <!-- Valor do Sinal (condicional) -->
+        <div class="form-group" id="valorSinalGroup" style="display: none;">
+          <label for="valorSinal">Valor do sinal *</label>
+          <input type="text" id="valorSinal" name="valorSinal" placeholder="R$ 0,00">
+        </div>
+
+        <!-- Data Pagamento Sinal (condicional) -->
+        <div class="form-group" id="dataPagamentoSinalGroup" style="display: none;">
+          <label for="dataPagamentoSinal">Data do pagamento do sinal *</label>
+          <input type="date" id="dataPagamentoSinal" name="dataPagamentoSinal">
+        </div>
+
+        <!-- Venda Paga -->
+        <div class="form-group toggle-group">
+          <label class="toggle-label">
+            <div class="toggle-text">
+              <span class="toggle-title">Venda totalmente paga</span>
+              <span class="toggle-description">Marque quando o pagamento for completo</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="vendaPaga" name="vendaPaga">
+              <span class="slider"></span>
+            </label>
+          </label>
+        </div>
+
+        <!-- Data Pagamento Venda (condicional) -->
+        <div class="form-group" id="dataPagamentoVendaGroup" style="display: none;">
+          <label for="dataPagamentoVenda">Data do pagamento completo *</label>
+          <input type="date" id="dataPagamentoVenda" name="dataPagamentoVenda">
+        </div>
+      </div>
+
+      <!-- Data para Chamar Novamente -->
+      <div class="form-group">
+        <label for="dataLembreteChamada">Data para chamar novamente</label>
+        <input type="date" id="dataLembreteChamada" name="dataLembreteChamada">
+        <small class="field-hint">Configure quando ser notificado sobre este cliente</small>
+      </div>
+
+      <!-- Observações -->
+      <div class="form-group">
+        <label for="observacao">Observações</label>
+        <textarea id="observacao" name="observacao" rows="3" placeholder="Detalhes que ajudam no acompanhamento do cliente"></textarea>
+      </div>
+
+      <!-- Botões -->
+      <div class="form-actions">
+        <button type="button" id="settingsBtn" class="btn btn-secondary">⚙️ Configurar</button>
+        <button type="submit" id="submitBtn" class="btn btn-primary">
+          <span id="submitText">Enviar para CRM</span>
+          <span id="submitLoader" class="loader hidden"></span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Modal de Configurações -->
+    <div id="settingsModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>Configurações</h2>
+        <div class="form-group">
+          <label for="crmUrl">URL do CRM *</label>
+          <input type="url" id="crmUrl" placeholder="https://seu-crm.vercel.app">
+          <small class="field-hint">Ex: http://localhost:3000 ou https://prizely.vercel.app</small>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="cancelSettingsBtn" class="btn btn-secondary">Cancelar</button>
+          <button type="button" id="saveSettingsBtn" class="btn btn-primary">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+
+
+
+

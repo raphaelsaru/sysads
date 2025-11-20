@@ -62,8 +62,8 @@ function DashboardContent() {
   const { userProfile } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
   
-  // Usar moeda padrão (currency não está implementada por usuário ainda)
-  const currency = FALLBACK_CURRENCY_VALUE as 'BRL' | 'USD' | 'EUR'
+  // Usar moeda do usuário impersonado se houver, senão usar a do usuário logado
+  const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date()

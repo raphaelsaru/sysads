@@ -37,7 +37,8 @@ export async function GET() {
         role,
         full_name,
         created_at,
-        tenant_id
+        tenant_id,
+        preferences
       `)
       .order('created_at', { ascending: false })
 
@@ -66,7 +67,7 @@ export async function GET() {
     }
 
     // Buscar emails dos usuários usando Admin Client
-    let authUsers: { users: Array<{ id: string; email?: string }> } | null = null
+    let authUsers: { users: Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }> } | null = null
     try {
       const adminClient = createAdminClient()
       const { data, error: adminError } = await adminClient.auth.admin.listUsers()
@@ -87,11 +88,17 @@ export async function GET() {
       const tenant = profile.tenant_id ? tenantsMap.get(profile.tenant_id) : null
       const authUser = authUsers?.users.find(u => u.id === profile.id)
       
+      // Extrair currency de preferences, com fallback para user_metadata ou BRL
+      const preferences = (profile.preferences as Record<string, unknown>) || {}
+      const currencyFromPreferences = preferences.currency as 'BRL' | 'USD' | 'EUR' | null | undefined
+      const currencyFromMetadata = authUser?.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined
+      const currency = currencyFromPreferences ?? currencyFromMetadata ?? 'BRL'
+      
       return {
         id: profile.id,
         email: authUser?.email || 'N/A',
         company_name: tenant?.name || profile.full_name || 'Sem nome',
-        currency: 'BRL',
+        currency: currency,
         role: profile.role,
         created_at: profile.created_at,
         tenant_id: profile.tenant_id,

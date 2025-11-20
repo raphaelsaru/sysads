@@ -1,0 +1,7 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="20" fill="#3B82F6"/>
+  <circle cx="64" cy="52" r="28" fill="white"/>
+  <text x="64" y="62" font-family="Arial" font-size="32" font-weight="bold" fill="#3B82F6" text-anchor="middle">P</text>
+  <path d="M52 88L64 98L76 88" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="64" y="110" font-family="Arial" font-size="10" fill="white" text-anchor="middle" opacity="0.8">Prizely</text>
+</svg>
