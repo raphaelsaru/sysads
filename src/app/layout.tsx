@@ -14,6 +14,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "CRM Prizely - Sistema de Gestão de Clientes",
   description: "Sistema de CRM para gestão de clientes da Prizely",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export const viewport: Viewport = {

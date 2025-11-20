@@ -80,33 +80,32 @@ export default function Header() {
   }
 
   return (
-    <header className="border-b border-border/70 bg-background">
+    <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-12">
         <div className="flex items-center justify-between gap-4 py-6">
-          {/* Logo e título - lado esquerdo */}
-          <div className="flex items-center gap-3">
+          {/* Logo - lado esquerdo */}
+          <div className="flex items-center">
             {branding?.logo ? (
-              <div className="relative h-10 w-10 sm:h-12 sm:w-12">
+              <div className="relative h-auto w-[125px]">
                 <Image
                   src={branding.logo}
                   alt={`Logo ${companyName}`}
-                  fill
+                  width={125}
+                  height={125}
                   className="object-contain"
                 />
               </div>
             ) : (
-              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
+              <div className="relative h-auto w-[125px]">
+                 <Image
+                  src="/logo-prizely.png"
+                  alt="Prizely Logo"
+                  width={125}
+                  height={125}
+                  className="object-contain"
+                />
               </div>
             )}
-            <div className="flex flex-col">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {companyName}
-              </span>
-              <h1 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">
-                Painel de Gestão
-              </h1>
-            </div>
           </div>
 
           {/* Navegação - centro (desktop) */}
