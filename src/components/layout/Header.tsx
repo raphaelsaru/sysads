@@ -53,7 +53,8 @@ export default function Header() {
   
   // Navegação baseada em role
   const navItems = [
-    { href: '/', label: 'Clientes CRM' },
+    { href: '/', label: 'Leads' },
+    { href: '/clientes', label: 'Clientes' },
     { href: '/dashboard', label: 'Dashboard' },
     ...(userProfile?.role === 'admin_global' ? [
       { href: '/admin', label: 'Admin' },

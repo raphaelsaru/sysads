@@ -26,7 +26,11 @@ const INVALID_NAME_KEYWORDS = [
   'enviado', 'sent', 'entregue', 'delivered', 'lido', 'read', 'erro', 'error', 'falha', 'failed',
   'tentar novamente', 'try again', 'cancelar', 'cancel', 'confirmar', 'confirm',
   'salvar', 'save', 'editar', 'edit', 'novo', 'new', 'criar', 'create',
-  'fechar', 'close', 'abrir', 'open'
+  'fechar', 'close', 'abrir', 'open',
+  
+  // Textos de UI inválidos do WhatsApp
+  'default-contact-refreshed', 'default-contact', 'contact-refreshed', 'refreshed',
+  'search-refreshed', 'more-refreshed', 'search-refreshedmore-refreshed'
 ];
 
 function sanitizeNameCandidate(value) {
@@ -50,6 +54,11 @@ function sanitizeNameCandidate(value) {
   })) {
     return '';
   }
+  
+  // Verificação adicional: rejeitar textos que contenham "default" ou "refreshed" como parte do texto
+  if (lower.includes('default') || lower.includes('refreshed')) {
+    return '';
+  }
 
   if (normalized.length > 100) {
     return '';
@@ -70,8 +79,94 @@ function isElementInContactContext(element) {
     element.closest('[data-testid="conversation-panel-body"]') ||
     element.closest('[data-testid="conversation-panel-wrapper"]') ||
     element.closest('div[data-testid="contact-info-drawer"]') ||
-    element.closest('div[data-testid="drawer-right"]')
+    element.closest('div[data-testid="drawer-right"]') ||
+    element.closest('div[data-testid="profile-drawer"]') ||
+    element.closest('[aria-label="Contact info"]') ||
+    element.closest('[role="dialog"][aria-label*="info" i]')
   );
+}
+
+function getContactInfoDrawer() {
+  const selectors = [
+    'div[data-testid="contact-info-drawer"]',
+    'div[data-testid="drawer-right"]',
+    'div[data-testid="profile-drawer"]',
+    '[aria-label="Contact info"]',
+    '[aria-label="Contact Info"]',
+    '[aria-label="Contact information"]',
+    '[aria-label="Contact Information"]',
+    '[role="dialog"][aria-label*="contact info" i]',
+    '[role="dialog"][aria-label*="contact information" i]',
+    '[role="complementary"][aria-label*="contact info" i]',
+    '[data-animate-modal-popup="true"] [aria-label*="contact info" i]'
+  ];
+
+  for (const selector of selectors) {
+    const drawer = document.querySelector(selector);
+    if (drawer) {
+      console.log('Prizely: 🔍 Drawer encontrado via seletor:', selector, 'Elementos filhos:', drawer.querySelectorAll('*').length);
+      return drawer;
+    }
+  }
+
+  const addButton = document.querySelector('button[aria-label="Add to contacts"], div[aria-label="Add to contacts"]');
+  if (addButton) {
+    const dialogParent = addButton.closest('[role="dialog"], [aria-label]');
+    if (dialogParent) {
+      console.log('Prizely: 🔍 Drawer encontrado via botão Add, elementos filhos:', dialogParent.querySelectorAll('*').length);
+      return dialogParent;
+    }
+  }
+
+  // Busca alternativa: procurar por qualquer elemento que contenha "Contact info" no título
+  const allDialogs = document.querySelectorAll('[role="dialog"], [role="complementary"]');
+  for (const dialog of allDialogs) {
+    const ariaLabel = dialog.getAttribute('aria-label') || '';
+    if (ariaLabel.toLowerCase().includes('contact info') || ariaLabel.toLowerCase().includes('contact information')) {
+      console.log('Prizely: 🔍 Drawer encontrado via busca alternativa, elementos filhos:', dialog.querySelectorAll('*').length);
+      return dialog;
+    }
+  }
+
+  return null;
+}
+
+function extractNameFromElementList(elements) {
+  for (const element of elements) {
+    if (!element) continue;
+    // Ignorar botões ou inputs
+    if (element.closest('button') || element.closest('input') || element.closest('textarea')) {
+      continue;
+    }
+
+    const text = element.textContent?.trim();
+    if (!text || text.length > 120) {
+      if (text && text.length > 120) {
+        console.log('Prizely: 🔍 Texto muito longo ignorado:', text.substring(0, 50) + '...');
+      }
+      continue;
+    }
+
+    const candidate = sanitizeNameCandidate(text);
+    if (!candidate) {
+      console.log('Prizely: 🔍 Texto rejeitado pela sanitização:', text);
+      continue;
+    }
+
+    const cleanCandidate = candidate.replace(/^~\s*/, '');
+    if (!cleanCandidate) {
+      console.log('Prizely: 🔍 Candidato vazio após remover ~:', candidate);
+      continue;
+    }
+
+    if (!/^\+?\d[\d\s\-()]{4,}$/.test(cleanCandidate)) {
+      console.log('Prizely: ✅ Nome válido encontrado em extractNameFromElementList:', cleanCandidate);
+      return cleanCandidate;
+    } else {
+      console.log('Prizely: 🔍 Candidato parece ser um número:', cleanCandidate);
+    }
+  }
+  return '';
 }
 
 function getConversationHeaderElements() {
@@ -276,21 +371,386 @@ function extractContactName() {
   
   // ESTRATÉGIA 3: Buscar no painel de informações (quando aberto)
   // Baseado na estrutura: <div class="x1fcty0u xhslqc4 x6prxxf x1o2sk6j">~Paula</div>
-  const drawer = document.querySelector('div[data-testid="contact-info-drawer"], div[data-testid="drawer-right"]');
+  const drawer = getContactInfoDrawer();
   if (drawer) {
-    // Buscar divs com texto que parecem nomes (não números)
-    const drawerTexts = drawer.querySelectorAll('div[dir="auto"], span[dir="auto"]');
-    for (const element of drawerTexts) {
-      const text = element.textContent?.trim();
-      if (text) {
+    const drawerElementCount = drawer.querySelectorAll('*').length;
+    console.log('Prizely: 🔍 Drawer encontrado, buscando nome... Elementos no drawer:', drawerElementCount);
+    
+    // Se o drawer tem poucos elementos, pode ser que não seja o drawer completo
+    // Nesse caso, vamos também buscar no elemento pai
+    let searchContainer = drawer;
+    if (drawerElementCount < 10) {
+      const parent = drawer.parentElement;
+      if (parent) {
+        const parentElementCount = parent.querySelectorAll('*').length;
+        console.log('Prizely: 🔍 Drawer tem poucos elementos, tentando elemento pai com', parentElementCount, 'elementos');
+        if (parentElementCount > drawerElementCount) {
+          searchContainer = parent;
+        }
+      }
+    }
+    
+    // ESTRATÉGIA 3.0: Buscar especificamente por elementos que estão logo após o número de telefone
+    // O nome geralmente aparece em um elemento próximo ao número no painel
+    const phoneElements = searchContainer.querySelectorAll('span, div');
+    let phoneElement = null;
+    for (const el of phoneElements) {
+      const text = el.textContent?.trim() || '';
+      if (/\+?\d[\d\s\-()]{8,}/.test(text)) {
+        phoneElement = el;
+        console.log('Prizely: 🔍 Número de telefone encontrado no drawer:', text);
+        break;
+      }
+    }
+    
+    if (phoneElement) {
+      // Buscar elementos irmãos ou próximos ao elemento do telefone
+      const phoneParent = phoneElement.parentElement;
+      if (phoneParent) {
+        // Buscar no mesmo container do telefone
+        const siblings = Array.from(phoneParent.children);
+        const phoneIndex = siblings.indexOf(phoneElement);
+        
+        // Verificar elementos após o telefone (geralmente o nome vem depois)
+        for (let i = phoneIndex + 1; i < siblings.length && i < phoneIndex + 5; i++) {
+          const sibling = siblings[i];
+          if (!sibling || !sibling.textContent) continue;
+          
+          const text = sibling.textContent.trim();
+          if (!text || text.length < 2 || text.length > 100) continue;
+          
+          // Verificar se contém o padrão ~Nome
+          if (/~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+            console.log('Prizely: 🔍 Nome encontrado próximo ao telefone:', text, sibling.tagName);
+            const candidate = sanitizeNameCandidate(text);
+            if (candidate && candidate.length > 1) {
+              console.log('Prizely: ✅ Nome encontrado próximo ao telefone:', candidate);
+              return candidate;
+            }
+          }
+        }
+        
+        // Também buscar em elementos filhos do container do telefone
+        const children = phoneParent.querySelectorAll('span, div');
+        for (const child of children) {
+          if (child === phoneElement) continue;
+          if (!child.textContent) continue;
+          
+          const text = child.textContent.trim();
+          if (!text || text.length < 2 || text.length > 100) continue;
+          
+          if (/~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+            console.log('Prizely: 🔍 Nome encontrado em elemento filho do container do telefone:', text);
+            const candidate = sanitizeNameCandidate(text);
+            if (candidate && candidate.length > 1) {
+              console.log('Prizely: ✅ Nome encontrado em elemento filho:', candidate);
+              return candidate;
+            }
+          }
+        }
+      }
+    }
+    
+    // ESTRATÉGIA 3.1: Buscar especificamente por elementos que começam com ~
+    // Primeiro, buscar em todos os elementos do drawer
+    const allDrawerElements = Array.from(searchContainer.querySelectorAll('*'));
+    console.log('Prizely: 🔍 Total de elementos no container de busca:', allDrawerElements.length);
+    
+    for (const element of allDrawerElements) {
+      if (!element || !element.textContent) continue;
+      
+      const text = element.textContent.trim();
+      if (!text || text.length < 2 || text.length > 100) continue;
+      
+      // Verificar se contém o padrão ~Nome (com ou sem espaço após o ~)
+      if (/^~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+        console.log('Prizely: 🔍 Encontrado elemento com padrão ~Nome:', text, element.tagName, element.className);
         const candidate = sanitizeNameCandidate(text);
-        // Se começa com ~, remover
-        const cleanCandidate = candidate.replace(/^~\s*/, '');
-        if (cleanCandidate && cleanCandidate.length > 1 && cleanCandidate.length < 100) {
-          // Não deve ser um número de telefone
-          if (!/^\+?\d[\d\s\-()]{8,}$/.test(cleanCandidate)) {
-            console.log('Prizely: ✅ Nome encontrado via painel de informações:', cleanCandidate);
-            return cleanCandidate;
+        if (candidate && candidate.length > 1) {
+          console.log('Prizely: ✅ Nome encontrado via padrão com til (~):', candidate);
+          return candidate;
+        } else {
+          console.log('Prizely: ⚠️ Candidato foi rejeitado pela sanitização:', text, '->', candidate);
+        }
+      }
+    }
+    
+    // ESTRATÉGIA 3.1b: Buscar em spans com selectable-text.copyable-text que contêm o padrão
+    const selectableSpans = searchContainer.querySelectorAll('span.selectable-text.copyable-text, span[class*="selectable"][class*="copyable"]');
+    console.log('Prizely: 🔍 Encontrados', selectableSpans.length, 'spans com selectable-text.copyable-text');
+    for (const span of selectableSpans) {
+      if (!span || !span.textContent) continue;
+      const text = span.textContent.trim();
+      if (!text || text.length < 2 || text.length > 100) continue;
+      
+      // Verificar se contém o padrão ~Nome
+      if (/~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+        console.log('Prizely: 🔍 Encontrado span com padrão ~Nome:', text);
+        const candidate = sanitizeNameCandidate(text);
+        if (candidate && candidate.length > 1) {
+          console.log('Prizely: ✅ Nome encontrado via span selectable-text com ~:', candidate);
+          return candidate;
+        }
+      }
+      
+      // Também verificar divs filhos dentro desses spans
+      const childDivs = span.querySelectorAll('div');
+      for (const div of childDivs) {
+        if (!div || !div.textContent) continue;
+        const divText = div.textContent.trim();
+        if (!divText || divText.length < 2 || divText.length > 100) continue;
+        
+        if (/~\s*[A-Za-zÀ-ÿ]/.test(divText)) {
+          console.log('Prizely: 🔍 Encontrado div filho com padrão ~Nome:', divText);
+          const candidate = sanitizeNameCandidate(divText);
+          if (candidate && candidate.length > 1) {
+            console.log('Prizely: ✅ Nome encontrado via div dentro de span selectable-text:', candidate);
+            return candidate;
+          }
+        }
+      }
+    }
+    
+    // ESTRATÉGIA 3.2: Buscar elementos com selectable-text que não sejam números
+    const selectableTexts = searchContainer.querySelectorAll('.selectable-text.copyable-text, [class*="selectable"], [class*="copyable"], span[class*="_ao3e"]');
+    console.log('Prizely: 🔍 Encontrados', selectableTexts.length, 'elementos selectable-text no container');
+    for (const element of selectableTexts) {
+      if (!element || !element.textContent) continue;
+      const text = element.textContent.trim();
+      if (!text || /^\+?\d[\d\s\-()]{8,}$/.test(text)) continue; // Pular números
+      
+      // Verificar se contém o padrão ~Nome
+      if (/~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+        const candidate = sanitizeNameCandidate(text);
+        if (candidate && candidate.length > 1 && candidate.length < 100) {
+          console.log('Prizely: ✅ Nome encontrado via selectable-text com ~ no drawer:', candidate);
+          return candidate;
+        }
+      }
+      
+      // Também verificar se não é número mas parece um nome
+      const candidate = sanitizeNameCandidate(text);
+      if (candidate && candidate.length > 1 && candidate.length < 100) {
+        // Verificar se não é um número
+        if (!/^\+?\d[\d\s\-()]{4,}$/.test(candidate)) {
+          console.log('Prizely: ✅ Nome encontrado via selectable-text no drawer:', candidate);
+          return candidate;
+        }
+      }
+    }
+    
+    // ESTRATÉGIA 3.2b: Buscar divs dentro de spans com dir="auto" e selectable-text
+    const spansWithDir = searchContainer.querySelectorAll('span[dir="auto"].selectable-text.copyable-text, span[dir="auto"][class*="selectable"]');
+    console.log('Prizely: 🔍 Encontrados', spansWithDir.length, 'spans com dir="auto" e selectable-text');
+    for (const span of spansWithDir) {
+      // Buscar divs filhos
+      const childDivs = span.querySelectorAll('div');
+      for (const div of childDivs) {
+        if (!div || !div.textContent) continue;
+        const text = div.textContent.trim();
+        if (!text || text.length < 2 || text.length > 100) continue;
+        
+        // Verificar se contém o padrão ~Nome
+        if (/~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+          console.log('Prizely: 🔍 Encontrado div dentro de span[dir="auto"] com padrão ~Nome:', text);
+          const candidate = sanitizeNameCandidate(text);
+          if (candidate && candidate.length > 1) {
+            console.log('Prizely: ✅ Nome encontrado via div dentro de span[dir="auto"]:', candidate);
+            return candidate;
+          }
+        }
+      }
+      
+      // Também verificar o texto direto do span se não for número
+      const spanText = span.textContent.trim();
+      if (spanText && !/^\+?\d[\d\s\-()]{8,}$/.test(spanText)) {
+        if (/~\s*[A-Za-zÀ-ÿ]/.test(spanText)) {
+          const candidate = sanitizeNameCandidate(spanText);
+          if (candidate && candidate.length > 1) {
+            console.log('Prizely: ✅ Nome encontrado via span[dir="auto"] direto:', candidate);
+            return candidate;
+          }
+        }
+      }
+    }
+    
+    // ESTRATÉGIA 3.3: Buscar divs e spans com dir="auto" que não sejam números
+    const drawerTexts = searchContainer.querySelectorAll('div[dir="auto"], span[dir="auto"], [data-testid="contact-info-title"]');
+    console.log('Prizely: 🔍 Encontrados', drawerTexts.length, 'elementos com dir="auto" no container');
+    const nameFromDrawer = extractNameFromElementList(drawerTexts);
+    if (nameFromDrawer) {
+      console.log('Prizely: ✅ Nome encontrado via painel de informações:', nameFromDrawer);
+      return nameFromDrawer;
+    }
+    
+    // ESTRATÉGIA 3.3b: Buscar divs com classes específicas que podem conter o nome
+    // Baseado no HTML fornecido: div com classes x1fcty0u xhslqc4 x6prxxf x1o2sk6j
+    const specificDivs = searchContainer.querySelectorAll('div[class*="xhslqc4"], div[class*="x1fcty0u"]');
+    console.log('Prizely: 🔍 Encontrados', specificDivs.length, 'divs com classes específicas');
+    for (const div of specificDivs) {
+      if (!div || !div.textContent) continue;
+      const text = div.textContent.trim();
+      if (!text || text.length < 2 || text.length > 100) continue;
+      
+      // Verificar se contém o padrão ~Nome
+      if (/~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+        console.log('Prizely: 🔍 Encontrado div com classes específicas e padrão ~Nome:', text);
+        const candidate = sanitizeNameCandidate(text);
+        if (candidate && candidate.length > 1) {
+          console.log('Prizely: ✅ Nome encontrado via div com classes específicas:', candidate);
+          return candidate;
+        }
+      }
+    }
+
+    // ESTRATÉGIA 3.4: Buscar em todos os elementos do drawer, ordenando por posição (elementos mais acima primeiro)
+    const allElements = Array.from(searchContainer.querySelectorAll('span, div, h1, h2, h3, p, strong, b'));
+    allElements.sort((a, b) => {
+      const aRect = a.getBoundingClientRect();
+      const bRect = b.getBoundingClientRect();
+      return aRect.top - bRect.top;
+    });
+    
+    console.log('Prizely: 🔍 Analisando', allElements.length, 'elementos do container ordenados por posição');
+    for (const element of allElements) {
+      if (!element || !element.textContent) continue;
+      
+      // Ignorar se está dentro de um botão ou input
+      if (element.closest('button') || element.closest('input') || element.closest('textarea')) {
+        continue;
+      }
+      
+      const text = element.textContent.trim();
+      if (!text || text.length < 2 || text.length > 100) continue;
+      
+      // Pular números de telefone
+      if (/^\+?\d[\d\s\-()]{8,}$/.test(text)) continue;
+      
+      // Priorizar elementos que começam com ~
+      if (/^~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+        console.log('Prizely: 🔍 Elemento ordenado com padrão ~Nome encontrado:', text, element.tagName);
+        const candidate = sanitizeNameCandidate(text);
+        if (candidate && candidate.length > 1 && candidate.length < 100) {
+          console.log('Prizely: ✅ Nome encontrado via busca ordenada com ~ no drawer:', candidate);
+          return candidate;
+        }
+      }
+      
+      // Pular textos muito curtos que são provavelmente labels
+      if (text.length < 3 && !/^[A-Za-zÀ-ÿ]{2,}$/.test(text)) continue;
+      
+      const candidate = sanitizeNameCandidate(text);
+      if (candidate && candidate.length > 1 && candidate.length < 100) {
+        // Verificar se não é um número
+        if (!/^\+?\d[\d\s\-()]{4,}$/.test(candidate)) {
+          console.log('Prizely: ✅ Nome encontrado via busca ordenada no drawer:', candidate, element.tagName);
+          return candidate;
+        }
+      }
+    }
+    
+    // ESTRATÉGIA 3.5: Busca mais agressiva - procurar por qualquer texto que contenha ~ seguido de letras
+    // Esta é uma busca de último recurso que varre todo o container
+    console.log('Prizely: 🔍 Busca agressiva: procurando qualquer texto com ~ no container');
+    const allTextNodes = [];
+    const walker = document.createTreeWalker(
+      searchContainer,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function(node) {
+          if (node.textContent.trim().length > 1 && node.textContent.trim().length < 100) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+          return NodeFilter.FILTER_REJECT;
+        }
+      }
+    );
+    
+    let node;
+    while (node = walker.nextNode()) {
+      const text = node.textContent.trim();
+      if (/~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+        const parent = node.parentElement;
+        if (parent && !parent.closest('button') && !parent.closest('input')) {
+          console.log('Prizely: 🔍 Texto com ~ encontrado via TreeWalker:', text, parent.tagName, parent.className);
+          const candidate = sanitizeNameCandidate(text);
+          if (candidate && candidate.length > 1) {
+            console.log('Prizely: ✅ Nome encontrado via TreeWalker:', candidate);
+            return candidate;
+          }
+        }
+      }
+    }
+
+    console.log('Prizely: ⚠️ Drawer encontrado mas nome não extraído após todas as estratégias');
+  } else {
+    console.log('Prizely: ⚠️ Drawer não encontrado');
+  }
+  
+  // ESTRATÉGIA 3.6: Se o painel está aberto mas o drawer não tem elementos suficientes,
+  // buscar em todo o documento por elementos que contenham o padrão ~Nome
+  const panelOpen = isContactInfoPanelOpen();
+  if (panelOpen) {
+    console.log('Prizely: 🔍 Painel aberto detectado, buscando ~Nome em todo o documento...');
+    
+    // Buscar todos os spans e divs que contenham texto começando com ~
+    const allElementsWithTilde = document.querySelectorAll('span, div, h1, h2, h3, p');
+    for (const element of allElementsWithTilde) {
+      if (!element || !element.textContent) continue;
+      
+      const text = element.textContent.trim();
+      if (!text || text.length < 2 || text.length > 100) continue;
+      
+      // Verificar se começa com ~ seguido de letras
+      if (/^~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+        // Verificar se está em contexto relevante (não é um botão, input, etc)
+        if (element.closest('button') || element.closest('input') || element.closest('textarea')) {
+          continue;
+        }
+        
+        // Verificar se está próximo ao número de telefone ou no painel de informações
+        const isInContactContext = element.closest('#main') || 
+                                   element.closest('[role="dialog"]') ||
+                                   element.closest('[role="complementary"]') ||
+                                   element.closest('[data-testid*="drawer"]') ||
+                                   element.closest('[data-testid*="contact"]');
+        
+        if (isInContactContext) {
+          console.log('Prizely: 🔍 Elemento com ~Nome encontrado em contexto de contato:', text, element.tagName);
+          const candidate = sanitizeNameCandidate(text);
+          if (candidate && candidate.length > 1) {
+            console.log('Prizely: ✅ Nome encontrado via busca global com painel aberto:', candidate);
+            return candidate;
+          }
+        }
+      }
+    }
+    
+    // Busca mais específica: procurar por spans com selectable-text.copyable-text em todo o documento
+    const allSelectableTexts = document.querySelectorAll('span.selectable-text.copyable-text, span[class*="selectable"][class*="copyable"]');
+    console.log('Prizely: 🔍 Encontrados', allSelectableTexts.length, 'elementos selectable-text em todo o documento');
+    for (const element of allSelectableTexts) {
+      if (!element || !element.textContent) continue;
+      
+      const text = element.textContent.trim();
+      if (!text || text.length < 2 || text.length > 100) continue;
+      
+      // Pular números
+      if (/^\+?\d[\d\s\-()]{8,}$/.test(text)) continue;
+      
+      // Verificar se contém o padrão ~Nome
+      if (/~\s*[A-Za-zÀ-ÿ]/.test(text)) {
+        // Verificar se está em contexto relevante
+        const isInContactContext = element.closest('#main') || 
+                                   element.closest('[role="dialog"]') ||
+                                   element.closest('[role="complementary"]');
+        
+        if (isInContactContext) {
+          console.log('Prizely: 🔍 selectable-text com ~Nome encontrado:', text);
+          const candidate = sanitizeNameCandidate(text);
+          if (candidate && candidate.length > 1) {
+            console.log('Prizely: ✅ Nome encontrado via selectable-text global:', candidate);
+            return candidate;
           }
         }
       }
@@ -327,23 +787,66 @@ function extractContactName() {
   if (header) {
     // Buscar todos os spans e divs com texto
     const textElements = header.querySelectorAll('span[dir="auto"], div[dir="auto"], span.selectable-text, div.selectable-text');
-    for (const element of textElements) {
-      const text = element.textContent?.trim();
-      if (text) {
-        const candidate = sanitizeNameCandidate(text);
-        if (candidate && candidate.length > 1 && candidate.length < 100) {
-          // Não deve ser um número de telefone
-          if (!/^\+?\d[\d\s\-()]{8,}$/.test(candidate)) {
-            console.log('Prizely: ✅ Nome encontrado via análise do header:', candidate);
-            return candidate;
-          }
-        }
-      }
+    const headerName = extractNameFromElementList(textElements);
+    if (headerName) {
+      console.log('Prizely: ✅ Nome encontrado via análise do header:', headerName);
+      return headerName;
+    }
+  }
+
+  const contactContext = document.querySelectorAll('#main header, header[role="banner"], div[data-testid="conversation-panel"]');
+  for (const contextElement of contactContext) {
+    const genericElements = contextElement.querySelectorAll('span, div, h1, h2, h3, p');
+    const genericName = extractNameFromElementList(genericElements);
+    if (genericName) {
+      console.log('Prizely: ✅ Nome encontrado via fallback genérico no contexto do contato:', genericName);
+      return genericName;
     }
   }
   
   console.warn('Prizely: ⚠️ Não foi possível extrair o nome do contato');
   return '';
+}
+
+function normalizePhoneDigits(rawValue) {
+  if (!rawValue) return '';
+  let digits = String(rawValue).replace(/\D/g, '');
+  if (!digits) return '';
+
+  // Remover prefixos internacionais comuns (ex: 00)
+  digits = digits.replace(/^0+/, '');
+
+  // Remover DDI brasileiro caso presente
+  if (digits.length > 11 && digits.startsWith('55')) {
+    digits = digits.substring(2);
+  }
+
+  // Remover zeros à esquerda restantes após retirar o DDI
+  digits = digits.replace(/^0+/, '');
+
+  // Garantir que mantenhamos apenas os últimos 11 dígitos se ainda houver ruído
+  if (digits.length > 11) {
+    digits = digits.slice(-11);
+  }
+
+  // Após normalização precisamos pelo menos do DDD + número (10 ou 11 dígitos)
+  if (digits.length < 10) {
+    return '';
+  }
+
+  return digits;
+}
+
+function extractDigitsFromCandidate(value) {
+  return normalizePhoneDigits(value);
+}
+
+function extractDigitsFromText(text, strict = false) {
+  if (!text) return '';
+  const pattern = strict ? /^(\+?\d[\d\s\-()]{8,})$/ : /(\+?\d[\d\s\-()]{8,})/;
+  const match = text.match(pattern);
+  if (!match) return '';
+  return extractDigitsFromCandidate(match[0]);
 }
 
 /**
@@ -352,63 +855,46 @@ function extractContactName() {
  */
 function extractContactPhone() {
   console.log('Prizely: Tentando extrair telefone do contato (abordagem moderna)...');
-  
+
   // ESTRATÉGIA 1: Tentar acessar o estado React do WhatsApp (mais confiável)
   const storeData = tryGetWhatsAppStore();
   if (storeData && storeData.phone) {
-    const phone = '+' + storeData.phone.replace(/\D/g, '');
-    if (phone.length >= 12) { // Mínimo: +5511999999999
-      console.log('Prizely: ✅ Telefone encontrado via WhatsApp Store:', phone);
-      return phone;
+    const normalized = extractDigitsFromCandidate(storeData.phone);
+    if (normalized) {
+      console.log('Prizely: ✅ Telefone encontrado via WhatsApp Store (DDD + número):', normalized);
+      return normalized;
     }
   }
   
   // ESTRATÉGIA 2: Extrair da URL (muito confiável)
   const urlMatch = window.location.href.match(/\/chat\/(\d+)/) || window.location.href.match(/\/(\d{10,})$/);
   if (urlMatch && urlMatch[1]) {
-    const phone = '+' + urlMatch[1];
-    console.log('Prizely: ✅ Telefone encontrado via URL:', phone);
-    return phone;
+    const normalizedFromUrl = extractDigitsFromCandidate(urlMatch[1]);
+    if (normalizedFromUrl) {
+      console.log('Prizely: ✅ Telefone encontrado via URL (DDD + número):', normalizedFromUrl);
+      return normalizedFromUrl;
+    }
   }
   
   // ESTRATÉGIA 3: Buscar no painel de informações (quando aberto)
-  // Baseado na estrutura: <span dir="auto" class="... selectable-text copyable-text">+55 11 98390-5029</span>
-  const drawer = document.querySelector('div[data-testid="contact-info-drawer"], div[data-testid="drawer-right"]');
+  const drawer = getContactInfoDrawer();
   if (drawer) {
-    // Buscar elementos com selectable-text que contenham números
     const phoneElements = drawer.querySelectorAll('span.selectable-text.copyable-text[dir="auto"], div.selectable-text.copyable-text[dir="auto"]');
     for (const element of phoneElements) {
       const text = element.textContent?.trim();
-      if (text) {
-        // Procurar por padrão de telefone
-        const phoneMatch = text.match(/(\+?\d[\d\s\-()]{8,})/);
-        if (phoneMatch) {
-          const phone = phoneMatch[0].trim();
-          const cleanPhone = phone.replace(/\D/g, '');
-          if (cleanPhone.length >= 10) {
-            const formattedPhone = '+' + cleanPhone;
-            console.log('Prizely: ✅ Telefone encontrado via painel de informações:', formattedPhone);
-            return formattedPhone;
-          }
-        }
+      const normalizedFromDrawer = extractDigitsFromText(text);
+      if (normalizedFromDrawer) {
+        console.log('Prizely: ✅ Telefone encontrado via painel de informações (DDD + número):', normalizedFromDrawer);
+        return normalizedFromDrawer;
       }
     }
     
-    // Buscar especificamente por data-testid="phone-number"
     const phoneNumberElement = drawer.querySelector('div[data-testid="phone-number"]');
     if (phoneNumberElement) {
-      const text = phoneNumberElement.textContent?.trim();
-      if (text) {
-        const phoneMatch = text.match(/(\+?\d[\d\s\-()]{8,})/);
-        if (phoneMatch) {
-          const phone = phoneMatch[0].trim();
-          const cleanPhone = phone.replace(/\D/g, '');
-          if (cleanPhone.length >= 10) {
-            const formattedPhone = '+' + cleanPhone;
-            console.log('Prizely: ✅ Telefone encontrado via data-testid="phone-number":', formattedPhone);
-            return formattedPhone;
-          }
-        }
+      const normalizedFromDataTestId = extractDigitsFromText(phoneNumberElement.textContent?.trim());
+      if (normalizedFromDataTestId) {
+        console.log('Prizely: ✅ Telefone encontrado via data-testid="phone-number" (DDD + número):', normalizedFromDataTestId);
+        return normalizedFromDataTestId;
       }
     }
   }
@@ -425,40 +911,39 @@ function extractContactPhone() {
       ];
       
       for (const value of possibleValues) {
-        if (!value) continue;
-        const phoneMatch = value.match(/(\+?\d[\d\s\-()]{8,})/);
-        if (phoneMatch) {
-          const phone = phoneMatch[0].trim();
-          const cleanPhone = phone.replace(/\D/g, '');
-          if (cleanPhone.length >= 10) {
-            const formattedPhone = '+' + cleanPhone;
-            console.log('Prizely: ✅ Telefone encontrado via header:', formattedPhone);
-            return formattedPhone;
-          }
+        const normalizedFromHeader = extractDigitsFromText(value);
+        if (normalizedFromHeader) {
+          console.log('Prizely: ✅ Telefone encontrado via header (DDD + número):', normalizedFromHeader);
+          return normalizedFromHeader;
         }
       }
     }
   }
   
-  // ESTRATÉGIA 5: Buscar em todo o documento por padrões de telefone em elementos relevantes
+  // ESTRATÉGIA 5: Buscar em elementos relevantes do documento
   const allSelectableTexts = document.querySelectorAll('span.selectable-text.copyable-text[dir="auto"]');
+  let fallbackPhoneCandidate = '';
+  const drawerElement = getContactInfoDrawer();
   for (const element of allSelectableTexts) {
     const text = element.textContent?.trim();
-    if (text) {
-      const phoneMatch = text.match(/^(\+?\d[\d\s\-()]{8,})$/);
-      if (phoneMatch) {
-        const phone = phoneMatch[0].trim();
-        const cleanPhone = phone.replace(/\D/g, '');
-        if (cleanPhone.length >= 10) {
-          // Verificar se está em contexto relevante (header ou drawer)
-          if (element.closest('#main header') || element.closest('div[data-testid="contact-info-drawer"], div[data-testid="drawer-right"]')) {
-            const formattedPhone = '+' + cleanPhone;
-            console.log('Prizely: ✅ Telefone encontrado via selectable-text:', formattedPhone);
-            return formattedPhone;
-          }
-        }
+    const normalizedFromSelectable = extractDigitsFromText(text, true);
+    if (normalizedFromSelectable) {
+      const inHeader = element.closest('#main header');
+      const inDrawer = drawerElement ? drawerElement.contains(element) : false;
+      const isToolbar = element.closest('[data-testid="conversation-header"]');
+      if (inHeader || inDrawer || isToolbar) {
+        console.log('Prizely: ✅ Telefone encontrado via selectable-text (DDD + número):', normalizedFromSelectable);
+        return normalizedFromSelectable;
+      }
+      if (!fallbackPhoneCandidate) {
+        fallbackPhoneCandidate = normalizedFromSelectable;
       }
     }
+  }
+
+  if (fallbackPhoneCandidate) {
+    console.log('Prizely: ✅ Telefone encontrado via fallback global (DDD + número):', fallbackPhoneCandidate);
+    return fallbackPhoneCandidate;
   }
   
   console.warn('Prizely: ⚠️ Não foi possível extrair o telefone do contato');
@@ -517,8 +1002,8 @@ function isConversationActive() {
       if (text) {
         const candidate = sanitizeNameCandidate(text);
         if (candidate && candidate.length > 1 && candidate.length < 100) {
-          // Não deve ser um número puro (pode ser nome ou telefone formatado)
-          if (!/^\d+$/.test(candidate.replace(/\D/g, ''))) {
+          const numericChars = candidate.replace(/\D/g, '');
+          if (numericChars.length >= 10 || candidate.length > 1) {
             console.log('Prizely: ✅ Conversa ativa detectada via header com conteúdo válido');
             return true;
           }
@@ -535,8 +1020,7 @@ function isConversationActive() {
  * Verifica se o painel de informações do contato está aberto
  */
 function isContactInfoPanelOpen() {
-  const drawer = document.querySelector('div[data-testid="contact-info-drawer"], div[data-testid="drawer-right"]');
-  return !!drawer;
+  return !!getContactInfoDrawer();
 }
 
 /**
@@ -556,21 +1040,22 @@ function extractContactInfo() {
   console.log('Prizely: Nome extraído:', name);
   console.log('Prizely: Telefone extraído:', phone);
 
-  // Se conseguiu extrair nome, considerar sucesso mesmo sem detectar conversa ativa
-  if (name) {
+  const data = {
+    nome: name || '',
+    whatsappInstagram: phone || ''
+  };
+
+  if (data.nome || data.whatsappInstagram) {
     return {
       success: true,
-      data: {
-        nome: name,
-        whatsappInstagram: phone || name
-      },
-      panelOpen: panelOpen
+      data,
+      panelOpen
     };
   }
 
   // Se não conseguiu extrair nome, verificar se há conversa ativa
   if (!conversationActive) {
-    console.warn('Prizely: Nenhuma conversa ativa e não conseguiu extrair nome');
+    console.warn('Prizely: Nenhuma conversa ativa e não foi possível extrair dados');
     return {
       success: false,
       error: 'Nenhuma conversa ativa. Por favor, abra uma conversa no WhatsApp Web.',
@@ -581,8 +1066,8 @@ function extractContactInfo() {
   // Há conversa mas não conseguiu extrair nome
   return {
     success: false,
-    error: 'Não foi possível extrair o nome do contato. Tente clicar no nome do contato no topo.',
-    needsPanel: true
+    error: 'Não foi possível extrair os dados do contato. Clique no nome do contato para abrir o painel e tente novamente.',
+    needsPanel: !panelOpen
   };
 }
 
@@ -944,11 +1429,13 @@ async function getCrmUrl() {
 
 async function sendToAPI(formData) {
   const crmUrl = await getCrmUrl();
-  console.log('Prizely: Enviando dados para:', `${crmUrl}/api/clientes`);
+  // Normalizar URL: remover barra final se existir e garantir uma única barra antes de /api
+  const normalizedUrl = crmUrl.replace(/\/+$/, '') + '/api/clientes';
+  console.log('Prizely: Enviando dados para:', normalizedUrl);
   console.log('Prizely: Dados do formulário:', formData);
   
   try {
-    const response = await fetch(`${crmUrl}/api/clientes`, {
+    const response = await fetch(normalizedUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -1111,24 +1598,30 @@ function fillContactData(retryCount = 0) {
       const ni = document.getElementById('nome');
       const wi = document.getElementById('whatsappInstagram');
       
-      if (ni && contactInfo.data.nome) {
-        ni.value = contactInfo.data.nome;
-        console.log('Prizely: ✅ Nome preenchido:', contactInfo.data.nome);
+      if (ni) {
+        ni.value = contactInfo.data.nome || '';
+        if (contactInfo.data.nome) {
+          console.log('Prizely: ✅ Nome preenchido:', contactInfo.data.nome);
+        } else {
+          console.log('Prizely: ⚠️ Nome não identificado, campo mantido em branco');
+        }
       } else {
         console.warn('Prizely: Campo nome não encontrado no formulário');
       }
       
-      if (wi && contactInfo.data.whatsappInstagram) {
-        wi.value = contactInfo.data.whatsappInstagram;
-        console.log('Prizely: ✅ WhatsApp/Instagram preenchido:', contactInfo.data.whatsappInstagram);
+      if (wi) {
+        wi.value = contactInfo.data.whatsappInstagram || '';
+        if (contactInfo.data.whatsappInstagram) {
+          console.log('Prizely: ✅ WhatsApp/Instagram preenchido:', contactInfo.data.whatsappInstagram);
+        } else {
+          console.log('Prizely: ⚠️ Telefone não identificado, campo mantido em branco');
+        }
       } else {
         console.warn('Prizely: Campo WhatsApp/Instagram não encontrado no formulário');
       }
       
       // Mostrar dica apenas se não conseguiu extrair o telefone
-      const gotPhone = contactInfo.data.whatsappInstagram && 
-                       contactInfo.data.whatsappInstagram !== contactInfo.data.nome &&
-                       /\d{10,}/.test(contactInfo.data.whatsappInstagram);
+      const gotPhone = /\d{10,}/.test(contactInfo.data.whatsappInstagram || '');
       
       if (!gotPhone) {
         console.log('Prizely: Telefone não extraído corretamente, mostrando dica');

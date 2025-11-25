@@ -2,7 +2,68 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { Cliente, NovoCliente } from '@/types/crm';
 
-export async function GET() {
+// Headers CORS para permitir requisições da extensão do Chrome
+function getCorsHeaders(origin?: string | null) {
+  const allowedOrigins = [
+    'https://web.whatsapp.com',
+    'http://localhost:3000',
+    'https://www.prizely.com.br',
+    'https://prizely.com.br',
+  ];
+
+  // Verificar se a origem é permitida
+  // Extensões do Chrome têm origem como 'chrome-extension://...'
+  // WhatsApp Web tem origem como 'https://web.whatsapp.com'
+  const isAllowed = origin && (
+    allowedOrigins.includes(origin) ||
+    origin.startsWith('chrome-extension://') ||
+    origin.startsWith('http://localhost:') ||
+    origin.includes('prizely.com.br')
+  );
+
+  // Quando usando credentials: 'include', não podemos usar '*' como origem
+  // Se a origem não for permitida mas existir, ainda retornamos ela (para permitir extensões)
+  // Se não houver origem (null), retornamos '*' mas sem credentials
+  let corsOrigin: string;
+  let allowCredentials: string;
+  
+  if (!origin) {
+    // Sem origem (requisição same-origin ou sem header Origin)
+    corsOrigin = '*';
+    allowCredentials = 'false';
+  } else if (isAllowed || origin.startsWith('chrome-extension://')) {
+    // Origem permitida ou extensão do Chrome
+    corsOrigin = origin;
+    allowCredentials = 'true';
+  } else {
+    // Origem não permitida - por segurança, não permitir
+    // Mas para desenvolvimento, podemos ser mais permissivos
+    corsOrigin = origin;
+    allowCredentials = 'true';
+  }
+
+  return {
+    'Access-Control-Allow-Origin': corsOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': allowCredentials,
+  };
+}
+
+// Tratar preflight requests (OPTIONS)
+// Nota: O middleware também trata OPTIONS, mas este handler serve como fallback
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  const headers = getCorsHeaders(origin);
+  return new NextResponse(null, {
+    status: 200,
+    headers,
+  });
+}
+
+export async function GET(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  
   try {
     const supabase = await createClient();
 
@@ -10,7 +71,12 @@ export async function GET() {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const errorResponse = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      // Adicionar headers CORS mesmo em caso de erro
+      Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+        errorResponse.headers.set(key, value);
+      });
+      return errorResponse;
     }
 
     // Fetch clientes - RLS will automatically filter by tenant_id
@@ -42,10 +108,15 @@ export async function GET() {
 
     if (error) {
       console.error('Erro ao buscar clientes:', error);
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { error: 'Erro interno do servidor' },
         { status: 500 }
       );
+      // Adicionar headers CORS mesmo em caso de erro
+      Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+        errorResponse.headers.set(key, value);
+      });
+      return errorResponse;
     }
 
     // Transform to match existing interface
@@ -69,17 +140,29 @@ export async function GET() {
       dataLembreteChamada: cliente.data_lembrete_chamada,
     }));
 
-    return NextResponse.json(transformedClientes);
+    const response = NextResponse.json(transformedClientes);
+    // Adicionar headers CORS
+    Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return response;
   } catch (error) {
     console.error('Erro ao buscar clientes:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
     );
+    // Adicionar headers CORS mesmo em caso de erro
+    Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+      errorResponse.headers.set(key, value);
+    });
+    return errorResponse;
   }
 }
 
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  
   try {
     const novoCliente: NovoCliente = await request.json();
     const supabase = await createClient();
@@ -88,7 +171,12 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const errorResponse = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      // Adicionar headers CORS mesmo em caso de erro
+      Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+        errorResponse.headers.set(key, value);
+      });
+      return errorResponse;
     }
 
     // Insert cliente with user_id
@@ -120,10 +208,15 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Erro ao criar cliente:', error);
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { error: 'Erro interno do servidor' },
         { status: 500 }
       );
+      // Adicionar headers CORS mesmo em caso de erro
+      Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+        errorResponse.headers.set(key, value);
+      });
+      return errorResponse;
     }
 
     // Transform to match existing interface
@@ -147,12 +240,22 @@ export async function POST(request: NextRequest) {
       dataLembreteChamada: cliente.data_lembrete_chamada,
     };
 
-    return NextResponse.json(transformedCliente, { status: 201 });
+    const response = NextResponse.json(transformedCliente, { status: 201 });
+    // Adicionar headers CORS
+    Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return response;
   } catch (error) {
     console.error('Erro ao criar cliente:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
     );
+    // Adicionar headers CORS mesmo em caso de erro
+    Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+      errorResponse.headers.set(key, value);
+    });
+    return errorResponse;
   }
 }

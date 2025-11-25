@@ -7,6 +7,39 @@ import { createClient } from '@/lib/supabase-server'
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const origin = request.headers.get('origin')
+  const method = request.method
+
+  // Tratar preflight requests (OPTIONS) para rotas da API com CORS
+  if (method === 'OPTIONS' && pathname.startsWith('/api/')) {
+    const allowedOrigins = [
+      'https://web.whatsapp.com',
+      'http://localhost:3000',
+      'https://www.prizely.com.br',
+      'https://prizely.com.br',
+    ]
+
+    const isAllowed = origin && (
+      allowedOrigins.includes(origin) ||
+      origin.startsWith('chrome-extension://') ||
+      origin.startsWith('http://localhost:') ||
+      origin.includes('prizely.com.br')
+    )
+
+    const corsOrigin = isAllowed ? origin : (origin || '*')
+    const allowCredentials = origin ? 'true' : 'false'
+
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': corsOrigin,
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': allowCredentials,
+        'Access-Control-Max-Age': '86400', // 24 horas
+      },
+    })
+  }
 
   // Rotas públicas que não precisam de autenticação
   const publicRoutes = ['/auth/login', '/auth/callback']
