@@ -458,12 +458,28 @@ export function useClientes(
 
   const adicionarCliente = async (novoCliente: NovoCliente) => {
     setLoading(true)
+    
+    // Timeout de segurança - SEMPRE libera loading após 8 segundos
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Timeout de 8s ao adicionar cliente - liberando UI')
+      setLoading(false)
+    }, 8000)
+    
     try {
+      // Verificação de autenticação com timeout para evitar travamento em conexões instáveis
+      const authPromise = supabase.auth.getUser()
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout na verificação de autenticação')), 5000)
+      )
+      
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+        error: authError,
+      } = await Promise.race([authPromise, timeoutPromise])
 
-      if (!user) {
+      if (authError || !user) {
+        clearTimeout(timeoutId)
+        setLoading(false)
         throw new Error('Usuário não autenticado. Faça login novamente.')
       }
 
@@ -520,12 +536,28 @@ export function useClientes(
       const transformado = formatarCliente(cliente as unknown as ClienteSupabaseRow)
 
       setClientes((prev) => [...prev, transformado])
-      await carregarEstatisticas()
+      
+      // Carregar estatísticas em paralelo para não bloquear a UI
+      carregarEstatisticas().catch(error => {
+        console.warn('⚠️ Erro ao carregar estatísticas (não crítico):', error)
+      })
+      
+      clearTimeout(timeoutId)
       return transformado
     } catch (error) {
       console.error('Erro ao adicionar cliente:', error)
+      
+      // Tratar erros de timeout especificamente
+      if (error instanceof Error && error.message.includes('Timeout')) {
+        clearTimeout(timeoutId)
+        setLoading(false)
+        throw new Error('Tempo de conexão esgotado. Verifique sua internet e tente novamente.')
+      }
+      
+      clearTimeout(timeoutId)
       throw error
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
     }
   }
