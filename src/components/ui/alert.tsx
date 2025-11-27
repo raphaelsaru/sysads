@@ -1,19 +1,35 @@
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
-const Alert = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      role="alert"
-      className={cn(
-        "relative w-full rounded-xl border border-border/60 bg-card/80 px-4 py-3 text-sm text-foreground shadow-soft",
-        className
-      )}
-      {...props}
-    />
-  )
+const alertVariants = cva(
+  "relative w-full rounded-xl border px-4 py-3 text-sm shadow-soft",
+  {
+    variants: {
+      variant: {
+        default: "border-border/60 bg-card/80 text-foreground",
+        destructive: "border-red-500/50 bg-red-50 text-red-900 dark:bg-red-950/50 dark:text-red-100",
+        success: "border-green-500/50 bg-green-50 text-green-900 dark:bg-green-950/50 dark:text-green-100",
+        warning: "border-yellow-500/50 bg-yellow-50 text-yellow-900 dark:bg-yellow-950/50 dark:text-yellow-100",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
 )
+
+const Alert = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
+>(({ className, variant, ...props }, ref) => (
+  <div
+    ref={ref}
+    role="alert"
+    className={cn(alertVariants({ variant }), className)}
+    {...props}
+  />
+))
 Alert.displayName = "Alert"
 
 const AlertTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(

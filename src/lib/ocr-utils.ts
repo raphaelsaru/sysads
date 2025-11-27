@@ -181,17 +181,13 @@ export function normalizeInstagramUsername(username: string): string {
 
 /**
  * Processa imagem completa: OCR + Extração de usuários
- * Usa filtro por posição para melhor precisão
+ * Nota: Esta função usa Tesseract.js como fallback.
+ * Prefira usar a API /api/ocr/vision que usa Google Cloud Vision.
  */
 export async function processInstagramScreenshot(
   imageFile: File,
-  onProgress?: (progress: number) => void,
-  options?: {
-    minConfidence?: number
-  }
+  onProgress?: (progress: number) => void
 ): Promise<{ users: string[]; rawText: string }> {
-  const { minConfidence = 50 } = options || {}
-
   try {
     // Passo 1: OCR (0-80% do progresso)
     const ocrResult = await extractTextFromImage(
