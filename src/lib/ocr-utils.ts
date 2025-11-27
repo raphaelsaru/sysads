@@ -1,39 +1,7 @@
-import Tesseract from 'tesseract.js'
-
 /**
- * Processa uma imagem com OCR e extrai texto com informações de posição
- * @param imageFile Arquivo de imagem ou URL
- * @param onProgress Callback para progresso (opcional)
- * @returns Resultado do OCR com palavras e suas posições
+ * Utilitários para OCR de Instagram
+ * Nota: O processamento OCR agora é feito via Google Cloud Vision na API /api/ocr/vision
  */
-export async function extractTextFromImage(
-  imageFile: File | string,
-  onProgress?: (progress: number) => void
-): Promise<{ text: string; words: Tesseract.Word[]; imageWidth: number }> {
-  try {
-    const imageSrc = typeof imageFile === 'string' 
-      ? imageFile 
-      : URL.createObjectURL(imageFile)
-
-    // Usar apenas inglês para melhor reconhecimento de usernames alfanuméricos
-    const result = await Tesseract.recognize(imageSrc, 'eng', {
-      logger: (m) => {
-        if (m.status === 'recognizing text' && onProgress) {
-          onProgress(Math.round(m.progress * 100))
-        }
-      },
-    })
-
-    return {
-      text: result.data.text,
-      words: result.data.words || [],
-      imageWidth: result.data.width || 0,
-    }
-  } catch (error) {
-    console.error('Erro ao processar OCR:', error)
-    throw new Error('Falha ao processar imagem com OCR')
-  }
-}
 
 /**
  * Extrai usernames do Instagram de um texto
@@ -178,45 +146,3 @@ export function normalizeInstagramUsername(username: string): string {
   
   return normalized
 }
-
-/**
- * Processa imagem completa: OCR + Extração de usuários
- * Nota: Esta função usa Tesseract.js como fallback.
- * Prefira usar a API /api/ocr/vision que usa Google Cloud Vision.
- */
-export async function processInstagramScreenshot(
-  imageFile: File,
-  onProgress?: (progress: number) => void
-): Promise<{ users: string[]; rawText: string }> {
-  try {
-    // Passo 1: OCR (0-80% do progresso)
-    const ocrResult = await extractTextFromImage(
-      imageFile,
-      (p) => {
-        if (onProgress) onProgress(Math.round(p * 0.8))
-      }
-    )
-
-    // Passo 2: Extração de usuários (80-100% do progresso)
-    if (onProgress) onProgress(85)
-
-    // Usar método baseado em texto (mais confiável)
-    const users = extractInstagramUsers(ocrResult.text)
-
-    // Remover duplicatas
-    const uniqueUsers = Array.from(
-      new Map(users.map(u => [u.toLowerCase(), u])).values()
-    )
-
-    if (onProgress) onProgress(100)
-
-    return {
-      users: uniqueUsers,
-      rawText: ocrResult.text,
-    }
-  } catch (error) {
-    console.error('Erro ao processar screenshot:', error)
-    throw error
-  }
-}
-
