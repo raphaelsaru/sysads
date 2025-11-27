@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Users, Eye, Shield, Mail, Building2, Calendar, Loader2, X, Plus } from 'lucide-react'
+import { Users, Eye, Shield, Mail, Building2, Calendar, Loader2, X, Plus, Instagram, Settings } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -40,6 +41,15 @@ interface User {
   created_at: string
 }
 
+interface TenantWithFeatures {
+  id: string
+  name: string
+  slug: string
+  settings: {
+    ocr_instagram_enabled?: boolean
+  }
+}
+
 function AdminPageContent() {
   const router = useRouter()
   const { userProfile } = useAuth()
@@ -50,6 +60,8 @@ function AdminPageContent() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [tenants, setTenants] = useState<Array<{ id: string; name: string }>>([])
+  const [tenantsWithFeatures, setTenantsWithFeatures] = useState<TenantWithFeatures[]>([])
+  const [loadingFeatures, setLoadingFeatures] = useState(false)
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
@@ -73,7 +85,17 @@ function AdminPageContent() {
         const response = await fetch('/api/admin/tenants')
         if (response.ok) {
           const data = await response.json()
-          setTenants(data.tenants || [])
+          const tenantsList = data.tenants || []
+          
+          // Garantir que settings existe em cada tenant
+          const tenantsWithSettings = tenantsList.map((tenant: any) => ({
+            ...tenant,
+            settings: tenant.settings || {},
+          }))
+          
+          console.log('📋 Tenants carregados:', tenantsWithSettings)
+          setTenants(tenantsWithSettings)
+          setTenantsWithFeatures(tenantsWithSettings)
         }
       } catch (err) {
         console.error('Erro ao carregar tenants:', err)
@@ -175,6 +197,67 @@ function AdminPageContent() {
 
   const handleStopImpersonation = () => {
     stopImpersonation()
+  }
+
+  const handleToggleOCRFeature = async (tenantId: string, currentValue: boolean) => {
+    try {
+      setLoadingFeatures(true)
+      
+      const newValue = !currentValue
+      console.log('🔄 Toggling OCR feature:', { tenantId, currentValue, newValue })
+      
+      const response = await fetch('/api/admin/tenant-features', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          ocr_instagram_enabled: newValue,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('❌ Erro na resposta:', errorData)
+        throw new Error(errorData.error || 'Erro ao atualizar feature')
+      }
+
+      const result = await response.json()
+      console.log('✅ Feature atualizada:', result)
+
+      // Atualizar estado local
+      setTenantsWithFeatures(prev =>
+        prev.map(tenant => {
+          if (tenant.id === tenantId) {
+            const updatedTenant = {
+              ...tenant,
+              settings: {
+                ...(tenant.settings || {}),
+                ocr_instagram_enabled: newValue,
+              },
+            }
+            console.log('📝 Tenant atualizado no estado:', updatedTenant)
+            return updatedTenant
+          }
+          return tenant
+        })
+      )
+
+      // Recarregar tenants para garantir sincronização
+      const refreshResponse = await fetch('/api/admin/tenants')
+      if (refreshResponse.ok) {
+        const refreshData = await refreshResponse.json()
+        setTenantsWithFeatures(refreshData.tenants || [])
+      }
+
+      alert(`Feature OCR Instagram ${newValue ? 'habilitada' : 'desabilitada'} com sucesso!`)
+    } catch (err) {
+      console.error('❌ Erro ao atualizar feature:', err)
+      alert(err instanceof Error ? err.message : 'Erro ao atualizar feature')
+    } finally {
+      setLoadingFeatures(false)
+    }
   }
 
   if (userProfile?.role !== 'admin_global') {
@@ -327,6 +410,86 @@ function AdminPageContent() {
                               Visualizar como
                             </Button>
                           )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Gerenciamento de Features dos Tenants */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Gerenciamento de Features
+            </CardTitle>
+            <CardDescription>
+              Habilite ou desabilite features para cada tenant
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingFeatures ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : tenantsWithFeatures.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                Nenhum tenant encontrado
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {tenantsWithFeatures.map((tenant) => (
+                  <Card
+                    key={tenant.id}
+                    className="border-border/70 transition-all hover:shadow-md"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                              <Building2 className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold">{tenant.name}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                @{tenant.slug}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Features */}
+                        <div className="flex items-center gap-6">
+                          {/* OCR Instagram */}
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="flex items-center gap-2 text-sm font-medium">
+                                <Instagram className="h-4 w-4" />
+                                OCR Instagram
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {tenant.settings?.ocr_instagram_enabled
+                                  ? 'Habilitada'
+                                  : 'Desabilitada'}
+                              </p>
+                            </div>
+                            <Switch
+                              checked={Boolean(tenant.settings?.ocr_instagram_enabled)}
+                              onCheckedChange={(checked) => {
+                                console.log('🔄 Switch clicado:', { tenantId: tenant.id, checked })
+                                handleToggleOCRFeature(
+                                  tenant.id,
+                                  Boolean(tenant.settings?.ocr_instagram_enabled)
+                                )
+                              }}
+                              disabled={loadingFeatures}
+                            />
+                          </div>
                         </div>
                       </div>
                     </CardContent>

@@ -31,6 +31,7 @@ export interface TenantBranding {
 }
 
 export interface TenantSettings {
+  ocr_instagram_enabled?: boolean
   [key: string]: any
 }
 
@@ -152,4 +153,33 @@ export interface NovoCliente {
   dataPagamentoVenda?: string;
   // Campo de notificação
   dataLembreteChamada?: string;
+}
+
+// =====================================================
+// TIPOS DE OCR INSTAGRAM
+// =====================================================
+
+export interface OCRDetectedUser {
+  username: string // @username ou nome extraído
+  confidence: number // Confiança do OCR (0-1)
+  isDuplicate: boolean // Se já existe no CRM
+  existingClientId?: string // ID do cliente existente (se duplicado)
+}
+
+export interface OCRResult {
+  users: OCRDetectedUser[]
+  rawText: string // Texto bruto extraído
+  processedAt: string
+}
+
+export interface BatchImportRequest {
+  users: string[] // Lista de usernames/arrobas para importar
+}
+
+export interface BatchImportResult {
+  created: Cliente[]
+  skipped: Array<{ username: string; reason: string }>
+  total: number
+  success: number
+  failed: number
 }

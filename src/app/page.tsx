@@ -2,20 +2,29 @@
 
 import { useMemo, useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Filter, Plus, Loader2 } from 'lucide-react'
+import { Filter, Plus, Loader2, Instagram } from 'lucide-react'
 
 import MainLayout from '@/components/layout/MainLayout'
 import ClienteTable from '@/components/ClienteTable'
 import ClienteModal from '@/components/ClienteModal'
+import InstagramOCRImport from '@/components/cliente/InstagramOCRImport'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { useClientes } from '@/hooks/useClientes'
 import { useDailyQuote } from '@/hooks/useDailyQuote'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAdmin } from '@/contexts/AdminContext'
+import { useTenant } from '@/contexts/TenantContext'
 import { Cliente, NovoCliente } from '@/types/crm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { FALLBACK_CURRENCY_VALUE } from '@/lib/currency'
 import { Input } from '@/components/ui/input'
 import {
@@ -289,12 +298,19 @@ function FiltrosClientes({
   )
 }
 
-function HomePage() {
+// Componente interno que usa o tenant (após MainLayout estar montado)
+function HomePageContent() {
   const { userProfile } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
+  const { ocrInstagramEnabled, refreshTenant } = useTenant()
   const { quote, loading: quoteLoading } = useDailyQuote()
   const searchParams = useSearchParams()
   const isMobile = useIsMobile()
+  
+  // Log para debug
+  useEffect(() => {
+    console.log('🔍 OCR Instagram Enabled:', ocrInstagramEnabled)
+  }, [ocrInstagramEnabled])
   
   // Usar moeda do usuário impersonado se houver, senão usar a do usuário logado
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
@@ -308,11 +324,13 @@ function HomePage() {
     excluirCliente,
     hasMore,
     carregarMaisClientes,
+    carregarClientes,
   } = useClientes(currency, impersonatedUserId)
 
   const [mostrarModal, setMostrarModal] = useState(false)
   const [clienteEditando, setClienteEditando] = useState<Cliente | undefined>(undefined)
   const [filtros, setFiltros] = useState(filtrosIniciais)
+  const [mostrarOCRModal, setMostrarOCRModal] = useState(false)
 
   // Verificar se há um ID na URL para abrir o modal de edição
   useEffect(() => {
@@ -363,6 +381,20 @@ function HomePage() {
     await excluirCliente(id)
     // Disparar evento para atualizar notificações após excluir
     window.dispatchEvent(new CustomEvent('cliente-atualizado'))
+  }
+
+  const handleImportComplete = async (imported: number) => {
+    // Recarregar lista de clientes
+    await carregarClientes()
+    window.dispatchEvent(new CustomEvent('cliente-atualizado'))
+    
+    // Mostrar feedback
+    alert(`${imported} lead${imported !== 1 ? 's' : ''} importado${imported !== 1 ? 's' : ''} com sucesso!`)
+    
+    // Fechar modal após alguns segundos
+    setTimeout(() => {
+      setMostrarOCRModal(false)
+    }, 2000)
   }
 
   const atualizarFiltro = (campo: FiltroChave, valor: string) => {
@@ -477,8 +509,7 @@ function HomePage() {
   }, [filtros])
 
   return (
-    <MainLayout>
-      <section className="space-y-8">
+    <section className="space-y-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">
             <Badge variant="muted" className="w-fit bg-primary/10 text-primary">
@@ -508,13 +539,41 @@ function HomePage() {
             </div>
           </div>
 
-          <Button
-            onClick={() => setMostrarModal(true)}
-            className="h-12 gap-2 self-start rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground shadow-brand hover:bg-primary/90"
-          >
-            <Plus className="h-5 w-5" />
-            Novo cliente
-          </Button>
+          <div className="flex flex-col gap-3 self-start sm:flex-row">
+            {/* Botão de Importar do Instagram - apenas se feature habilitada */}
+            {ocrInstagramEnabled ? (
+              <Button
+                onClick={() => setMostrarOCRModal(true)}
+                variant="outline"
+                className="h-12 gap-2 rounded-full px-6 text-base font-semibold"
+              >
+                <Instagram className="h-5 w-5" />
+                Importar do Instagram
+              </Button>
+            ) : (
+              // Botão temporário de debug - remover depois
+              <Button
+                onClick={async () => {
+                  console.log('🔄 Recarregando tenant...')
+                  await refreshTenant()
+                  alert('Tenant recarregado! Verifique o console para ver os logs.')
+                }}
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-muted-foreground"
+              >
+                🔄 Recarregar Tenant (Debug)
+              </Button>
+            )}
+            
+            <Button
+              onClick={() => setMostrarModal(true)}
+              className="h-12 gap-2 rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground shadow-brand hover:bg-primary/90"
+            >
+              <Plus className="h-5 w-5" />
+              Novo cliente
+            </Button>
+          </div>
         </div>
 
         <FiltrosClientes
@@ -564,7 +623,30 @@ function HomePage() {
           cliente={clienteEditando}
           currency={currency}
         />
+
+        {/* Modal de Importação via OCR */}
+        <Dialog open={mostrarOCRModal} onOpenChange={setMostrarOCRModal}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Importar Leads do Instagram</DialogTitle>
+              <DialogDescription>
+                Faça upload de uma captura de tela do Instagram Direct
+              </DialogDescription>
+            </DialogHeader>
+            <InstagramOCRImport
+              onImportComplete={handleImportComplete}
+              onClose={() => setMostrarOCRModal(false)}
+            />
+          </DialogContent>
+        </Dialog>
       </section>
+  )
+}
+
+function HomePage() {
+  return (
+    <MainLayout>
+      <HomePageContent />
     </MainLayout>
   )
 }

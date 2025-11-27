@@ -8,6 +8,7 @@ interface TenantContextType {
   tenant: Tenant | null
   branding: TenantBranding | null
   loading: boolean
+  ocrInstagramEnabled: boolean
   refreshTenant: () => Promise<void>
   updateBranding: (branding: Partial<TenantBranding>) => void
 }
@@ -23,6 +24,7 @@ export function TenantProvider({ children, tenantId }: TenantProviderProps) {
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [branding, setBranding] = useState<TenantBranding | null>(null)
   const [loading, setLoading] = useState(true)
+  const [ocrInstagramEnabled, setOcrInstagramEnabled] = useState(false)
 
   const fetchTenant = async (id: string) => {
     try {
@@ -38,6 +40,13 @@ export function TenantProvider({ children, tenantId }: TenantProviderProps) {
       const data = await response.json()
       setTenant(data.tenant)
       setBranding(data.tenant.branding)
+      
+      // Carregar feature flags do tenant
+      const settings = data.tenant.settings || {}
+      const ocrEnabled = settings.ocr_instagram_enabled || false
+      console.log('🔍 Settings do tenant:', settings)
+      console.log('🔍 OCR Instagram habilitado?', ocrEnabled)
+      setOcrInstagramEnabled(ocrEnabled)
 
       // Aplicar tema do tenant
       if (data.tenant.branding?.primaryColor && data.tenant.branding?.secondaryColor) {
@@ -89,6 +98,7 @@ export function TenantProvider({ children, tenantId }: TenantProviderProps) {
       setLoading(false)
       setTenant(null)
       setBranding(null)
+      setOcrInstagramEnabled(false)
       resetTenantColors()
     }
 
@@ -104,6 +114,7 @@ export function TenantProvider({ children, tenantId }: TenantProviderProps) {
         tenant,
         branding,
         loading,
+        ocrInstagramEnabled,
         refreshTenant,
         updateBranding,
       }}

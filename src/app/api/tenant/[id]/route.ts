@@ -19,16 +19,51 @@ export async function GET(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    // Buscar tenant
+    // Buscar tenant - usar select explícito para garantir que settings seja retornado
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
-      .select('*')
+      .select('id, name, slug, description, max_clients, max_users, is_active, branding, settings, metadata, created_at, updated_at, onboarding_completed, onboarding_completed_at')
       .eq('id', id)
       .single()
 
     if (tenantError || !tenant) {
+      console.error('❌ Erro ao buscar tenant:', tenantError)
       return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 404 })
     }
+
+    // Garantir que settings existe e é um objeto válido
+    // Se settings vier vazio, tentar buscar novamente usando RPC ou query direta
+    if (!tenant.settings || (typeof tenant.settings === 'object' && Object.keys(tenant.settings).length === 0)) {
+      console.log('⚠️ Settings vazio, tentando buscar novamente...')
+      
+      // Tentar buscar settings usando uma query mais específica
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('tenants')
+        .select('settings')
+        .eq('id', id)
+        .single()
+      
+      if (!settingsError && settingsData?.settings) {
+        console.log('✅ Settings encontrado na segunda tentativa:', settingsData.settings)
+        tenant.settings = settingsData.settings
+      } else {
+        console.log('⚠️ Settings ainda vazio após segunda tentativa')
+        // Manter o settings vazio, mas garantir que seja um objeto
+        tenant.settings = tenant.settings || {}
+      }
+    }
+
+    // Log para debug
+    console.log('📋 Tenant carregado na API:', {
+      id: tenant.id,
+      name: tenant.name,
+      settings: tenant.settings,
+      settingsType: typeof tenant.settings,
+      settingsIsObject: tenant.settings instanceof Object,
+      settingsKeys: Object.keys(tenant.settings || {}),
+      ocr_instagram_enabled: tenant.settings?.ocr_instagram_enabled,
+      settingsStringified: JSON.stringify(tenant.settings),
+    })
 
     // Verificar se o usuário tem acesso a este tenant
     const { data: profile } = await supabase

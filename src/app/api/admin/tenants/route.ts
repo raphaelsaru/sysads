@@ -27,10 +27,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Acesso negado - apenas super admin' }, { status: 403 })
     }
 
-    // Buscar todos os tenants com estatísticas
+    // Buscar todos os tenants diretamente da tabela para garantir que temos settings
     const { data: tenants, error: tenantsError } = await supabase
-      .from('tenant_statistics')
-      .select('*')
+      .from('tenants')
+      .select('id, name, slug, description, max_clients, max_users, is_active, branding, settings, metadata, created_at, updated_at')
       .order('created_at', { ascending: false })
 
     if (tenantsError) {
