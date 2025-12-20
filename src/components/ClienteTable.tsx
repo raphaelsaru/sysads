@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUp, ArrowDown, UserX, DollarSign, CheckCircle2, Bell } from 'lucide-react'
+import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUp, ArrowDown, UserX, DollarSign, CheckCircle2, Bell, Plus, History } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -31,8 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Cliente } from '@/types/crm'
+import { Cliente, FollowUp } from '@/types/crm'
 import { formatDateBR, formatDateISO } from '@/lib/dateUtils'
+import AddFollowUpModal from '@/components/followup/AddFollowUpModal'
+import FollowUpHistoryModal from '@/components/followup/FollowUpHistoryModal'
+import { useFollowUps } from '@/hooks/useFollowUps'
 
 type SortField = 'createdAt' | 'dataContato' | 'nome' | 'valorFechado'
 type SortOrder = 'asc' | 'desc'
@@ -79,6 +82,69 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
   const [sortField, setSortField] = useState<SortField>('createdAt')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  
+  // Estados para modais de follow-ups
+  const [clienteParaFollowUp, setClienteParaFollowUp] = useState<Cliente | null>(null)
+  const [isAddFollowUpOpen, setIsAddFollowUpOpen] = useState(false)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [followUpParaEditar, setFollowUpParaEditar] = useState<FollowUp | null>(null)
+  const [followUpsCounts, setFollowUpsCounts] = useState<Record<string, number>>({})
+  const { buscarFollowUps, followUps } = useFollowUps()
+  
+  // Atualizar contagens quando follow-ups forem carregados
+  useEffect(() => {
+    if (followUps.length > 0 && followUps[0]?.clienteId) {
+      const clienteId = followUps[0].clienteId
+      setFollowUpsCounts(prev => ({
+        ...prev,
+        [clienteId]: followUps.length
+      }))
+    }
+  }, [followUps])
+  
+  // Função para obter contagem de follow-ups de um cliente
+  const getFollowUpsCount = (cliente: Cliente): number => {
+    // Primeiro tentar usar o campo da API
+    if (cliente.totalFollowUps !== undefined) {
+      return cliente.totalFollowUps
+    }
+    // Se não tiver, usar o estado local
+    if (cliente.id) {
+      return followUpsCounts[cliente.id] || 0
+    }
+    return 0
+  }
+  
+  // Função para buscar contagem de follow-ups de um cliente
+  const buscarContagemFollowUps = async (clienteId: string) => {
+    try {
+      await buscarFollowUps(clienteId)
+    } catch (error) {
+      console.error(`Erro ao buscar follow-ups para cliente ${clienteId}:`, error)
+    }
+  }
+  
+  // Função para abrir modal de adicionar follow-up
+  const handleAddFollowUp = (cliente: Cliente) => {
+    setClienteParaFollowUp(cliente)
+    setIsAddFollowUpOpen(true)
+  }
+  
+  // Função para abrir modal de histórico
+  const handleViewHistory = async (cliente: Cliente) => {
+    if (!cliente.id) return
+    setClienteParaFollowUp(cliente)
+    await buscarContagemFollowUps(cliente.id)
+    setIsHistoryOpen(true)
+  }
+  
+  // Callback quando um follow-up é criado com sucesso
+  const handleFollowUpCreated = async (followUp: FollowUp) => {
+    if (followUp.clienteId) {
+      // Recarregar follow-ups para atualizar a lista e contagem
+      await buscarContagemFollowUps(followUp.clienteId)
+    }
+  }
 
   const clientesOrdenados = useMemo(() => {
     const normalizarData = (valor: string) => {
@@ -290,8 +356,35 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                   </p>
                 </div>
               )}
+              {cliente.id && (
+                <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/80 px-3 py-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Follow-ups</span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1 text-xs"
+                      onClick={() => handleViewHistory(cliente)}
+                    >
+                      <History className="h-3 w-3" />
+                      {getFollowUpsCount(cliente)} follow-up{getFollowUpsCount(cliente) !== 1 ? 's' : ''}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
             <CardFooter className="flex items-center justify-end gap-2 pt-0">
+              {cliente.id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => handleAddFollowUp(cliente)}
+                >
+                  <Plus className="h-4 w-4" />
+                  Follow-up
+                </Button>
+              )}
               {onEdit && (
                 <Button variant="ghost" size="sm" className="gap-2" onClick={() => onEdit(cliente)}>
                   <Pencil className="h-4 w-4" />
@@ -359,7 +452,8 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                 <TableHead>Status</TableHead>
                 <TableHead>Qualidade</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="w-[110px] text-right">Ações</TableHead>
+                <TableHead className="text-center">Follow-ups</TableHead>
+                <TableHead className="w-[150px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -418,8 +512,35 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                   <TableCell className="text-right text-sm font-semibold text-success">
                     {cliente.valorFechado || '—'}
                   </TableCell>
+                  <TableCell className="text-center">
+                    {cliente.id ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 text-xs"
+                        onClick={() => handleViewHistory(cliente)}
+                      >
+                        <History className="h-3 w-3" />
+                        {getFollowUpsCount(cliente)}
+                      </Button>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {cliente.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-primary"
+                          onClick={() => handleAddFollowUp(cliente)}
+                          aria-label={`Adicionar follow-up para ${cliente.nome}`}
+                          title="Adicionar follow-up"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      )}
                       {onEdit && (
                         <Button
                           variant="ghost"
@@ -478,6 +599,43 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modais de Follow-ups */}
+      {clienteParaFollowUp && clienteParaFollowUp.id && (
+        <>
+          <FollowUpHistoryModal
+            isOpen={isHistoryOpen}
+            onClose={() => {
+              setIsHistoryOpen(false)
+              // Não limpar clienteParaFollowUp aqui para permitir adicionar follow-up
+            }}
+            clienteId={clienteParaFollowUp.id}
+            clienteNome={clienteParaFollowUp.nome}
+            onAddFollowUp={() => {
+              setIsHistoryOpen(false)
+              setIsAddFollowUpOpen(true)
+              setFollowUpParaEditar(null)
+            }}
+            onEditFollowUp={(followUp) => {
+              setIsHistoryOpen(false)
+              setFollowUpParaEditar(followUp)
+              setIsAddFollowUpOpen(true)
+            }}
+          />
+          <AddFollowUpModal
+            isOpen={isAddFollowUpOpen}
+            onClose={() => {
+              setIsAddFollowUpOpen(false)
+              setFollowUpParaEditar(null)
+              setClienteParaFollowUp(null)
+            }}
+            clienteId={clienteParaFollowUp.id}
+            clienteNome={clienteParaFollowUp.nome}
+            onSuccess={handleFollowUpCreated}
+            followUpParaEditar={followUpParaEditar}
+          />
+        </>
+      )}
     </>
   )
 }

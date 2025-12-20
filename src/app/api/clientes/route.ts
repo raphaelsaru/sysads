@@ -119,8 +119,27 @@ export async function GET(request: NextRequest) {
       return errorResponse;
     }
 
+    // Buscar contagens de follow-ups para todos os clientes
+    const clienteIds = clientes?.map(c => c.id) || [];
+    let followUpsCounts: Record<string, number> = {};
+    
+    if (clienteIds.length > 0) {
+      const { data: followUpsData, error: followUpsError } = await supabase
+        .from('follow_ups')
+        .select('cliente_id')
+        .in('cliente_id', clienteIds);
+
+      if (!followUpsError && followUpsData) {
+        // Contar follow-ups por cliente
+        followUpsCounts = followUpsData.reduce((acc, fu) => {
+          acc[fu.cliente_id] = (acc[fu.cliente_id] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+      }
+    }
+
     // Transform to match existing interface
-    const transformedClientes: Cliente[] = clientes.map(cliente => ({
+    const transformedClientes: Cliente[] = (clientes || []).map(cliente => ({
       id: cliente.id,
       dataContato: cliente.data_contato,
       nome: cliente.nome,
@@ -138,6 +157,7 @@ export async function GET(request: NextRequest) {
       vendaPaga: cliente.venda_paga || false,
       dataPagamentoVenda: cliente.data_pagamento_venda,
       dataLembreteChamada: cliente.data_lembrete_chamada,
+      totalFollowUps: followUpsCounts[cliente.id] || 0,
     }));
 
     const response = NextResponse.json(transformedClientes);

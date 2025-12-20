@@ -132,6 +132,8 @@ export interface Cliente {
   tenant_id?: string;
   created_by?: string;
   updated_by?: string;
+  // Campo de follow-ups
+  totalFollowUps?: number;
 }
 
 export interface NovoCliente {
@@ -182,4 +184,25 @@ export interface BatchImportResult {
   total: number
   success: number
   failed: number
+}
+
+// =====================================================
+// TIPOS DE FOLLOW-UPS
+// =====================================================
+
+export interface FollowUp {
+  id: string
+  clienteId: string
+  observacao: string
+  respondeu: boolean
+  numeroFollowup: number
+  createdAt: string
+  createdBy: string
+  tenantId: string
+}
+
+export interface NovoFollowUp {
+  clienteId: string
+  observacao: string
+  respondeu: boolean
 }
