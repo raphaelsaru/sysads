@@ -115,7 +115,7 @@ function TenantEditPageContent() {
         throw new Error(errorData.error || 'Erro ao atualizar tenant')
       }
 
-      const data = await response.json()
+      await response.json()
       
       // Redirecionar para a página de detalhes
       router.push(`/admin/tenants/${tenant.id}`)

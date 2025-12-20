@@ -61,14 +61,6 @@ const ORIGENS = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antig
 const RESULTADOS = ['Venda', 'Orçamento em Processo', 'Não Venda'] as const
 const QUALIDADES = ['Bom', 'Regular', 'Ruim'] as const
 
-// Função para obter o mês vigente no formato YYYY-MM
-function getMesVigente(): string {
-  const agora = new Date()
-  const ano = agora.getFullYear()
-  const mes = String(agora.getMonth() + 1).padStart(2, '0')
-  return `${ano}-${mes}`
-}
-
 // Função para gerar lista de meses do ano vigente
 function gerarMesesAnoVigente(): Array<{ valor: string; label: string }> {
   const agora = new Date()

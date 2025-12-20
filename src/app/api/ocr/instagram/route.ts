@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
  * GET /api/ocr/instagram/status
  * Verifica se o usuário tem acesso à feature de OCR Instagram
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient()
 

@@ -35,7 +35,7 @@ export default function AddFollowUpModal({
   onSuccess,
   followUpParaEditar,
 }: AddFollowUpModalProps) {
-  const { criarFollowUp, editarFollowUp, buscarFollowUps, followUps, loading } = useFollowUps()
+  const { criarFollowUp, editarFollowUp, buscarFollowUps, followUps } = useFollowUps()
   const [observacao, setObservacao] = useState('')
   const [respondeu, setRespondeu] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -161,7 +161,7 @@ export default function AddFollowUpModal({
               className="resize-none"
             />
             <p className="text-xs text-muted-foreground">
-              Ex: "Reativei o cliente que tinha parado de responder" ou "Cliente mostrou interesse e está chamando pela terceira vez"
+              Ex: &quot;Reativei o cliente que tinha parado de responder&quot; ou &quot;Cliente mostrou interesse e está chamando pela terceira vez&quot;
             </p>
           </div>
 

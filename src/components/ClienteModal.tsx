@@ -544,7 +544,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
               }}
               clienteId={cliente.id}
               clienteNome={cliente.nome}
-              onSuccess={async (followUp: FollowUp) => {
+              onSuccess={async () => {
                 await buscarFollowUps(cliente.id!)
                 setFollowUpParaEditar(null)
               }}

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Loader2, LockKeyhole, Mail, Building2 } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
@@ -14,7 +13,6 @@ import Image from 'next/image'
 import EmailConfirmation from './EmailConfirmation'
 
 export default function LoginForm() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [companyName, setCompanyName] = useState('')
