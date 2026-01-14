@@ -28,11 +28,6 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency, type SupportedCurrency } from '@/lib/currency'
 import { DatePicker } from '@/components/ui/date-picker'
-import { Plus, History } from 'lucide-react'
-import AddFollowUpModal from '@/components/followup/AddFollowUpModal'
-import FollowUpHistoryModal from '@/components/followup/FollowUpHistoryModal'
-import { useFollowUps } from '@/hooks/useFollowUps'
-import { FollowUp } from '@/types/crm'
 
 interface ClienteModalProps {
   isOpen: boolean
@@ -74,19 +69,6 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
   const [valorSinalNumerico, setValorSinalNumerico] = useState<number | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
-  
-  // Estados para follow-ups
-  const [isAddFollowUpOpen, setIsAddFollowUpOpen] = useState(false)
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
-  const [followUpParaEditar, setFollowUpParaEditar] = useState<FollowUp | null>(null)
-  const { buscarFollowUps, followUps } = useFollowUps()
-  
-  // Carregar follow-ups quando o modal abrir e houver cliente
-  useEffect(() => {
-    if (isOpen && cliente?.id) {
-      buscarFollowUps(cliente.id)
-    }
-  }, [isOpen, cliente?.id, buscarFollowUps])
 
   useEffect(() => {
     if (!isOpen) return
@@ -466,57 +448,6 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
             />
           </div>
 
-          {/* Seção de Follow-ups - apenas quando há cliente existente */}
-          {cliente?.id && (
-            <div className="space-y-3 rounded-xl border border-border/60 bg-background/80 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-base font-semibold">Follow-ups</Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Documente os follow-ups realizados com este cliente
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setIsHistoryOpen(true)}
-                  >
-                    <History className="h-4 w-4" />
-                    {followUps.length} follow-up{followUps.length !== 1 ? 's' : ''}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setIsAddFollowUpOpen(true)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Adicionar
-                  </Button>
-                </div>
-              </div>
-              {followUps.length > 0 && (
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {followUps.slice(0, 3).map((fu) => (
-                    <div key={fu.id} className="text-xs text-muted-foreground border-l-2 border-primary/30 pl-2">
-                      <span className="font-semibold text-foreground">#{fu.numeroFollowup}</span>
-                      {' '}
-                      <span className="truncate">{fu.observacao}</span>
-                    </div>
-                  ))}
-                  {followUps.length > 3 && (
-                    <p className="text-xs text-muted-foreground">
-                      +{followUps.length - 3} follow-up{followUps.length - 3 !== 1 ? 's' : ''} mais
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
           <DialogFooter className="gap-3 pt-2">
             <Button
               type="button"
@@ -532,42 +463,6 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
             </Button>
           </DialogFooter>
         </form>
-        
-        {/* Modais de Follow-ups */}
-        {cliente?.id && (
-          <>
-            <AddFollowUpModal
-              isOpen={isAddFollowUpOpen}
-              onClose={() => {
-                setIsAddFollowUpOpen(false)
-                setFollowUpParaEditar(null)
-              }}
-              clienteId={cliente.id}
-              clienteNome={cliente.nome}
-              onSuccess={async () => {
-                await buscarFollowUps(cliente.id!)
-                setFollowUpParaEditar(null)
-              }}
-              followUpParaEditar={followUpParaEditar}
-            />
-            <FollowUpHistoryModal
-              isOpen={isHistoryOpen}
-              onClose={() => setIsHistoryOpen(false)}
-              clienteId={cliente.id}
-              clienteNome={cliente.nome}
-              onAddFollowUp={() => {
-                setIsHistoryOpen(false)
-                setFollowUpParaEditar(null)
-                setIsAddFollowUpOpen(true)
-              }}
-              onEditFollowUp={(followUp) => {
-                setIsHistoryOpen(false)
-                setFollowUpParaEditar(followUp)
-                setIsAddFollowUpOpen(true)
-              }}
-            />
-          </>
-        )}
       </DialogContent>
     </Dialog>
   )
