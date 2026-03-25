@@ -37,7 +37,7 @@ interface ClienteModalProps {
   currency?: SupportedCurrency
 }
 
-const ORIGENS: NovoCliente['origem'][] = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antigo']
+const ORIGENS: NovoCliente['origem'][] = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antigo', 'Site']
 const RESULTADOS: NovoCliente['resultado'][] = ['Venda', 'Orçamento em Processo', 'Não Venda']
 const QUALIDADES: NovoCliente['qualidadeContato'][] = ['Bom', 'Regular', 'Ruim']
 

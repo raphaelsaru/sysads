@@ -96,6 +96,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Limitar tamanho da imagem (10MB em base64 ≈ ~13.3MB string)
+    const MAX_IMAGE_SIZE = 10 * 1024 * 1024 * 1.37 // ~13.7MB de string base64
+    if (typeof image !== 'string' || image.length > MAX_IMAGE_SIZE) {
+      return NextResponse.json(
+        { error: 'Imagem excede o tamanho máximo permitido (10MB)' },
+        { status: 413 }
+      )
+    }
+
     // Remover prefixo data:image/... se existir
     const base64Image = image.replace(/^data:image\/\w+;base64,/, '')
 

@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link, { type LinkProps } from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -52,7 +52,7 @@ export default function Header() {
   const companyInitial = companyName.charAt(0)?.toUpperCase() ?? 'P'
   
   // Navegação baseada em role
-  const navItems = [
+  const navItems: { href: string; label: string; icon?: React.ComponentType }[] = [
     { href: '/', label: 'Leads' },
     { href: '/clientes', label: 'Clientes' },
     { href: '/dashboard', label: 'Dashboard' },
@@ -115,7 +115,7 @@ export default function Header() {
               {navItems.map(({ href, label }) => (
                 <Link
                   key={href}
-                  href={href}
+                  href={href as never}
                   className={cn(
                     'rounded-full px-3 py-2 transition-colors hover:text-primary',
                     pathname === href ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
@@ -212,7 +212,7 @@ export default function Header() {
             {navItems.map(({ href, label }) => (
               <Link
                 key={href}
-                href={href}
+                href={href as never}
                 className={cn(
                   'flex-1 rounded-full px-3 py-2 text-center transition-colors hover:text-primary',
                   pathname === href ? 'bg-primary/10 text-primary' : 'text-muted-foreground'

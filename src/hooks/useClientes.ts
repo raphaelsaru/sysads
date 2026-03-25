@@ -16,7 +16,7 @@ const supabase = createClient()
 const clientesTable = () => supabase.from('clientes') as any
 
 const PAGE_SIZE = 15
-const STATS_PAGE_SIZE = 500
+const STATS_PAGE_SIZE = 5000
 
 interface EstatisticasClientes {
   total: number

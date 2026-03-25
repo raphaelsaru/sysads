@@ -32,6 +32,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const MAX_BATCH_SIZE = 100
+    if (users.length > MAX_BATCH_SIZE) {
+      return NextResponse.json(
+        { error: `Máximo de ${MAX_BATCH_SIZE} usuários por requisição` },
+        { status: 400 }
+      )
+    }
+
     // Buscar clientes existentes para verificar duplicatas
     const { data: existingClientes, error: fetchError } = await supabase
       .from('clientes')

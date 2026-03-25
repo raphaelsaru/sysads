@@ -51,3 +51,4 @@ supabase/backups/*.sql
 supabase/backups/*.dump
 supabase/backups/backup.log
 !supabase/backups/README.md
+.env*.local

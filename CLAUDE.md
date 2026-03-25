@@ -3,75 +3,72 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-This is "Prizely", a CRM system for customer management specifically built for "Charbelle". It's a Next.js 15 application using React 19, TypeScript, and TailwindCSS with a custom design system.
+Prizely — multitenant CRM for customer management. Portuguese-language interface (lang="pt-BR"). Built for "Charbelle" but supports multiple tenants.
 
-## Development Commands
-- **Development server**: `npm run dev` or `pnpm dev` (opens on http://localhost:3000)
-- **Build**: `npm run build`
-- **Production**: `npm start`
-- **Lint**: `npm run lint`
+## Commands
+- `pnpm dev` — dev server on localhost:3000
+- `pnpm build` — production build (note: `typescript.ignoreBuildErrors: true` in next.config.ts)
+- `pnpm lint` — ESLint
+- `pnpm storybook` — Storybook on localhost:6006
+- `pnpm vitest` — runs Storybook-based browser tests via Playwright/Chromium
 
-## Architecture & Structure
+## Stack
+- Next.js 16 (App Router), React 19, TypeScript (strict)
+- Supabase (auth via `@supabase/ssr`, DB, realtime)
+- TailwindCSS 3 + Radix UI primitives + shadcn/ui (`components/ui/`)
+- Recharts for dashboard charts
+- Storybook 9 + Vitest (browser mode) for component testing
 
-### Core Architecture
-- **Framework**: Next.js 15 with App Router
-- **Language**: TypeScript with strict mode enabled
-- **Styling**: TailwindCSS with extensive custom theme and dark mode support
-- **Layout**: Dashboard-style layout with sidebar navigation and header
+## Architecture
 
-### Directory Structure
-```
-src/
-├── app/                    # Next.js App Router pages
-├── components/             # React components
-│   ├── layout/            # Layout components (MainLayout, Header, Sidebar)
-│   ├── cliente/           # Client-specific components
-│   ├── ClienteForm.tsx    # Client form component
-│   └── ClienteTable.tsx   # Client table component
-└── types/                 # TypeScript type definitions
-    ├── cliente.ts         # Client data types
-    └── crm.ts            # CRM-related types
-```
+### Auth & Multitenancy
+- **Middleware** (`middleware.ts` at project root, NOT in `src/`): Supabase SSR auth, redirects unauthenticated users to `/auth/login`. Public paths: `/`, `/auth/*`.
+- **Three Supabase clients**: `supabase-browser.ts` (client components), `supabase-server.ts` (server components/actions), `supabase.ts` (singleton with custom timeout, legacy).
+- **Roles**: `admin_global`, `tenant_admin`, `tenant_user` — defined in `src/types/crm.ts`.
+- **Contexts**: `AuthContext` (user/session/profile), `TenantContext` (tenant data/branding/OCR toggle), `AdminContext` (admin panel state). All are `'use client'`.
+- Tenant branding applies dynamic colors via `lib/color-utils.ts` + `ThemeApplier.tsx`.
 
-### Key Components
-- **MainLayout**: Main application layout with responsive sidebar and header
-- **Sidebar**: Navigation sidebar with mobile responsiveness
-- **Header**: Top navigation header with mobile sidebar toggle
-- **ClienteForm**: Form for creating/editing clients
-- **ClienteTable**: Table component for displaying client data
+### Data Model (all types in `src/types/crm.ts`)
+- `Cliente` — CRM contact with origem, resultado, pagamento fields, follow-ups, tenant_id.
+- `FollowUp` — follow-up notes per cliente.
+- `Tenant` — tenant with branding, settings, limits (max_clients, max_users).
+- `UserProfile` — user profile with role and tenant association.
 
-### Type System
-The application uses a well-defined TypeScript type system:
-- `Cliente`: Main client interface with properties like nome, telefone, email, status, etc.
-- `NovoCliente`: Type for creating new clients (omits auto-generated fields)
+### API Routes (`src/app/api/`)
+Endpoints: `admin/`, `clientes/`, `followups/`, `ocr/`, `quote/`, `tenant/`, `user/`. All use Supabase server client.
 
-### Styling System
-- **Custom theme**: Extensive color palette with light/dark mode variants
-- **Typography**: Custom font sizes (f-h1 through f-h6)
-- **Spacing**: Custom spacing values for layout components (sidebar-width, header-height, etc.)
-- **Dark mode**: Class-based dark mode with `[data-pc-theme="dark"]` support
+### Pages
+- `/dashboard` — main dashboard with charts
+- `/clientes` — client management (table + form + modal)
+- `/admin` — global admin panel, tenant management (`admin/tenants/`)
+- `/settings/branding` — tenant branding config
+- `/settings/users` — user management
+- `/onboarding` — new tenant setup flow
+- `/auth/login`, `/auth/signup`, `/auth/callback`
 
-### Design Patterns
-- Uses `'use client'` directive for interactive components
-- Portuguese language interface (lang="pt-BR")
-- Responsive design with mobile-first approach
-- Component-based architecture with clear separation of concerns
+### Key Patterns
+- `'use client'` for all interactive components
+- Custom hooks in `src/hooks/` wrap API calls (useClientes, useFollowUps, useNotifications, etc.)
+- `lib/api.ts` — shared fetch helpers for API routes
+- `lib/db.ts` — direct PostgreSQL via `pg` (used alongside Supabase)
+- shadcn/ui components in `src/components/ui/`
 
 ## Path Aliases
-- `@/*` maps to `./src/*` for clean imports
+`@/*` → `./src/*`
 
-## Important Notes
-- The application is in Portuguese and specifically designed for "Charbelle" company
-- Uses a professional color scheme with primary blue (#04A9F5) and comprehensive theme colors
-- Built with accessibility and responsiveness in mind
-- No existing test framework detected - check README or ask user for testing approach when implementing tests
+## Database
 
-## Banco de Dados Local (Desenvolvimento)
+### Supabase (Primary)
+Env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+Migrations in `supabase/migrations/`. Backup scripts in `supabase/backup-db.sh`.
 
-- **SGBD**: PostgreSQL 17 (via Homebrew)
-- **Host**: `localhost`
-- **Porta**: `5432`
-- **Database**: `app_dev`
-- **Usuário**: `dev`
-- **Senha**: `dev`
-- **Extensões**: `uuid-ossp`, `pgcrypto`
+### Local PostgreSQL (Development)
+- Host: `localhost:5432`
+- Database: `app_dev`, User: `dev`, Password: `dev`
+- Extensions: `uuid-ossp`, `pgcrypto`
+
+## Styling
+- Dark mode via `[data-pc-theme="dark"]` class selector
+- Custom typography classes: `f-h1` through `f-h6`
+- Custom spacing tokens: `sidebar-width`, `header-height`
+- Tenant-driven color theming at runtime

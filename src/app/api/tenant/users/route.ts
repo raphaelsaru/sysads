@@ -163,10 +163,16 @@ export async function POST(request: NextRequest) {
         console.error('Erro ao criar perfil do usuário:', profileError)
         
         // Tentar deletar o usuário criado no Auth se falhar
-        await adminClient.auth.admin.deleteUser(authUser.user.id)
-        
-        return NextResponse.json({ 
-          error: 'Erro ao criar perfil do usuário' 
+        try {
+          await adminClient.auth.admin.deleteUser(authUser.user.id)
+        } catch (rollbackError) {
+          console.error('Erro ao fazer rollback do auth user:', rollbackError)
+          // Registrar para limpeza manual posterior
+          console.error(`ATENÇÃO: auth user órfão criado - ID: ${authUser.user.id}, email: ${email}`)
+        }
+
+        return NextResponse.json({
+          error: 'Erro ao criar perfil do usuário'
         }, { status: 500 })
       }
 

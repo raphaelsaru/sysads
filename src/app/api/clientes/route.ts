@@ -31,15 +31,14 @@ function getCorsHeaders(origin?: string | null) {
     // Sem origem (requisição same-origin ou sem header Origin)
     corsOrigin = '*';
     allowCredentials = 'false';
-  } else if (isAllowed || origin.startsWith('chrome-extension://')) {
-    // Origem permitida ou extensão do Chrome
+  } else if (isAllowed) {
+    // Origem permitida
     corsOrigin = origin;
     allowCredentials = 'true';
   } else {
-    // Origem não permitida - por segurança, não permitir
-    // Mas para desenvolvimento, podemos ser mais permissivos
-    corsOrigin = origin;
-    allowCredentials = 'true';
+    // Origem não permitida — bloquear credentials
+    corsOrigin = 'null';
+    allowCredentials = 'false';
   }
 
   return {
