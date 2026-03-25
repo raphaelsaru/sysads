@@ -78,13 +78,27 @@ export async function PUT(
       return NextResponse.json({ error: 'Acesso negado - apenas super admin' }, { status: 403 })
     }
 
-    // Parse do body
+    // Parse do body — filtrar apenas campos permitidos
     const body = await request.json() as UpdateTenantInput
+    const allowedFields: (keyof UpdateTenantInput)[] = [
+      'name', 'description', 'max_clients', 'max_users',
+      'is_active', 'branding', 'settings'
+    ]
+    const sanitized: Record<string, unknown> = {}
+    for (const key of allowedFields) {
+      if (key in body) {
+        sanitized[key] = body[key]
+      }
+    }
+
+    if (Object.keys(sanitized).length === 0) {
+      return NextResponse.json({ error: 'Nenhum campo válido para atualizar' }, { status: 400 })
+    }
 
     // Atualizar tenant
     const { data: updatedTenant, error: updateError } = await supabase
       .from('tenants')
-      .update(body)
+      .update(sanitized)
       .eq('id', id)
       .select()
       .single()
