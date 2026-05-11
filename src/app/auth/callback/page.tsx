@@ -29,10 +29,18 @@ export default function AuthCallback() {
         if (data.session?.user) {
           setStatus('success')
           setMessage('Email confirmado com sucesso! Redirecionando...')
-          
-          // Aguardar um pouco para mostrar a mensagem de sucesso
+
+          // Verificar se o usuário tem tenant configurado
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('tenant_id')
+            .eq('id', data.session.user.id)
+            .single()
+
+          const destination = profile?.tenant_id ? '/dashboard' : '/onboarding'
+
           setTimeout(() => {
-            router.push('/dashboard')
+            router.push(destination)
           }, 2000)
         } else {
           setStatus('error')
