@@ -13,20 +13,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,56 +37,47 @@ function UsersPageContent() {
     phone: '',
   })
 
-  // Verificar permissão
   useEffect(() => {
-    if (userProfile && userProfile.role !== 'tenant_admin' && userProfile.role !== 'admin_global') {
+    if (userProfile && userProfile.role !== 'admin') {
       router.push('/dashboard')
     }
   }, [userProfile, router])
 
-  // Carregar usuários
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoading(true)
         setError(null)
-
-        const response = await fetch('/api/tenant/users')
-        
+        const response = await fetch('/api/admin/users')
         if (!response.ok) {
           const errorData = await response.json()
           throw new Error(errorData.error || 'Erro ao carregar usuários')
         }
-
         const data = await response.json()
         setUsers(data.users || [])
       } catch (err) {
-        console.error('Erro ao carregar usuários:', err)
         setError(err instanceof Error ? err.message : 'Erro desconhecido')
       } finally {
         setLoading(false)
       }
     }
 
-    if (userProfile?.role === 'tenant_admin' || userProfile?.role === 'admin_global') {
+    if (userProfile?.role === 'admin') {
       fetchUsers()
     }
   }, [userProfile])
 
   const handleCreateUser = async () => {
     if (!newUser.email || !newUser.password || !newUser.full_name) {
-      alert('Email, senha e nome completo são obrigatórios')
+      alert('Email, senha e nome são obrigatórios')
       return
     }
 
     try {
       setCreating(true)
-
-      const response = await fetch('/api/tenant/users', {
+      const response = await fetch('/api/admin/users', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser),
       })
 
@@ -106,19 +87,10 @@ function UsersPageContent() {
       }
 
       const data = await response.json()
-      
-      // Adicionar à lista
       setUsers([data.user, ...users])
       setCreateDialogOpen(false)
-      setNewUser({
-        email: '',
-        password: '',
-        full_name: '',
-        phone: '',
-      })
-      alert('Usuário criado com sucesso!')
+      setNewUser({ email: '', password: '', full_name: '', phone: '' })
     } catch (err) {
-      console.error('Erro ao criar usuário:', err)
       alert(err instanceof Error ? err.message : 'Erro ao criar usuário')
     } finally {
       setCreating(false)
@@ -126,43 +98,32 @@ function UsersPageContent() {
   }
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Tem certeza que deseja remover este usuário?')) {
-      return
-    }
+    if (!confirm('Tem certeza que deseja remover este usuário?')) return
 
     try {
-      const response = await fetch(`/api/tenant/users/${userId}`, {
-        method: 'DELETE',
-      })
-
+      const response = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' })
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Erro ao remover usuário')
       }
-
-      // Remover da lista
       setUsers(users.filter(u => u.id !== userId))
-      alert('Usuário removido com sucesso')
     } catch (err) {
-      console.error('Erro ao remover usuário:', err)
       alert(err instanceof Error ? err.message : 'Erro ao remover usuário')
     }
   }
 
   const getRoleBadge = (role: string) => {
     switch (role) {
-      case 'admin_global':
-        return <Badge variant="destructive">Super Admin</Badge>
-      case 'tenant_admin':
+      case 'admin':
         return <Badge variant="default">Admin</Badge>
-      case 'tenant_user':
+      case 'user':
         return <Badge variant="secondary">Usuário</Badge>
       default:
         return <Badge variant="outline">{role}</Badge>
     }
   }
 
-  if (userProfile?.role !== 'tenant_admin' && userProfile?.role !== 'admin_global') {
+  if (userProfile?.role !== 'admin') {
     return (
       <MainLayout>
         <div className="flex min-h-[60vh] items-center justify-center">
@@ -182,7 +143,6 @@ function UsersPageContent() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Gerenciar Usuários</h1>
@@ -196,16 +156,13 @@ function UsersPageContent() {
           </Button>
         </div>
 
-        {/* Users Table */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
               Usuários ({users.length})
             </CardTitle>
-            <CardDescription>
-              Lista de todos os usuários cadastrados
-            </CardDescription>
+            <CardDescription>Lista de todos os usuários cadastrados</CardDescription>
           </CardHeader>
 
           <CardContent>
@@ -248,32 +205,23 @@ function UsersPageContent() {
                       <TableCell>
                         <div>
                           <p className="font-medium">{user.full_name || 'Sem nome'}</p>
-                          <p className="text-sm text-muted-foreground">{user.id}</p>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {getRoleBadge(user.role)}
-                      </TableCell>
-                      <TableCell>
-                        {user.phone || '-'}
-                      </TableCell>
+                      <TableCell>{getRoleBadge(user.role)}</TableCell>
+                      <TableCell>{user.phone || '-'}</TableCell>
                       <TableCell>
                         {format(new Date(user.created_at), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled
-                          >
+                          <Button variant="outline" size="sm" disabled>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="destructive"
                             size="sm"
                             onClick={() => handleDeleteUser(user.id)}
-                            disabled={user.id === userProfile?.id || user.role === 'admin_global'}
+                            disabled={user.id === userProfile?.id}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -288,78 +236,44 @@ function UsersPageContent() {
         </Card>
       </div>
 
-      {/* Dialog de Criar Usuário */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Criar Novo Usuário</DialogTitle>
             <DialogDescription>
-              Adicione um novo usuário ao seu tenant. O usuário poderá fazer login imediatamente.
+              Adicione um novo usuário. Ele poderá fazer login imediatamente.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={newUser.email}
+              <Input id="email" type="email" value={newUser.email}
                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                placeholder="usuario@exemplo.com"
-                required
-              />
+                placeholder="usuario@exemplo.com" />
             </div>
             <div>
               <Label htmlFor="password">Senha *</Label>
-              <Input
-                id="password"
-                type="password"
-                value={newUser.password}
+              <Input id="password" type="password" value={newUser.password}
                 onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                placeholder="Mínimo 6 caracteres"
-                required
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                A senha deve ter pelo menos 6 caracteres
-              </p>
+                placeholder="Mínimo 6 caracteres" />
             </div>
             <div>
               <Label htmlFor="full_name">Nome Completo *</Label>
-              <Input
-                id="full_name"
-                value={newUser.full_name}
+              <Input id="full_name" value={newUser.full_name}
                 onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
-                placeholder="João Silva"
-                required
-              />
+                placeholder="João Silva" />
             </div>
             <div>
               <Label htmlFor="phone">Telefone</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={newUser.phone}
+              <Input id="phone" type="tel" value={newUser.phone}
                 onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                placeholder="(11) 99999-9999"
-              />
+                placeholder="(11) 99999-9999" />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleCreateUser} disabled={creating}>
-              {creating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Criando...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Criar Usuário
-                </>
-              )}
+              {creating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</> : <><Plus className="h-4 w-4 mr-2" />Criar Usuário</>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -375,5 +289,3 @@ export default function UsersPage() {
     </ProtectedRoute>
   )
 }
-
-

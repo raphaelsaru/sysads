@@ -1,13 +1,13 @@
 'use client'
 
-import Link, { type LinkProps } from 'next/link'
+import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Moon, Sun, Building2, Users, Palette } from 'lucide-react'
+import { Moon, Sun, Eye, X } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { useTenant } from '@/contexts/TenantContext'
+import { useAdmin } from '@/contexts/AdminContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import NotificationsBell from '@/components/NotificationsBell'
@@ -21,11 +21,22 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
+interface UserOption {
+  id: string
+  email: string
+  company_name: string
+  currency: string
+  role: string
+}
+
 export default function Header() {
   const { userProfile, signOut } = useAuth()
-  const { branding } = useTenant()
+  const { impersonatedUser, startImpersonation, stopImpersonation } = useAdmin()
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [users, setUsers] = useState<UserOption[]>([])
   const pathname = usePathname()
+
+  const isAdmin = userProfile?.role === 'admin'
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -34,10 +45,23 @@ export default function Header() {
     setIsDarkMode(hasDark)
   }, [])
 
+  useEffect(() => {
+    if (!isAdmin) return
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch('/api/admin/users')
+        if (res.ok) {
+          const data = await res.json()
+          setUsers((data.users || []).filter((u: UserOption) => u.id !== userProfile?.id))
+        }
+      } catch {}
+    }
+    fetchUsers()
+  }, [isAdmin, userProfile?.id])
+
   const toggleTheme = () => {
     const next = !isDarkMode
     setIsDarkMode(next)
-
     const root = document.documentElement
     if (next) {
       root.classList.add('dark')
@@ -48,32 +72,24 @@ export default function Header() {
     }
   }
 
-  const companyName = branding?.companyName || userProfile?.full_name || 'Prizely'
+  const companyName = impersonatedUser?.company_name || userProfile?.company_name || userProfile?.full_name || 'Prizely'
   const companyInitial = companyName.charAt(0)?.toUpperCase() ?? 'P'
-  
-  // Navegação baseada em role
-  const navItems: { href: string; label: string; icon?: React.ComponentType }[] = [
+
+  const navItems: { href: string; label: string }[] = [
     { href: '/', label: 'Leads' },
     { href: '/clientes', label: 'Clientes' },
     { href: '/dashboard', label: 'Dashboard' },
-    ...(userProfile?.role === 'admin_global' ? [
+    ...(isAdmin ? [
       { href: '/admin', label: 'Admin' },
-      { href: '/admin/tenants', label: 'Tenants' }
-    ] : []),
-    ...(userProfile?.role === 'tenant_admin' ? [
-      { href: '/settings/users', label: 'Usuários', icon: Users },
-      { href: '/settings/branding', label: 'Branding', icon: Palette }
+      { href: '/settings/users', label: 'Usuários' },
     ] : []),
   ]
-  
-  // Role badge
+
   const getRoleBadge = () => {
     switch (userProfile?.role) {
-      case 'admin_global':
-        return <Badge variant="destructive" className="text-xs">Super Admin</Badge>
-      case 'tenant_admin':
+      case 'admin':
         return <Badge variant="default" className="text-xs">Admin</Badge>
-      case 'tenant_user':
+      case 'user':
         return <Badge variant="secondary" className="text-xs">Usuário</Badge>
       default:
         return null
@@ -82,34 +98,40 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
+      {impersonatedUser && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-1.5">
+          <div className="mx-auto flex max-w-screen-2xl items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+              <Eye className="h-4 w-4" />
+              Visualizando como <strong>{impersonatedUser.company_name}</strong>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={stopImpersonation}
+              className="h-7 gap-1 text-xs text-amber-700 hover:text-amber-900 dark:text-amber-400"
+            >
+              <X className="h-3 w-3" />
+              Voltar
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-12">
         <div className="flex items-center justify-between gap-4 py-6">
-          {/* Logo - lado esquerdo */}
           <div className="flex items-center">
-            {branding?.logo ? (
-              <div className="relative h-auto w-[125px]">
-                <Image
-                  src={branding.logo}
-                  alt={`Logo ${companyName}`}
-                  width={125}
-                  height={125}
-                  className="object-contain"
-                />
-              </div>
-            ) : (
-              <div className="relative h-auto w-[125px]">
-                 <Image
-                  src="/logo-prizely.png"
-                  alt="Prizely Logo"
-                  width={125}
-                  height={125}
-                  className="object-contain"
-                />
-              </div>
-            )}
+            <div className="relative h-auto w-[125px]">
+              <Image
+                src="/logo-prizely.png"
+                alt="Prizely Logo"
+                width={125}
+                height={125}
+                className="object-contain"
+              />
+            </div>
           </div>
 
-          {/* Navegação - centro (desktop) */}
           <nav className="hidden md:flex md:flex-1 md:justify-center">
             <div className="flex items-center gap-1 rounded-full border border-border/70 bg-card/70 px-1 py-1 text-sm font-medium shadow-soft backdrop-blur">
               {navItems.map(({ href, label }) => (
@@ -127,8 +149,38 @@ export default function Header() {
             </div>
           </nav>
 
-          {/* Botões de ação - lado direito */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {isAdmin && users.length > 0 && !impersonatedUser && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Visualizar como outro usuário"
+                    className="border-border/70 bg-background/60 backdrop-blur"
+                  >
+                    <Eye className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel>Visualizar como</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {users.map((user) => (
+                    <DropdownMenuItem
+                      key={user.id}
+                      onClick={() => startImpersonation(user)}
+                      className="cursor-pointer"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{user.company_name}</span>
+                        <span className="text-xs text-muted-foreground">{user.email}</span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             <NotificationsBell />
             <Button
               variant="outline"
@@ -140,23 +192,19 @@ export default function Header() {
               {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
 
-            {/* Perfil do usuário - melhorado */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   className={cn(
                     'flex items-center rounded-lg text-sm font-medium',
-                    // Em mobile, mostrar apenas a bolinha
                     'md:px-4 md:py-2.5',
-                    // Em mobile, reduzir gap e padding
                     'sm:gap-2 sm:px-2 sm:py-1.5'
                   )}
                 >
                   <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground shadow-brand">
                     {companyInitial}
                   </span>
-                  {/* Texto do perfil - apenas em desktop */}
                   <span className="hidden text-left lg:flex lg:flex-col">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-foreground">
@@ -165,7 +213,7 @@ export default function Header() {
                       {getRoleBadge()}
                     </div>
                     <span className="text-xs font-medium text-muted-foreground">
-                      {userProfile?.tenant?.name || companyName}
+                      {companyName}
                     </span>
                   </span>
                 </Button>
@@ -182,21 +230,11 @@ export default function Header() {
                     <span className="break-all text-xs text-muted-foreground">
                       {userProfile?.email}
                     </span>
-                    {userProfile?.tenant && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <Building2 className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          {userProfile.tenant.name}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => {
-                    void signOut()
-                  }}
+                  onClick={() => { void signOut() }}
                   className="text-destructive focus:text-destructive"
                 >
                   Sair da conta
@@ -206,7 +244,6 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Navegação mobile - abaixo do header principal */}
         <nav className="md:hidden">
           <div className="flex items-center gap-1 rounded-full border border-border/70 bg-card/70 px-1 py-1 text-sm font-medium shadow-soft backdrop-blur">
             {navItems.map(({ href, label }) => (

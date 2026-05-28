@@ -41,39 +41,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Buscar perfil do usuário com tenant
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select(`
-        id,
-        tenant_id,
-        role,
-        tenant:tenants(id, name, settings)
-      `)
-      .eq('id', user.id)
-      .single()
-
-    if (profileError || !profile || !profile.tenant) {
-      return NextResponse.json(
-        { error: 'Perfil ou tenant não encontrado' },
-        { status: 404 }
-      )
-    }
-
-    // Verificar se o tenant tem a feature habilitada
-    const tenant = Array.isArray(profile.tenant) ? profile.tenant[0] : profile.tenant
-    const settings = tenant.settings || {}
-    const ocrEnabled = settings.ocr_instagram_enabled || false
-
-    if (!ocrEnabled) {
-      return NextResponse.json(
-        { 
-          error: 'Feature de OCR Instagram não está habilitada para seu tenant',
-          feature_enabled: false,
-        },
-        { status: 403 }
-      )
-    }
 
     // Verificar API key
     const apiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY

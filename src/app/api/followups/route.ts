@@ -81,7 +81,6 @@ export async function GET(request: NextRequest) {
       return errorResponse;
     }
 
-    // Buscar follow-ups do cliente - RLS vai filtrar automaticamente por tenant_id
     const { data: followUps, error } = await supabase
       .from('follow_ups')
       .select(`
@@ -91,8 +90,7 @@ export async function GET(request: NextRequest) {
         respondeu,
         numero_followup,
         created_at,
-        created_by,
-        tenant_id
+        created_by
       `)
       .eq('cliente_id', clienteId)
       .order('created_at', { ascending: false });
@@ -118,7 +116,6 @@ export async function GET(request: NextRequest) {
       numeroFollowup: followUp.numero_followup,
       createdAt: followUp.created_at,
       createdBy: followUp.created_by,
-      tenantId: followUp.tenant_id,
     }));
 
     const response = NextResponse.json(transformedFollowUps);
@@ -170,10 +167,10 @@ export async function POST(request: NextRequest) {
       return errorResponse;
     }
 
-    // Verificar se o cliente existe e pertence ao tenant do usuário
+    // Verificar se o cliente existe
     const { data: cliente, error: clienteError } = await supabase
       .from('clientes')
-      .select('id, tenant_id')
+      .select('id')
       .eq('id', novoFollowUp.clienteId)
       .single();
 
@@ -196,7 +193,6 @@ export async function POST(request: NextRequest) {
         cliente_id: novoFollowUp.clienteId,
         observacao: novoFollowUp.observacao,
         respondeu: novoFollowUp.respondeu || false,
-        tenant_id: cliente.tenant_id,
         created_by: user.id,
         // numero_followup será calculado pelo trigger
         numero_followup: 0, // O trigger vai substituir isso
@@ -225,7 +221,6 @@ export async function POST(request: NextRequest) {
       numeroFollowup: followUp.numero_followup,
       createdAt: followUp.created_at,
       createdBy: followUp.created_by,
-      tenantId: followUp.tenant_id,
     };
 
     const response = NextResponse.json(transformedFollowUp, { status: 201 });
@@ -277,10 +272,10 @@ export async function PUT(request: NextRequest) {
       return errorResponse;
     }
 
-    // Verificar se o follow-up existe e pertence ao tenant do usuário
+    // Verificar se o follow-up existe
     const { data: followUpExistente, error: followUpError } = await supabase
       .from('follow_ups')
-      .select('id, tenant_id, created_by')
+      .select('id, created_by')
       .eq('id', id)
       .single();
 
@@ -329,7 +324,6 @@ export async function PUT(request: NextRequest) {
       numeroFollowup: followUp.numero_followup,
       createdAt: followUp.created_at,
       createdBy: followUp.created_by,
-      tenantId: followUp.tenant_id,
     };
 
     const response = NextResponse.json(transformedFollowUp);

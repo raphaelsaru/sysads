@@ -23,25 +23,18 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [impersonatedUser, setImpersonatedUser] = useState<ImpersonatedUser | null>(null)
 
   const startImpersonation = useCallback((user: ImpersonatedUser) => {
-    console.log('🎭 Iniciando impersonação:', user.email)
     setImpersonatedUserId(user.id)
     setImpersonatedUser(user)
   }, [])
 
   const stopImpersonation = useCallback(() => {
-    console.log('🎭 Parando impersonação')
     setImpersonatedUserId(null)
     setImpersonatedUser(null)
   }, [])
 
   return (
     <AdminContext.Provider
-      value={{
-        impersonatedUserId,
-        impersonatedUser,
-        startImpersonation,
-        stopImpersonation,
-      }}
+      value={{ impersonatedUserId, impersonatedUser, startImpersonation, stopImpersonation }}
     >
       {children}
     </AdminContext.Provider>

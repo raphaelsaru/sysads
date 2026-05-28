@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 
-import { Cliente, NovoCliente, UserRole } from '@/types/crm'
+import { Cliente, NovoCliente } from '@/types/crm'
 import { createClient } from '@/lib/supabase-browser'
 import {
   FALLBACK_CURRENCY_VALUE,
@@ -36,21 +36,6 @@ const estatisticasIniciais: EstatisticasClientes = {
   valorVendido: 0,
 }
 
-type PerfilResumo = {
-  role: UserRole
-  tenant_id: string | null
-}
-
-type TargetUserProfile = {
-  tenant_id: string | null
-  full_name: string | null
-  role: UserRole
-}
-
-type TenantResumo = {
-  name: string | null
-}
-
 type ClienteSupabaseRow = {
   id: string
   data_contato: string
@@ -81,7 +66,7 @@ type ClienteStatsRow = {
 
 export function useClientes(
   currency: SupportedCurrency = FALLBACK_CURRENCY_VALUE,
-  targetUserId?: string | null
+  targetUserId?: string | null,
 ) {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(false)
@@ -133,29 +118,13 @@ export function useClientes(
     let offset = 0
 
     try {
-      console.log('📊 Carregando estatísticas...')
-      
-      // Verificar se o usuário está autenticado
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      
-      if (authError || !user) {
-        console.warn('⚠️ Usuário não autenticado para estatísticas')
-        setEstatisticas(estatisticasIniciais)
-        return
-      }
-
-      // Usar targetUserId se fornecido, senão usar o user.id
-      const effectiveUserId = targetUserId || user.id
-      console.log('👤 Carregando estatísticas para usuário:', effectiveUserId)
-      
-      // Pagina manualmente para garantir que todos os registros sejam considerados
-      // independentemente da paginação utilizada na tabela.
       while (true) {
-        const { data, error } = await clientesTable()
+        let query = clientesTable()
           .select('resultado, valor_fechado')
-          .eq('user_id', effectiveUserId)
           .order('id', { ascending: true })
           .range(offset, offset + STATS_PAGE_SIZE - 1)
+        if (targetUserId) query = query.eq('user_id', targetUserId)
+        const { data, error } = await query
 
         if (error) {
           console.error('❌ Erro ao carregar estatísticas:', error)
@@ -238,143 +207,42 @@ export function useClientes(
         return
       }
 
-      // Usar targetUserId se fornecido, senão usar o user.id
-      const effectiveUserId = targetUserId || user.id
-      console.log('👤 Carregando clientes para usuário:', effectiveUserId)
-      console.log('🔍 Debug - targetUserId:', targetUserId)
-      console.log('🔍 Debug - user.id:', user.id)
-      
-      // Verificar se o usuário é admin para debug
-      const { data: userProfileRaw } = await supabase
-        .from('user_profiles')
-        .select('role, tenant_id')
-        .eq('id', user.id)
-        .single()
-      const userProfile = userProfileRaw as PerfilResumo | null
-      
-      console.log('🔍 Debug - Perfil do usuário logado:', userProfile)
-      
-      // Se estiver visualizando como outro usuário, verificar se é admin
-      const isAdmin = userProfile?.role === 'admin_global' || userProfile?.role === 'tenant_admin'
-      const isImpersonating = targetUserId && targetUserId !== user.id
-      
-      console.log('🔍 Debug - É admin?', isAdmin)
-      console.log('🔍 Debug - Está impersonando?', isImpersonating)
-      
-      // Se for admin e estiver impersonando, precisamos fazer a query de forma diferente
-      // porque as políticas RLS podem estar bloqueando por tenant_id
-      const query = clientesTable()
-        .select(
-          `
-          id,
-          data_contato,
-          nome,
-          whatsapp_instagram,
-          origem,
-          orcamento_enviado,
-          resultado,
-          qualidade_contato,
-          nao_respondeu,
-          valor_fechado,
-          observacao,
-          created_at,
-          pagou_sinal,
-          valor_sinal,
-          data_pagamento_sinal,
-          venda_paga,
-          data_pagamento_venda,
-          data_lembrete_chamada,
-          user_id,
-          tenant_id
-        `
-        )
-        .eq('user_id', effectiveUserId)
-      
-      // Se for admin impersonando, não filtrar por tenant_id (RLS já deve permitir)
-      // Mas adicionar um log para debug
-      if (isAdmin && isImpersonating) {
-        console.log('🔍 Debug - Admin visualizando cliente de outro usuário')
-        // Verificar tenant_id do usuário sendo visualizado
-        const { data: targetUserProfileRaw } = await supabase
-          .from('user_profiles')
-          .select('tenant_id, full_name, role')
-          .eq('id', effectiveUserId)
-          .single()
-        const targetUserProfile = targetUserProfileRaw as TargetUserProfile | null
-        
-        // Buscar nome do tenant se houver
-        if (targetUserProfile?.tenant_id) {
-          const { data: tenantRaw } = await supabase
-            .from('tenants')
-            .select('name')
-            .eq('id', targetUserProfile.tenant_id)
-            .single()
-          const tenant = tenantRaw as TenantResumo | null
-          console.log('🔍 Debug - Perfil do usuário sendo visualizado:', {
-            ...targetUserProfile,
-            tenant_name: tenant?.name
-          })
-        } else {
-          console.log('🔍 Debug - Perfil do usuário sendo visualizado:', targetUserProfile)
-        }
-      }
-      
-      const { data: clientesData, error } = await query
+      let query = clientesTable()
+        .select(`
+          id, data_contato, nome, whatsapp_instagram, origem,
+          orcamento_enviado, resultado, qualidade_contato, nao_respondeu,
+          valor_fechado, observacao, created_at,
+          pagou_sinal, valor_sinal, data_pagamento_sinal,
+          venda_paga, data_pagamento_venda, data_lembrete_chamada
+        `)
         .order('created_at', { ascending: false })
         .range(0, PAGE_SIZE - 1)
-      
-      // Debug adicional: contar total de clientes do usuário
-      const countQuery = clientesTable()
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', effectiveUserId)
-      
-      const { count: totalClientes } = await countQuery
-      
-      console.log('🔍 Debug - Total de clientes do usuário:', totalClientes)
-      console.log('🔍 Debug - Clientes retornados pela query:', clientesData?.length || 0)
+      if (targetUserId) query = query.eq('user_id', targetUserId)
+      const { data: clientesData, error } = await query
 
       if (error) {
-        console.error('❌ Erro ao carregar clientes:', error)
-        console.error('Detalhes do erro:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          effectiveUserId: effectiveUserId,
-          currentUserId: user.id
-        })
-        
-        // Se for erro de RLS/permissão, mostrar mensagem mais clara
-        if (error.code === 'PGRST116' || error.message?.includes('row-level security')) {
-          console.error('⚠️ ERRO DE RLS: As políticas RLS não foram configuradas. Execute admin-setup.sql no Supabase!')
-        }
-        
+        console.error('Erro ao carregar clientes:', error)
         setHasMore(false)
-        setClientes([]) // Garantir que lista fica vazia em caso de erro
+        setClientes([])
         clearTimeout(timeoutId)
         setLoading(false)
         return
       }
 
-      console.log('✅ Clientes carregados:', clientesData?.length || 0)
       const transformados = ((clientesData as ClienteSupabaseRow[] | null) ?? []).map(formatarCliente)
 
       setClientes(transformados)
       setHasMore(((clientesData?.length ?? 0) === PAGE_SIZE))
       setPage(1)
-      
-      // Carregar estatísticas em paralelo para não bloquear a UI
-      carregarEstatisticas().catch(error => {
-        console.warn('⚠️ Erro ao carregar estatísticas (não crítico):', error)
-      })
+
+      carregarEstatisticas().catch(() => {})
     } catch (error) {
-      console.error('❌ Erro inesperado ao carregar clientes:', error)
+      console.error('Erro ao carregar clientes:', error)
       setClientes([])
       setHasMore(false)
     } finally {
       clearTimeout(timeoutId)
       setLoading(false)
-      console.log('✅ Carregamento de clientes finalizado')
     }
   }, [carregarEstatisticas, formatarCliente, targetUserId])
 
@@ -383,46 +251,21 @@ export function useClientes(
 
     setLoadingMais(true)
     try {
-      // Verificar se o usuário está autenticado
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      
-      if (authError || !user) {
-        setHasMore(false)
-        return
-      }
-
-      // Usar targetUserId se fornecido, senão usar o user.id
-      const effectiveUserId = targetUserId || user.id
-
       const start = page * PAGE_SIZE
       const end = start + PAGE_SIZE - 1
 
-      const { data: clientesData, error } = await clientesTable()
-        .select(
-          `
-          id,
-          data_contato,
-          nome,
-          whatsapp_instagram,
-          origem,
-          orcamento_enviado,
-          resultado,
-          qualidade_contato,
-          nao_respondeu,
-          valor_fechado,
-          observacao,
-          created_at,
-          pagou_sinal,
-          valor_sinal,
-          data_pagamento_sinal,
-          venda_paga,
-          data_pagamento_venda,
-          data_lembrete_chamada
-        `
-        )
-        .eq('user_id', effectiveUserId)
+      let query = clientesTable()
+        .select(`
+          id, data_contato, nome, whatsapp_instagram, origem,
+          orcamento_enviado, resultado, qualidade_contato, nao_respondeu,
+          valor_fechado, observacao, created_at,
+          pagou_sinal, valor_sinal, data_pagamento_sinal,
+          venda_paga, data_pagamento_venda, data_lembrete_chamada
+        `)
         .order('created_at', { ascending: false })
         .range(start, end)
+      if (targetUserId) query = query.eq('user_id', targetUserId)
+      const { data: clientesData, error } = await query
 
       if (error) {
         console.error('Erro ao carregar mais clientes:', error)
@@ -432,7 +275,6 @@ export function useClientes(
 
       const transformados = ((clientesData as ClienteSupabaseRow[] | null) ?? []).map(formatarCliente)
 
-      // Filtrar duplicatas antes de adicionar
       setClientes((prev) => {
         const existingIds = new Set(prev.map(c => c.id))
         const novos = transformados.filter(c => !existingIds.has(c.id))
@@ -448,8 +290,6 @@ export function useClientes(
   }, [formatarCliente, hasMore, loadingMais, page, targetUserId])
 
   useEffect(() => {
-    console.log('🚀 Hook useClientes inicializado, carregando clientes...')
-    // Resetar paginação quando targetUserId mudar
     setPage(0)
     setClientes([])
     setHasMore(true)

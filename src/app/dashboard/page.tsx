@@ -61,8 +61,7 @@ type ClienteRegistro = {
 function DashboardContent() {
   const { userProfile } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
-  
-  // Usar moeda do usuário impersonado se houver, senão usar a do usuário logado
+
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -134,16 +133,14 @@ function DashboardContent() {
           throw new Error('Usuário não autenticado')
         }
 
-        // Usar impersonatedUserId se houver, senão usar o user.id
-        const effectiveUserId = impersonatedUserId || user.id
-
-        const { data, error } = await supabase
+        let query = supabase
           .from('clientes')
           .select('data_contato, resultado, valor_fechado, pagou_sinal, venda_paga, data_lembrete_chamada')
-          .eq('user_id', effectiveUserId)
           .gte('data_contato', inicioISO)
           .lte('data_contato', fimISO)
           .order('data_contato', { ascending: true })
+        if (impersonatedUserId) query = query.eq('user_id', impersonatedUserId)
+        const { data, error } = await query
 
         if (error) {
           throw error
@@ -348,10 +345,9 @@ function DashboardContent() {
               Dashboard {impersonatedUser?.company_name || userProfile?.company_name || 'Prizely'}
             </h1>
             <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
-              {impersonatedUser 
+              {impersonatedUser
                 ? `Visualizando dados de ${impersonatedUser.company_name}`
-                : 'Acompanhe rapidamente o desempenho das oportunidades e negociações do seu time.'
-              }
+                : 'Acompanhe rapidamente o desempenho das oportunidades e negociações do seu time.'}
             </p>
           </div>
         </div>

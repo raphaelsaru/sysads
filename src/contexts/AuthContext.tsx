@@ -8,20 +8,14 @@ import { useConnectionHealth } from '@/hooks/useConnectionHealth'
 
 const supabase = createClient()
 
-import { UserProfile as UserProfileType, UserRole, TenantBranding } from '@/types/crm'
+import { UserProfile as UserProfileType, UserRole } from '@/types/crm'
 
 export interface UserProfile extends UserProfileType {
   email: string
-  tenant?: {
-    id: string
-    name: string
-    branding: TenantBranding
-  } | null
 }
 
 type ProfileRow = {
   id: string
-  tenant_id: string | null
   role: UserRole
   full_name: string | null
   avatar_url: string | null
@@ -68,12 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('👤 Buscando perfil do usuário:', supabaseUser.id)
 
-      // Buscar perfil do user_profiles
       const { data: profileDataRaw, error: profileError } = await supabase
         .from('user_profiles')
         .select(`
           id,
-          tenant_id,
           role,
           full_name,
           avatar_url,
@@ -88,15 +80,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const profileData = profileDataRaw as ProfileRow | null
 
-      if (profileError) {
-        console.error('❌ Erro ao buscar user_profile:', profileError)
-        // Criar perfil básico se não existir
+      if (profileError || !profileData) {
         const preferences = supabaseUser.user_metadata?.preferences || {}
         const basicProfile: UserProfile = {
           id: supabaseUser.id,
           email: supabaseUser.email || '',
-          tenant_id: null,
-          role: 'tenant_user',
+          role: 'user',
           full_name: supabaseUser.user_metadata?.full_name || supabaseUser.email || '',
           company_name: supabaseUser.user_metadata?.company_name || (preferences as Record<string, unknown>)?.company_name as string | null || null,
           currency: (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? (preferences as Record<string, unknown>)?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined ?? null,
@@ -105,65 +94,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           preferences: preferences || {},
           created_at: supabaseUser.created_at,
           updated_at: supabaseUser.created_at,
-          tenant: null
         }
         setUserProfile(basicProfile)
         return
       }
 
-      if (!profileData) {
-        console.warn('ℹ️ Perfil não encontrado, usando dados básicos')
-        const preferences = supabaseUser.user_metadata?.preferences || {}
-        const basicProfile: UserProfile = {
-          id: supabaseUser.id,
-          email: supabaseUser.email || '',
-          tenant_id: null,
-          role: 'tenant_user',
-          full_name: supabaseUser.user_metadata?.full_name || supabaseUser.email || '',
-          company_name: supabaseUser.user_metadata?.company_name || (preferences as Record<string, unknown>)?.company_name as string | null || null,
-          currency: (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? (preferences as Record<string, unknown>)?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined ?? null,
-          avatar_url: null,
-          phone: null,
-          preferences: preferences || {},
-          created_at: supabaseUser.created_at,
-          updated_at: supabaseUser.created_at,
-          tenant: null
-        }
-        setUserProfile(basicProfile)
-        return
-      }
-
-      // Se tem tenant_id, buscar dados do tenant
-      let tenantData = null
-      if (profileData.tenant_id) {
-        const { data: tenant, error: tenantError } = await supabase
-          .from('tenants')
-          .select('id, name, branding')
-          .eq('id', profileData.tenant_id)
-          .single()
-
-        if (!tenantError && tenant) {
-          tenantData = tenant
-        }
-      }
-
-      // Extrair company_name e currency de preferences
       const preferences = profileData.preferences || {}
       const company_name = (preferences as Record<string, unknown>)?.company_name as string | null | undefined
       const currency = (preferences as Record<string, unknown>)?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined
 
-      console.log('🔍 Debug currency:', {
-        userId: profileData.id,
-        preferences,
-        currencyFromPreferences: currency,
-        currencyFromMetadata: supabaseUser.user_metadata?.currency,
-      })
-
       const fullProfile: UserProfile = {
         id: profileData.id,
         email: supabaseUser.email || '',
-        tenant_id: profileData.tenant_id,
-        role: profileData.role,
+        role: profileData.role as UserRole,
         full_name: profileData.full_name,
         company_name: company_name ?? supabaseUser.user_metadata?.company_name ?? null,
         currency: currency ?? (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? null,
@@ -173,11 +116,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         created_at: profileData.created_at,
         updated_at: profileData.updated_at,
         last_seen_at: profileData.last_seen_at,
-        tenant: tenantData
       }
 
       setUserProfile(fullProfile)
-      console.log('✅ Perfil carregado:', fullProfile.role, fullProfile.tenant_id ? `(Tenant: ${fullProfile.tenant?.name})` : '', `Currency: ${fullProfile.currency || 'null'}`)
       
     } catch (error) {
       console.error('❌ Erro ao buscar perfil do usuário:', error)
@@ -295,11 +236,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return { error: new Error('Nenhum usuário logado') }
 
     try {
-      // Não permitir atualização de campos sensíveis
       const safeUpdates: Partial<UserProfile> = { ...updates }
       delete safeUpdates.email
-      delete safeUpdates.tenant
-      delete safeUpdates.tenant_id
       delete safeUpdates.role
 
       const updatesPayload = safeUpdates as Partial<ProfileRow>

@@ -78,8 +78,7 @@ export async function GET(request: NextRequest) {
       return errorResponse;
     }
 
-    // Fetch clientes - RLS will automatically filter by tenant_id
-    // Users will only see clientes from their tenant
+    // Fetch clientes — RLS filters by authenticated user
     const { data: clientes, error } = await supabase
       .from('clientes')
       .select(`
@@ -199,7 +198,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert cliente with user_id
-    // tenant_id will be auto-populated by trigger
     // created_by will be set to current user
     const { data: cliente, error } = await supabase
       .from('clientes')

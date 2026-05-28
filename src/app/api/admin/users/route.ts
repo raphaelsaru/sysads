@@ -4,246 +4,129 @@ import { createAdminClient } from '@/lib/supabase-admin'
 
 export async function GET() {
   try {
-    console.log('🔍 [API Admin] Buscando usuários...')
-
     const supabase = await createClient()
-    
-    // Verificar autenticação
+
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      console.error('❌ [API Admin] Erro de autenticação:', authError)
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
-    
-    // Verificar se é admin global
+
     const { data: userProfile, error: profileError } = await supabase
       .from('user_profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    if (profileError || !userProfile || userProfile.role !== 'admin_global') {
-      console.log('❌ [API Admin] Usuário não é admin global. Role:', userProfile?.role, 'Erro:', profileError)
-      return NextResponse.json({ error: 'Acesso negado - apenas super administradores' }, { status: 403 })
+    if (profileError || !userProfile || userProfile.role !== 'admin') {
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
-    console.log('✅ [API Admin] Usuário admin global verificado:', user.email)
-
-    // Buscar todos os perfis de usuários (sem relacionamento tenants primeiro para evitar erros)
     const { data: userProfiles, error: usersError } = await supabase
       .from('user_profiles')
-      .select(`
-        id,
-        role,
-        full_name,
-        created_at,
-        tenant_id,
-        preferences
-      `)
+      .select('id, role, full_name, created_at, preferences')
       .order('created_at', { ascending: false })
 
     if (usersError) {
-      console.error('❌ [API Admin] Erro ao buscar perfis de usuários:', usersError)
-      return NextResponse.json({ error: 'Erro ao buscar usuários', details: usersError.message }, { status: 500 })
+      return NextResponse.json({ error: 'Erro ao buscar usuários' }, { status: 500 })
     }
 
-    // Buscar informações dos tenants separadamente
-    const tenantIds = [...new Set((userProfiles || []).map(p => p.tenant_id).filter(Boolean) as string[])]
-    const tenantsMap = new Map<string, { id: string; name: string }>()
-    
-    if (tenantIds.length > 0) {
-      const { data: tenants, error: tenantsError } = await supabase
-        .from('tenants')
-        .select('id, name')
-        .in('id', tenantIds)
-
-      if (!tenantsError && tenants) {
-        tenants.forEach(t => {
-          tenantsMap.set(t.id, t)
-        })
-      } else if (tenantsError) {
-        console.warn('⚠️ [API Admin] Erro ao buscar tenants (continuando sem):', tenantsError)
-      }
-    }
-
-    // Buscar emails dos usuários usando Admin Client
     let authUsers: { users: Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }> } | null = null
     try {
       const adminClient = createAdminClient()
       const { data, error: adminError } = await adminClient.auth.admin.listUsers()
-      
-      if (adminError) {
-        console.error('❌ [API Admin] Erro ao buscar usuários do Auth:', adminError)
-        // Continuar sem os emails, mas logar o erro
-      } else {
-        authUsers = data
-      }
-    } catch (adminClientError) {
-      console.error('❌ [API Admin] Erro ao criar admin client:', adminClientError)
-      // Continuar sem os emails se o admin client falhar
+      if (!adminError) authUsers = data
+    } catch {
+      // continue without emails
     }
 
-    // Mapear os dados para o formato esperado
     const users = (userProfiles || []).map((profile) => {
-      const tenant = profile.tenant_id ? tenantsMap.get(profile.tenant_id) : null
       const authUser = authUsers?.users.find(u => u.id === profile.id)
-      
-      // Extrair currency de preferences, com fallback para user_metadata ou BRL
       const preferences = (profile.preferences as Record<string, unknown>) || {}
-      const currencyFromPreferences = preferences.currency as 'BRL' | 'USD' | 'EUR' | null | undefined
-      const currencyFromMetadata = authUser?.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined
-      const currency = currencyFromPreferences ?? currencyFromMetadata ?? 'BRL'
-      
+      const currency = (preferences.currency as string) ?? (authUser?.user_metadata?.currency as string) ?? 'BRL'
+
       return {
         id: profile.id,
         email: authUser?.email || 'N/A',
-        company_name: tenant?.name || profile.full_name || 'Sem nome',
-        currency: currency,
+        company_name: profile.full_name || 'Sem nome',
+        currency,
         role: profile.role,
         created_at: profile.created_at,
-        tenant_id: profile.tenant_id,
-        tenant_name: tenant?.name || null,
       }
     })
 
-    console.log('✅ [API Admin] Usuários encontrados:', users.length)
-
     return NextResponse.json({ users })
-  } catch (error) {
-    console.error('❌ [API Admin] Erro interno:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor'
-    return NextResponse.json({ 
-      error: 'Erro interno do servidor',
-      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-    }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }
 
-/**
- * POST /api/admin/users
- * Criar novo usuário (apenas admin_global)
- */
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    
-    // Verificar autenticação
+
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    // Verificar se é admin global
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin_global') {
-      return NextResponse.json({ error: 'Acesso negado - apenas super administradores' }, { status: 403 })
+    if (profile?.role !== 'admin') {
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
-    // Parse do body
-    const { email, password, full_name, role, tenant_id, phone } = await request.json()
+    const { email, password, full_name, role, phone } = await request.json()
 
-    // Validação
     if (!email || !password || !full_name) {
-      return NextResponse.json({ 
-        error: 'Email, senha e nome completo são obrigatórios' 
-      }, { status: 400 })
+      return NextResponse.json({ error: 'Email, senha e nome são obrigatórios' }, { status: 400 })
     }
 
-    // Validar role
-    const validRoles = ['admin_global', 'tenant_admin', 'tenant_user']
+    const validRoles = ['admin', 'user']
     if (role && !validRoles.includes(role)) {
-      return NextResponse.json({ 
-        error: 'Role inválida. Use: admin_global, tenant_admin ou tenant_user' 
-      }, { status: 400 })
+      return NextResponse.json({ error: 'Role inválida. Use: admin ou user' }, { status: 400 })
     }
 
-    const newUserRole = role || 'tenant_user'
+    const newUserRole = role || 'user'
 
-    // Se não for admin_global, precisa de tenant_id
-    if (newUserRole !== 'admin_global' && !tenant_id) {
-      return NextResponse.json({ 
-        error: 'Tenant é obrigatório para roles tenant_admin e tenant_user' 
-      }, { status: 400 })
-    }
-
-    // Verificar limite de usuários do tenant (se aplicável)
-    if (tenant_id && newUserRole !== 'admin_global') {
-      const { data: checkLimit } = await supabase.rpc('check_user_limit', {
-        p_tenant_id: tenant_id
-      })
-
-      if (!checkLimit) {
-        return NextResponse.json({ 
-          error: 'Limite de usuários atingido para este tenant' 
-        }, { status: 400 })
-      }
-    }
-
-    // Criar usuário usando Admin Client
     try {
       const adminClient = createAdminClient()
 
-      // Criar usuário no Auth
       const { data: authUser, error: createError } = await adminClient.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
-        user_metadata: {
-          full_name: full_name,
-        },
+        user_metadata: { full_name },
       })
 
       if (createError || !authUser.user) {
-        console.error('Erro ao criar usuário no Auth:', createError)
-        return NextResponse.json({ 
-          error: createError?.message || 'Erro ao criar usuário' 
-        }, { status: 500 })
+        return NextResponse.json({ error: createError?.message || 'Erro ao criar usuário' }, { status: 500 })
       }
 
-      // Criar perfil do usuário
       const { data: userProfile, error: profileError } = await supabase
         .from('user_profiles')
         .insert({
           id: authUser.user.id,
-          tenant_id: newUserRole === 'admin_global' ? null : tenant_id,
           role: newUserRole,
-          full_name: full_name,
+          full_name,
           phone: phone || null,
         })
         .select()
         .single()
 
       if (profileError) {
-        console.error('Erro ao criar perfil do usuário:', profileError)
-        
-        // Tentar deletar o usuário criado no Auth se falhar
         await adminClient.auth.admin.deleteUser(authUser.user.id)
-        
-        return NextResponse.json({ 
-          error: 'Erro ao criar perfil do usuário' 
-        }, { status: 500 })
+        return NextResponse.json({ error: 'Erro ao criar perfil do usuário' }, { status: 500 })
       }
 
-      console.log('✅ Usuário criado com sucesso:', authUser.user.email)
-      return NextResponse.json({ 
-        user: userProfile,
-        message: 'Usuário criado com sucesso' 
-      }, { status: 201 })
-
-    } catch (error) {
-      console.error('Erro ao criar usuário:', error)
-      return NextResponse.json({ 
-        error: 'Erro interno ao criar usuário' 
-      }, { status: 500 })
+      return NextResponse.json({ user: userProfile, message: 'Usuário criado' }, { status: 201 })
+    } catch {
+      return NextResponse.json({ error: 'Erro ao criar usuário' }, { status: 500 })
     }
-
-  } catch (error) {
-    console.error('Erro ao criar usuário:', error)
+  } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }
