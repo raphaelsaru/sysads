@@ -41,7 +41,7 @@ export default function NotificationsBell() {
           variant="outline"
           size="icon"
           className={cn(
-            'relative border-border/70 bg-background/60 backdrop-blur',
+            'relative',
             hasNotifications && 'animate-pulse'
           )}
           aria-label="Notificações de leads"

@@ -41,7 +41,16 @@
     --info: 197 94% 60%;
     --info-foreground: 207 100% 18%;
 
-    --radius: 0.5rem;
+    --radius: 0.875rem;
+
+    /* Liquid Glass */
+    --glass-bg: 0 0% 100%;
+    --glass-opacity: 0.55;
+    --glass-border: 0 0% 100%;
+    --glass-border-opacity: 0.55;
+    --glass-highlight: 0 0% 100%;
+    --glass-highlight-opacity: 0.7;
+    --glass-shadow: 220 45% 25%;
 
     --chart-1: 12 76% 61%;
 
@@ -91,6 +100,15 @@
 
     --info: 197 92% 68%;
     --info-foreground: 215 30% 12%;
+
+    /* Liquid Glass (dark) */
+    --glass-bg: 218 28% 14%;
+    --glass-opacity: 0.5;
+    --glass-border: 0 0% 100%;
+    --glass-border-opacity: 0.14;
+    --glass-highlight: 0 0% 100%;
+    --glass-highlight-opacity: 0.12;
+    --glass-shadow: 220 60% 3%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -106,16 +124,22 @@
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-inter), 'Inter', 'Open Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background-image:
-      radial-gradient(circle at 0% 0%, hsla(198, 94%, 52%, 0.16) 0%, transparent 45%),
-      radial-gradient(circle at 100% 100%, hsla(162, 84%, 50%, 0.15) 0%, transparent 50%),
-      linear-gradient(135deg, hsl(210 40% 98%) 0%, hsl(212 44% 95%) 45%, hsl(210 36% 92%) 100%);
+      radial-gradient(ellipse 80% 55% at 8% -5%, hsla(199, 94%, 60%, 0.28) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 45% at 95% 15%, hsla(262, 80%, 70%, 0.18) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 50% at 85% 100%, hsla(162, 84%, 55%, 0.22) 0%, transparent 55%),
+      radial-gradient(ellipse 55% 40% at 15% 85%, hsla(199, 94%, 60%, 0.14) 0%, transparent 55%),
+      linear-gradient(160deg, hsl(210 50% 98%) 0%, hsl(212 46% 94%) 50%, hsl(208 40% 91%) 100%);
+    background-attachment: fixed;
   }
 
   .dark body {
     background-image:
-      radial-gradient(circle at 10% 10%, hsla(198, 94%, 52%, 0.22) 0%, transparent 40%),
-      radial-gradient(circle at 90% 90%, hsla(160, 84%, 50%, 0.2) 0%, transparent 45%),
-      linear-gradient(135deg, hsl(220 39% 11%) 0%, hsl(220 40% 9%) 50%, hsl(220 31% 7%) 100%);
+      radial-gradient(ellipse 80% 55% at 8% -5%, hsla(199, 94%, 52%, 0.26) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 45% at 95% 15%, hsla(262, 75%, 60%, 0.16) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 50% at 85% 100%, hsla(162, 84%, 45%, 0.18) 0%, transparent 55%),
+      radial-gradient(ellipse 55% 40% at 15% 85%, hsla(199, 94%, 52%, 0.12) 0%, transparent 55%),
+      linear-gradient(160deg, hsl(221 40% 11%) 0%, hsl(220 40% 8%) 50%, hsl(222 34% 6%) 100%);
+    background-attachment: fixed;
   }
 
   /* Prevenir zoom em inputs em dispositivos móveis */
@@ -141,13 +165,44 @@
   }
 }
 
-
-
-@layer base {
-  * {
-    @apply border-border;
+@layer components {
+  /* Liquid Glass — superfícies translúcidas com blur, saturação e highlight interno */
+  .glass {
+    background-color: hsl(var(--glass-bg) / var(--glass-opacity));
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid hsl(var(--glass-border) / var(--glass-border-opacity));
+    box-shadow:
+      0 8px 32px -8px hsl(var(--glass-shadow) / 0.18),
+      inset 0 1px 0 0 hsl(var(--glass-highlight) / var(--glass-highlight-opacity)),
+      inset 0 -1px 0 0 hsl(var(--glass-highlight) / calc(var(--glass-highlight-opacity) * 0.25));
   }
-  body {
-    @apply bg-background text-foreground;
+
+  /* Variante para camadas flutuantes (menus, dialogs, popovers) — mais opaca p/ legibilidade */
+  .glass-floating {
+    background-color: hsl(var(--glass-bg) / calc(var(--glass-opacity) + 0.25));
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid hsl(var(--glass-border) / var(--glass-border-opacity));
+    box-shadow:
+      0 20px 50px -12px hsl(var(--glass-shadow) / 0.35),
+      inset 0 1px 0 0 hsl(var(--glass-highlight) / var(--glass-highlight-opacity));
+  }
+
+  /* Variante sutil para controles (inputs, triggers, botões outline) */
+  .glass-control {
+    background-color: hsl(var(--glass-bg) / calc(var(--glass-opacity) * 0.7));
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    backdrop-filter: blur(12px) saturate(160%);
+    border: 1px solid hsl(var(--glass-border) / var(--glass-border-opacity));
+    box-shadow: inset 0 1px 0 0 hsl(var(--glass-highlight) / calc(var(--glass-highlight-opacity) * 0.6));
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .glass, .glass-floating, .glass-control {
+      background-color: hsl(var(--card));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
   }
 }

@@ -231,7 +231,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
 
   if (clientes.length === 0) {
     return (
-      <Card className="border-dashed border-border/80 bg-card/70">
+ <Card className="border-dashed">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Nenhum cliente encontrado</CardTitle>
           <CardDescription>
@@ -245,7 +245,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
   return (
     <>
       <div className="space-y-4 lg:hidden">
-        <Card className="border-border/60 bg-card/80 backdrop-blur">
+ <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-semibold">Clientes CRM</CardTitle>
             <CardDescription className="text-sm">
@@ -282,7 +282,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
           </CardContent>
         </Card>
         {clientesOrdenados.map((cliente) => (
-          <Card key={cliente.id ?? cliente.nome} className="border-border/60 bg-card/80 backdrop-blur">
+ <Card key={cliente.id ?? cliente.nome} className="">
             <CardHeader className="pb-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -407,7 +407,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
         ))}
       </div>
 
-      <Card className="hidden border-border/70 bg-card/80 shadow-soft lg:block">
+ <Card className="hidden lg:block">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div>

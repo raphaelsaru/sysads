@@ -136,7 +136,7 @@ export default function InstagramOCRImport({ onImportComplete, onClose }: Instag
   const duplicatesCount = detectedUsers.filter(u => u.isDuplicate).length
 
   return (
-    <Card className="w-full">
+ <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Instagram className="h-5 w-5" />

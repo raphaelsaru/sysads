@@ -30,17 +30,8 @@ export default function AuthCallback() {
           setStatus('success')
           setMessage('Email confirmado com sucesso! Redirecionando...')
 
-          // Verificar se o usuário tem tenant configurado
-          const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('tenant_id')
-            .eq('id', data.session.user.id)
-            .single()
-
-          const destination = profile?.tenant_id ? '/dashboard' : '/onboarding'
-
           setTimeout(() => {
-            router.push(destination)
+            router.push('/dashboard')
           }, 2000)
         } else {
           setStatus('error')
@@ -56,7 +47,7 @@ export default function AuthCallback() {
   }, [router])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-6 py-10">
+    <div className="flex min-h-screen items-center justify-center px-6 py-10">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
@@ -64,7 +55,7 @@ export default function AuthCallback() {
           </span>
         </div>
 
-        <Card className="border-border/80 bg-card/80 shadow-soft">
+ <Card>
           <CardHeader className="space-y-2 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
               {status === 'loading' && <Loader2 className="h-8 w-8 text-primary animate-spin" />}

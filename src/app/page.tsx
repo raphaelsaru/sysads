@@ -278,7 +278,7 @@ function FiltrosClientes({
   }
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-card/70 p-4 shadow-soft">
+    <div className="glass rounded-2xl p-4">
       <div className="flex items-center gap-2 pb-4 text-sm font-medium text-muted-foreground">
         <Filter className="h-4 w-4" />
         Filtros avançados
@@ -513,7 +513,7 @@ function HomePage() {
         />
 
         {loading && clientes.length === 0 ? (
-          <Card className="border-border/70 bg-card/70">
+ <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />

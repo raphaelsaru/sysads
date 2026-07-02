@@ -97,7 +97,7 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-white/20 bg-background/50 backdrop-blur-xl backdrop-saturate-150 dark:border-white/10">
       {impersonatedUser && (
         <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-1.5">
           <div className="mx-auto flex max-w-screen-2xl items-center justify-between">
@@ -133,14 +133,16 @@ export default function Header() {
           </div>
 
           <nav className="hidden md:flex md:flex-1 md:justify-center">
-            <div className="flex items-center gap-1 rounded-full border border-border/70 bg-card/70 px-1 py-1 text-sm font-medium shadow-soft backdrop-blur">
+            <div className="glass flex items-center gap-1 rounded-full px-1 py-1 text-sm font-medium">
               {navItems.map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href as never}
                   className={cn(
                     'rounded-full px-3 py-2 transition-colors hover:text-primary',
-                    pathname === href ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
+                    pathname === href
+                      ? 'bg-primary/15 text-primary shadow-[inset_0_1px_0_0_hsl(var(--glass-highlight)/0.4)]'
+                      : 'text-muted-foreground'
                   )}
                 >
                   {label}
@@ -157,7 +159,6 @@ export default function Header() {
                     variant="outline"
                     size="icon"
                     aria-label="Visualizar como outro usuário"
-                    className="border-border/70 bg-background/60 backdrop-blur"
                   >
                     <Eye className="h-5 w-5" />
                   </Button>
@@ -187,7 +188,6 @@ export default function Header() {
               size="icon"
               onClick={toggleTheme}
               aria-label={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
-              className="border-border/70 bg-background/60 backdrop-blur"
             >
               {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
@@ -245,7 +245,7 @@ export default function Header() {
         </div>
 
         <nav className="md:hidden">
-          <div className="flex items-center gap-1 rounded-full border border-border/70 bg-card/70 px-1 py-1 text-sm font-medium shadow-soft backdrop-blur">
+          <div className="glass flex items-center gap-1 rounded-full px-1 py-1 text-sm font-medium">
             {navItems.map(({ href, label }) => (
               <Link
                 key={href}

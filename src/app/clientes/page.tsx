@@ -180,7 +180,7 @@ function ClientesPageContent() {
 
         {/* Cards de Estatísticas */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-border/70 bg-card/70 shadow-soft">
+ <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -193,7 +193,7 @@ function ClientesPageContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 bg-card/70 shadow-soft">
+ <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -208,7 +208,7 @@ function ClientesPageContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 bg-card/70 shadow-soft">
+ <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Vendas Pagas</CardTitle>
               <CheckCircle2 className="h-4 w-4 text-success" />
@@ -221,7 +221,7 @@ function ClientesPageContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 bg-card/70 shadow-soft">
+ <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Valor Pendente</CardTitle>
               <Clock className="h-4 w-4 text-warning" />
@@ -238,7 +238,7 @@ function ClientesPageContent() {
         </div>
 
         {/* Filtros */}
-        <Card className="border-border/70 bg-card/70 shadow-soft">
+ <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Filter className="h-5 w-5" />
@@ -297,7 +297,7 @@ function ClientesPageContent() {
 
         {/* Tabela de Clientes */}
         {loading && clientesVenda.length === 0 ? (
-          <Card className="border-border/70 bg-card/70">
+ <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -316,7 +316,7 @@ function ClientesPageContent() {
             </CardContent>
           </Card>
         ) : clientesFiltrados.length === 0 ? (
-          <Card className="border-border/70 bg-card/70">
+ <Card>
             <CardHeader>
               <CardTitle className="text-lg">Nenhum cliente encontrado</CardTitle>
               <CardDescription>

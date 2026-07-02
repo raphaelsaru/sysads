@@ -71,7 +71,7 @@ export default function FollowUpHistoryModal({
               <span className="ml-2 text-sm text-muted-foreground">Carregando histórico...</span>
             </div>
           ) : followUps.length === 0 ? (
-            <Card className="border-dashed border-border/80 bg-card/70">
+ <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-sm font-medium text-foreground mb-1">
@@ -88,7 +88,7 @@ export default function FollowUpHistoryModal({
           ) : (
             <div className="space-y-3">
               {followUps.map((followUp) => (
-                <Card key={followUp.id} className="border-border/60 bg-card/80">
+ <Card key={followUp.id} className="">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div className="flex items-center gap-2">

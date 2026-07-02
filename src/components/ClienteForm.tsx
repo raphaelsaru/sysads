@@ -58,7 +58,7 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
   }
 
   return (
-    <Card className="border-border/70 bg-card/80 shadow-soft">
+ <Card>
       <CardHeader>
         <CardTitle>{isEditing ? 'Editar cliente' : 'Novo cliente'}</CardTitle>
         <CardDescription>

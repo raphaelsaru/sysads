@@ -379,7 +379,7 @@ function DashboardContent() {
         </div>
 
         {historicoLoading && historico.length === 0 ? (
-          <Card className="border-border/70 bg-card/70">
+ <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -398,7 +398,7 @@ function DashboardContent() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {cards.map(({ id, label, value, icon: Icon, tone }) => (
-              <Card key={id} className={cn('overflow-hidden border-none shadow-soft')}>
+ <Card key={id} className={cn('overflow-hidden border-none ')}>
                 <div className={cn('h-2 w-full bg-gradient-to-r', tone)} />
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -417,7 +417,7 @@ function DashboardContent() {
           </div>
         )}
 
-        <Card className="border-border/70 bg-card/80 shadow-soft">
+ <Card>
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-foreground">Desempenho por período</CardTitle>
             <CardDescription>Período analisado: {periodoLabel}</CardDescription>
@@ -425,7 +425,7 @@ function DashboardContent() {
           <CardContent className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2">
               {periodoCards.map(({ id, label, value, helper }) => (
-                <Card key={id} className="border-border/70 bg-background/60 shadow-sm">
+ <Card key={id} className="bg-background/60 shadow-sm">
                   <CardHeader className="pb-2">
                     <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {label}
@@ -524,7 +524,7 @@ interface ChartCardProps {
 
 function ChartCard({ title, subtitle, loading, empty, children }: ChartCardProps) {
   return (
-    <Card className="border-border/70 bg-background/70">
+ <Card className="bg-background/70">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg font-semibold text-foreground">{title}</CardTitle>
         {subtitle ? <CardDescription>{subtitle}</CardDescription> : null}

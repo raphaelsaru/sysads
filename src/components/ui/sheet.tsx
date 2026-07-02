@@ -18,7 +18,7 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-background/80 backdrop-blur-sm transition-opacity duration-150",
+      "fixed inset-0 z-50 bg-black/30 backdrop-blur-md transition-opacity duration-150",
       className
     )}
     {...props}
@@ -45,7 +45,7 @@ const SheetContent = React.forwardRef<
     <SheetPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed z-50 grid gap-4 bg-background p-6 shadow-lg",
+        "glass-floating fixed z-50 grid gap-4 p-6",
         sheetVariants[side],
         className
       )}

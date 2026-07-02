@@ -9,7 +9,7 @@ interface MainLayoutProps {
 
 export default function MainLayout({ children }: MainLayoutProps) {
   return (
-    <div className="relative min-h-screen bg-background">
+    <div className="relative min-h-screen">
       <Header />
 
       <main className="pb-12 pt-12">

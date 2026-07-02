@@ -30,7 +30,7 @@ export default function ConnectionFallback({ onRetry, onSkip, isVisible }: Conne
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md border-border/70 bg-card/95 shadow-soft">
+ <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
             <WifiOff className="h-8 w-8 text-amber-600" />

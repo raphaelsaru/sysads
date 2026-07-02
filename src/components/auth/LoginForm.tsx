@@ -90,7 +90,7 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-6 py-10">
+    <div className="flex min-h-screen items-center justify-center px-6 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center flex flex-col items-center gap-4">
           <div className="relative h-auto w-[125px]">
@@ -108,7 +108,7 @@ export default function LoginForm() {
           </span>
         </div>
 
-        <Card className="border-border/80 bg-card/80 shadow-soft backdrop-blur-sm">
+ <Card>
           <CardHeader className="space-y-2 text-center">
             <CardTitle className="text-2xl font-semibold text-foreground">
               {isSignUp ? 'Crie sua conta exclusiva' : 'Boas-vindas de volta'}
