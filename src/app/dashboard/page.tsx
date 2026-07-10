@@ -51,6 +51,7 @@ interface PeriodoResumo {
 
 type ClienteRegistro = {
   data_contato: string | null
+  data_mes_venda: string | null
   resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda' | null
   valor_fechado: number | string | null
   pagou_sinal: boolean | null
@@ -133,12 +134,13 @@ function DashboardContent() {
           throw new Error('Usuário não autenticado')
         }
 
+        // data_mes_venda = data_pagamento_sinal (quando a venda tiver) senão data_contato
         let query = supabase
           .from('clientes')
-          .select('data_contato, resultado, valor_fechado, pagou_sinal, venda_paga, data_lembrete_chamada')
-          .gte('data_contato', inicioISO)
-          .lte('data_contato', fimISO)
-          .order('data_contato', { ascending: true })
+          .select('data_contato, data_mes_venda, resultado, valor_fechado, pagou_sinal, venda_paga, data_lembrete_chamada')
+          .gte('data_mes_venda', inicioISO)
+          .lte('data_mes_venda', fimISO)
+          .order('data_mes_venda', { ascending: true })
         if (impersonatedUserId) query = query.eq('user_id', impersonatedUserId)
         const { data, error } = await query
 
@@ -164,13 +166,13 @@ function DashboardContent() {
         let totalLeadsComLembrete = 0
 
         for (const item of registros) {
-          const dataContatoRaw = item.data_contato as string | null
-          if (!dataContatoRaw) continue
+          const dataMesVendaRaw = item.data_mes_venda as string | null
+          if (!dataMesVendaRaw) continue
 
-          const dataContato = parseISO(dataContatoRaw)
-          if (!isValid(dataContato)) continue
+          const dataMesVenda = parseISO(dataMesVendaRaw)
+          if (!isValid(dataMesVenda)) continue
 
-          const chave = format(dataContato, 'yyyy-MM-dd')
+          const chave = format(dataMesVenda, 'yyyy-MM-dd')
 
           leadsPorDia.set(chave, (leadsPorDia.get(chave) ?? 0) + 1)
           totalLeads += 1

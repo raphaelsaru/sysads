@@ -2,28 +2,20 @@
 
 import { useMemo, useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Users, DollarSign, CheckCircle2, Clock, Loader2, Search, Filter } from 'lucide-react'
+import { Users, DollarSign, CheckCircle2, Clock, Loader2 } from 'lucide-react'
 
 import MainLayout from '@/components/layout/MainLayout'
 import ClienteTable from '@/components/ClienteTable'
 import ClienteModal from '@/components/ClienteModal'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
-import { useClientes } from '@/hooks/useClientes'
+import ClienteFiltrosPanel, { filtrosIniciais, TODOS_MESES } from '@/components/ClienteFiltros'
+import { useClientes, type ClienteFiltrosInput } from '@/hooks/useClientes'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAdmin } from '@/contexts/AdminContext'
 import { Cliente, NovoCliente } from '@/types/crm'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
 export default function ClientesPage() {
   return (
@@ -46,8 +38,24 @@ function ClientesPageContent() {
 
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
 
+  const [filtros, setFiltros] = useState(filtrosIniciais)
+
+  const filtrosQuery: ClienteFiltrosInput = useMemo(() => ({
+    resultado: 'Venda',
+    busca: filtros.busca.trim() || undefined,
+    origem: filtros.origem !== 'todos' ? filtros.origem : undefined,
+    qualidadeContato: filtros.qualidade !== 'todos' ? filtros.qualidade : undefined,
+    valorMin: filtros.valorMin !== '' ? Number(filtros.valorMin) : undefined,
+    valorMax: filtros.valorMax !== '' ? Number(filtros.valorMax) : undefined,
+    naoRespondeu: filtros.naoRespondeu !== 'todos' ? filtros.naoRespondeu === 'sim' : undefined,
+    comSinal: filtros.comSinal !== 'todos' ? filtros.comSinal === 'sim' : undefined,
+    vendaPaga: filtros.vendaPaga !== 'todos' ? filtros.vendaPaga === 'pagos' : undefined,
+    mes: filtros.mes !== TODOS_MESES ? filtros.mes : undefined,
+  }), [filtros])
+
   const {
     clientes,
+    total,
     loading,
     loadingMais,
     adicionarCliente,
@@ -55,34 +63,27 @@ function ClientesPageContent() {
     excluirCliente,
     hasMore,
     carregarMaisClientes,
-  } = useClientes(currency, impersonatedUserId)
+    estatisticas,
+  } = useClientes(currency, impersonatedUserId, filtrosQuery)
 
   const [mostrarModal, setMostrarModal] = useState(false)
   const [clienteEditando, setClienteEditando] = useState<Cliente | undefined>(undefined)
-  const [busca, setBusca] = useState('')
-  const [filtroPagamento, setFiltroPagamento] = useState<'todos' | 'pagos' | 'pendentes'>('todos')
 
-  // Filtrar apenas clientes com resultado = 'Venda'
-  const clientesVenda = useMemo(() => {
-    return clientes.filter(cliente => cliente.resultado === 'Venda')
-  }, [clientes])
-
-  // Verificar se há um ID na URL para abrir o modal de edição
   useEffect(() => {
     const editId = searchParams.get('edit')
     if (editId) {
-      if (clientesVenda.length === 0 && loading) {
+      if (clientes.length === 0 && loading) {
         return
       }
-      
-      const clienteParaEditar = clientesVenda.find((c) => c.id === editId)
+
+      const clienteParaEditar = clientes.find((c) => c.id === editId)
       if (clienteParaEditar) {
         setClienteEditando(clienteParaEditar)
         setMostrarModal(true)
         window.history.replaceState({}, '', window.location.pathname)
       }
     }
-  }, [searchParams, clientesVenda, loading])
+  }, [searchParams, clientes, loading])
 
   const handleSubmitForm = async (dadosCliente: NovoCliente) => {
     try {
@@ -113,50 +114,16 @@ function ClientesPageContent() {
     window.dispatchEvent(new CustomEvent('cliente-atualizado'))
   }
 
-  // Estatísticas dos clientes
-  const estatisticas = useMemo(() => {
-    const total = clientesVenda.length
-    const valorTotal = clientesVenda.reduce((acc, c) => acc + (c.valorFechadoNumero || 0), 0)
-    const vendasPagas = clientesVenda.filter(c => c.vendaPaga).length
-    const vendasPendentes = total - vendasPagas
-    const comSinal = clientesVenda.filter(c => c.pagouSinal).length
-    const valorPendente = clientesVenda
-      .filter(c => !c.vendaPaga)
-      .reduce((acc, c) => acc + (c.valorFechadoNumero || 0), 0)
+  const atualizarFiltro = (campo: keyof typeof filtrosIniciais, valor: string) => {
+    setFiltros((prev) => ({
+      ...prev,
+      [campo]: valor,
+    }))
+  }
 
-    return {
-      total,
-      valorTotal,
-      vendasPagas,
-      vendasPendentes,
-      comSinal,
-      valorPendente,
-    }
-  }, [clientesVenda])
-
-  // Filtrar clientes com base na busca e filtro de pagamento
-  const clientesFiltrados = useMemo(() => {
-    let filtrados = clientesVenda
-
-    // Filtro de busca
-    if (busca.trim()) {
-      const termo = busca.trim().toLowerCase()
-      filtrados = filtrados.filter(cliente => {
-        const nome = (cliente.nome ?? '').toLowerCase()
-        const contato = (cliente.whatsappInstagram ?? '').toLowerCase()
-        return nome.includes(termo) || contato.includes(termo)
-      })
-    }
-
-    // Filtro de pagamento
-    if (filtroPagamento === 'pagos') {
-      filtrados = filtrados.filter(c => c.vendaPaga)
-    } else if (filtroPagamento === 'pendentes') {
-      filtrados = filtrados.filter(c => !c.vendaPaga)
-    }
-
-    return filtrados
-  }, [clientesVenda, busca, filtroPagamento])
+  const limparFiltros = () => {
+    setFiltros(filtrosIniciais)
+  }
 
   return (
     <MainLayout>
@@ -169,10 +136,12 @@ function ClientesPageContent() {
             </Badge>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                Meus Clientes
+                {impersonatedUser ? `Clientes de ${impersonatedUser.company_name}` : 'Meus Clientes'}
               </h1>
               <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
-                Gerencie seus clientes que já fecharam venda. Acompanhe pagamentos, atualize informações e mantenha o relacionamento ativo.
+                {impersonatedUser
+                  ? `Visualizando vendas fechadas de ${impersonatedUser.company_name}.`
+                  : 'Gerencie seus clientes que já fecharam venda. Acompanhe pagamentos, atualize informações e mantenha o relacionamento ativo.'}
               </p>
             </div>
           </div>
@@ -180,27 +149,27 @@ function ClientesPageContent() {
 
         {/* Cards de Estatísticas */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
- <Card>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{estatisticas.total}</div>
+              <div className="text-2xl font-bold">{estatisticas.vendas}</div>
               <p className="text-xs text-muted-foreground">
                 Clientes com venda fechada
               </p>
             </CardContent>
           </Card>
 
- <Card>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatCurrency(estatisticas.valorTotal, currency)}
+                {formatCurrency(estatisticas.valorVendido, currency)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Soma de todas as vendas
@@ -208,7 +177,7 @@ function ClientesPageContent() {
             </CardContent>
           </Card>
 
- <Card>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Vendas Pagas</CardTitle>
               <CheckCircle2 className="h-4 w-4 text-success" />
@@ -221,7 +190,7 @@ function ClientesPageContent() {
             </CardContent>
           </Card>
 
- <Card>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Valor Pendente</CardTitle>
               <Clock className="h-4 w-4 text-warning" />
@@ -237,67 +206,19 @@ function ClientesPageContent() {
           </Card>
         </div>
 
-        {/* Filtros */}
- <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Filter className="h-5 w-5" />
-              Filtros
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Buscar cliente</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Nome ou contato..."
-                    value={busca}
-                    onChange={(e) => setBusca(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status de pagamento</label>
-                <Select value={filtroPagamento} onValueChange={(value: 'todos' | 'pagos' | 'pendentes') => setFiltroPagamento(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por pagamento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    <SelectItem value="pagos">Vendas pagas</SelectItem>
-                    <SelectItem value="pendentes">Vendas pendentes</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {(busca || filtroPagamento !== 'todos') && (
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  Exibindo {clientesFiltrados.length} de {clientesVenda.length} clientes
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setBusca('')
-                    setFiltroPagamento('todos')
-                  }}
-                >
-                  Limpar filtros
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ClienteFiltrosPanel
+          filtros={filtros}
+          atualizarFiltro={atualizarFiltro}
+          limparFiltros={limparFiltros}
+          totalCarregado={clientes.length}
+          totalGeral={total}
+          mostrarStatus={false}
+          mostrarPagamento
+        />
 
         {/* Tabela de Clientes */}
-        {loading && clientesVenda.length === 0 ? (
- <Card>
+        {loading && clientes.length === 0 ? (
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -315,12 +236,12 @@ function ClientesPageContent() {
               </div>
             </CardContent>
           </Card>
-        ) : clientesFiltrados.length === 0 ? (
- <Card>
+        ) : clientes.length === 0 ? (
+          <Card>
             <CardHeader>
               <CardTitle className="text-lg">Nenhum cliente encontrado</CardTitle>
               <CardDescription>
-                {clientesVenda.length === 0
+                {estatisticas.vendas === 0
                   ? 'Você ainda não tem clientes com venda fechada. Quando um lead for convertido em venda, ele aparecerá aqui.'
                   : 'Nenhum cliente corresponde aos filtros selecionados.'}
               </CardDescription>
@@ -328,7 +249,7 @@ function ClientesPageContent() {
           </Card>
         ) : (
           <ClienteTable
-            clientes={clientesFiltrados}
+            clientes={clientes}
             onEdit={handleEditarCliente}
             onDelete={handleExcluirCliente}
             onLoadMore={carregarMaisClientes}
@@ -348,4 +269,3 @@ function ClientesPageContent() {
     </MainLayout>
   )
 }
-

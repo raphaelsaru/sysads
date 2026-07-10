@@ -28,7 +28,7 @@ export interface NotificationGroup {
   proximos: LeadNotification[]
 }
 
-export function useNotifications() {
+export function useNotifications(targetUserId?: string | null) {
   const [notifications, setNotifications] = useState<NotificationGroup>({
     hoje: [],
     amanha: [],
@@ -61,7 +61,7 @@ export function useNotifications() {
       const { data: leadsRaw, error } = await supabase
         .from('clientes')
         .select('id, nome, whatsapp_instagram, data_lembrete_chamada, resultado')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId ?? user.id)
         .not('data_lembrete_chamada', 'is', null)
         .gte('data_lembrete_chamada', hoje.toISOString().split('T')[0])
         .lte('data_lembrete_chamada', tresDiasDepois.toISOString().split('T')[0])
@@ -122,7 +122,7 @@ export function useNotifications() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [targetUserId])
 
   useEffect(() => {
     void carregarNotificacoes()

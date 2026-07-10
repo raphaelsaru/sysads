@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Bell } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useNotifications } from '@/hooks/useNotifications'
+import { useAdmin } from '@/contexts/AdminContext'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,7 +19,8 @@ import {
 import { cn } from '@/lib/utils'
 
 export default function NotificationsBell() {
-  const { notifications, loading, totalCount } = useNotifications()
+  const { impersonatedUserId } = useAdmin()
+  const { notifications, loading, totalCount } = useNotifications(impersonatedUserId)
   const router = useRouter()
   const [open, setOpen] = useState(false)
 

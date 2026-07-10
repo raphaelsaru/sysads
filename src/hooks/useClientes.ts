@@ -18,6 +18,19 @@ const clientesTable = () => supabase.from('clientes') as any
 const PAGE_SIZE = 15
 const STATS_PAGE_SIZE = 5000
 
+export interface ClienteFiltrosInput {
+  busca?: string
+  origem?: string
+  resultado?: string
+  qualidadeContato?: string
+  valorMin?: number
+  valorMax?: number
+  naoRespondeu?: boolean
+  comSinal?: boolean
+  vendaPaga?: boolean
+  mes?: string // formato YYYY-MM
+}
+
 interface EstatisticasClientes {
   total: number
   vendas: number
@@ -25,6 +38,10 @@ interface EstatisticasClientes {
   naoVenda: number
   valorEmProcesso: number
   valorVendido: number
+  vendasPagas: number
+  vendasPendentes: number
+  comSinal: number
+  valorPendente: number
 }
 
 const estatisticasIniciais: EstatisticasClientes = {
@@ -34,7 +51,19 @@ const estatisticasIniciais: EstatisticasClientes = {
   naoVenda: 0,
   valorEmProcesso: 0,
   valorVendido: 0,
+  vendasPagas: 0,
+  vendasPendentes: 0,
+  comSinal: 0,
+  valorPendente: 0,
 }
+
+const SELECT_CLIENTE = `
+  id, data_contato, nome, whatsapp_instagram, origem,
+  orcamento_enviado, resultado, qualidade_contato, nao_respondeu,
+  valor_fechado, observacao, created_at,
+  pagou_sinal, valor_sinal, data_pagamento_sinal,
+  venda_paga, data_pagamento_venda, data_lembrete_chamada
+`
 
 type ClienteSupabaseRow = {
   id: string
@@ -49,26 +78,85 @@ type ClienteSupabaseRow = {
   valor_fechado: number | null
   observacao: string | null
   created_at: string
-  // Campos de pagamento
   pagou_sinal: boolean
   valor_sinal: number | null
   data_pagamento_sinal: string | null
   venda_paga: boolean
   data_pagamento_venda: string | null
-  // Campo de notificação
   data_lembrete_chamada: string | null
 }
 
 type ClienteStatsRow = {
   resultado: Cliente['resultado']
   valor_fechado: number | null
+  venda_paga: boolean | null
+  pagou_sinal: boolean | null
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function aplicarFiltros(query: any, filtros?: ClienteFiltrosInput) {
+  if (!filtros) return query
+
+  if (filtros.busca && filtros.busca.trim()) {
+    const termo = filtros.busca.trim().replace(/[%,]/g, '')
+    query = query.or(`nome.ilike.%${termo}%,whatsapp_instagram.ilike.%${termo}%`)
+  }
+
+  if (filtros.origem) {
+    query = query.eq('origem', filtros.origem)
+  }
+
+  if (filtros.resultado) {
+    query = query.eq('resultado', filtros.resultado)
+  }
+
+  if (filtros.qualidadeContato) {
+    query = query.eq('qualidade_contato', filtros.qualidadeContato)
+  }
+
+  if (filtros.valorMin !== undefined && !Number.isNaN(filtros.valorMin)) {
+    query = query.gte('valor_fechado', filtros.valorMin)
+  }
+
+  if (filtros.valorMax !== undefined && !Number.isNaN(filtros.valorMax)) {
+    query = query.lte('valor_fechado', filtros.valorMax)
+  }
+
+  if (filtros.naoRespondeu !== undefined) {
+    query = query.eq('nao_respondeu', filtros.naoRespondeu)
+  }
+
+  if (filtros.comSinal !== undefined) {
+    query = filtros.comSinal
+      ? query.not('valor_sinal', 'is', null)
+      : query.is('valor_sinal', null)
+  }
+
+  if (filtros.vendaPaga !== undefined) {
+    query = query.eq('venda_paga', filtros.vendaPaga)
+  }
+
+  if (filtros.mes) {
+    const [ano, mes] = filtros.mes.split('-').map(Number)
+    if (!Number.isNaN(ano) && !Number.isNaN(mes)) {
+      const inicio = `${filtros.mes}-01`
+      const proximoMes = new Date(ano, mes, 1)
+      const fim = proximoMes.toISOString().split('T')[0]
+      // data_mes_venda = data_pagamento_sinal (se a venda tiver) senão data_contato
+      query = query.gte('data_mes_venda', inicio).lt('data_mes_venda', fim)
+    }
+  }
+
+  return query
 }
 
 export function useClientes(
   currency: SupportedCurrency = FALLBACK_CURRENCY_VALUE,
   targetUserId?: string | null,
+  filtros?: ClienteFiltrosInput,
 ) {
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [loadingMais, setLoadingMais] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -94,14 +182,12 @@ export function useClientes(
         valorFechado: valorFechadoNumero !== null ? formatCurrency(valorFechadoNumero, currency) : '',
         observacao: cliente.observacao ?? undefined,
         createdAt: cliente.created_at,
-        // Campos de pagamento
         pagouSinal: cliente.pagou_sinal || false,
         valorSinalNumero,
         valorSinal: valorSinalNumero !== null ? formatCurrency(valorSinalNumero, currency) : '',
         dataPagamentoSinal: cliente.data_pagamento_sinal ?? undefined,
         vendaPaga: cliente.venda_paga || false,
         dataPagamentoVenda: cliente.data_pagamento_venda ?? undefined,
-        // Campo de notificação
         dataLembreteChamada: cliente.data_lembrete_chamada ?? undefined,
       }
     },
@@ -115,12 +201,16 @@ export function useClientes(
     let naoVenda = 0
     let valorEmProcesso = 0
     let valorVendido = 0
+    let vendasPagas = 0
+    let vendasPendentes = 0
+    let comSinal = 0
+    let valorPendente = 0
     let offset = 0
 
     try {
       while (true) {
         let query = clientesTable()
-          .select('resultado, valor_fechado')
+          .select('resultado, valor_fechado, venda_paga, pagou_sinal')
           .order('id', { ascending: true })
           .range(offset, offset + STATS_PAGE_SIZE - 1)
         if (targetUserId) query = query.eq('user_id', targetUserId)
@@ -146,6 +236,17 @@ export function useClientes(
               if (item.valor_fechado !== null) {
                 valorVendido += Number(item.valor_fechado) || 0
               }
+              if (item.venda_paga) {
+                vendasPagas += 1
+              } else {
+                vendasPendentes += 1
+                if (item.valor_fechado !== null) {
+                  valorPendente += Number(item.valor_fechado) || 0
+                }
+              }
+              if (item.pagou_sinal) {
+                comSinal += 1
+              }
               break
             case 'Orçamento em Processo':
               emProcesso += 1
@@ -168,7 +269,6 @@ export function useClientes(
         offset += STATS_PAGE_SIZE
       }
 
-      console.log('✅ Estatísticas carregadas:', { total, vendas, emProcesso, naoVenda })
       setEstatisticas({
         total,
         vendas,
@@ -176,6 +276,10 @@ export function useClientes(
         naoVenda,
         valorEmProcesso,
         valorVendido,
+        vendasPagas,
+        vendasPendentes,
+        comSinal,
+        valorPendente,
       })
     } catch (error) {
       console.error('❌ Erro ao carregar estatísticas:', error)
@@ -185,66 +289,63 @@ export function useClientes(
 
   const carregarClientes = useCallback(async () => {
     setLoading(true)
-    
-    // Timeout de segurança - SEMPRE libera loading após 5 segundos
+
     const timeoutId = setTimeout(() => {
       console.warn('⏰ Timeout de 5s ao carregar clientes - liberando UI')
       setLoading(false)
     }, 5000)
-    
+
     try {
-      console.log('🔄 Iniciando carregamento de clientes...')
-      
-      // Verificar se o usuário está autenticado
       const { data: { user }, error: authError } = await supabase.auth.getUser()
-      
+
       if (authError || !user) {
         console.error('❌ Usuário não autenticado:', authError)
         setHasMore(false)
-        setClientes([]) // Garantir que lista fica vazia
+        setClientes([])
+        setTotal(0)
         clearTimeout(timeoutId)
         setLoading(false)
         return
       }
 
       let query = clientesTable()
-        .select(`
-          id, data_contato, nome, whatsapp_instagram, origem,
-          orcamento_enviado, resultado, qualidade_contato, nao_respondeu,
-          valor_fechado, observacao, created_at,
-          pagou_sinal, valor_sinal, data_pagamento_sinal,
-          venda_paga, data_pagamento_venda, data_lembrete_chamada
-        `)
+        .select(SELECT_CLIENTE, { count: 'exact' })
         .order('created_at', { ascending: false })
-        .range(0, PAGE_SIZE - 1)
       if (targetUserId) query = query.eq('user_id', targetUserId)
-      const { data: clientesData, error } = await query
+      query = aplicarFiltros(query, filtros)
+      query = query.range(0, PAGE_SIZE - 1)
+
+      const { data: clientesData, error, count } = await query
 
       if (error) {
         console.error('Erro ao carregar clientes:', error)
         setHasMore(false)
         setClientes([])
+        setTotal(0)
         clearTimeout(timeoutId)
         setLoading(false)
         return
       }
 
       const transformados = ((clientesData as ClienteSupabaseRow[] | null) ?? []).map(formatarCliente)
+      const totalCount = count ?? transformados.length
 
       setClientes(transformados)
-      setHasMore(((clientesData?.length ?? 0) === PAGE_SIZE))
+      setTotal(totalCount)
+      setHasMore(transformados.length < totalCount)
       setPage(1)
 
       carregarEstatisticas().catch(() => {})
     } catch (error) {
       console.error('Erro ao carregar clientes:', error)
       setClientes([])
+      setTotal(0)
       setHasMore(false)
     } finally {
       clearTimeout(timeoutId)
       setLoading(false)
     }
-  }, [carregarEstatisticas, formatarCliente, targetUserId])
+  }, [carregarEstatisticas, formatarCliente, targetUserId, filtros])
 
   const carregarMaisClientes = useCallback(async () => {
     if (loadingMais || !hasMore) return
@@ -255,17 +356,13 @@ export function useClientes(
       const end = start + PAGE_SIZE - 1
 
       let query = clientesTable()
-        .select(`
-          id, data_contato, nome, whatsapp_instagram, origem,
-          orcamento_enviado, resultado, qualidade_contato, nao_respondeu,
-          valor_fechado, observacao, created_at,
-          pagou_sinal, valor_sinal, data_pagamento_sinal,
-          venda_paga, data_pagamento_venda, data_lembrete_chamada
-        `)
+        .select(SELECT_CLIENTE, { count: 'exact' })
         .order('created_at', { ascending: false })
-        .range(start, end)
       if (targetUserId) query = query.eq('user_id', targetUserId)
-      const { data: clientesData, error } = await query
+      query = aplicarFiltros(query, filtros)
+      query = query.range(start, end)
+
+      const { data: clientesData, error, count } = await query
 
       if (error) {
         console.error('Erro ao carregar mais clientes:', error)
@@ -278,40 +375,41 @@ export function useClientes(
       setClientes((prev) => {
         const existingIds = new Set(prev.map(c => c.id))
         const novos = transformados.filter(c => !existingIds.has(c.id))
-        return [...prev, ...novos]
+        const atualizados = [...prev, ...novos]
+        setHasMore(atualizados.length < (count ?? atualizados.length))
+        return atualizados
       })
-      setHasMore(((clientesData?.length ?? 0) === PAGE_SIZE))
+      if (count !== null && count !== undefined) setTotal(count)
       setPage((prev) => prev + 1)
     } catch (error) {
       console.error('Erro ao carregar mais clientes:', error)
     } finally {
       setLoadingMais(false)
     }
-  }, [formatarCliente, hasMore, loadingMais, page, targetUserId])
+  }, [formatarCliente, hasMore, loadingMais, page, targetUserId, filtros])
 
   useEffect(() => {
     setPage(0)
     setClientes([])
     setHasMore(true)
     void carregarClientes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregarClientes])
 
   const adicionarCliente = async (novoCliente: NovoCliente) => {
     setLoading(true)
-    
-    // Timeout de segurança - SEMPRE libera loading após 8 segundos
+
     const timeoutId = setTimeout(() => {
       console.warn('⏰ Timeout de 8s ao adicionar cliente - liberando UI')
       setLoading(false)
     }, 8000)
-    
+
     try {
-      // Verificação de autenticação com timeout para evitar travamento em conexões instáveis
       const authPromise = supabase.auth.getUser()
-      const timeoutPromise = new Promise<never>((_, reject) => 
+      const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Timeout na verificação de autenticação')), 5000)
       )
-      
+
       const {
         data: { user },
         error: authError,
@@ -328,7 +426,7 @@ export function useClientes(
 
       const { data: cliente, error } = await clientesTable()
         .insert({
-          user_id: user.id,
+          user_id: targetUserId ?? user.id,
           data_contato: novoCliente.dataContato,
           nome: novoCliente.nome,
           whatsapp_instagram: novoCliente.whatsappInstagram,
@@ -345,18 +443,14 @@ export function useClientes(
           venda_paga: novoCliente.vendaPaga || false,
           data_pagamento_venda: novoCliente.dataPagamentoVenda || null,
           data_lembrete_chamada: novoCliente.dataLembreteChamada || null,
+          created_by: user.id,
+          updated_by: user.id,
         })
         .select()
         .single()
 
       if (error) {
         console.error('Erro ao criar cliente:', error)
-        console.error('Detalhes do erro:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        })
         if (error.message?.includes('network') || error.message?.includes('fetch')) {
           throw new Error('Erro de conexão. Verifique sua internet e tente novamente.')
         }
@@ -375,25 +469,24 @@ export function useClientes(
 
       const transformado = formatarCliente(cliente as unknown as ClienteSupabaseRow)
 
-      setClientes((prev) => [...prev, transformado])
-      
-      // Carregar estatísticas em paralelo para não bloquear a UI
+      setClientes((prev) => [transformado, ...prev])
+      setTotal((prev) => prev + 1)
+
       carregarEstatisticas().catch(error => {
         console.warn('⚠️ Erro ao carregar estatísticas (não crítico):', error)
       })
-      
+
       clearTimeout(timeoutId)
       return transformado
     } catch (error) {
       console.error('Erro ao adicionar cliente:', error)
-      
-      // Tratar erros de timeout especificamente
+
       if (error instanceof Error && error.message.includes('Timeout')) {
         clearTimeout(timeoutId)
         setLoading(false)
         throw new Error('Tempo de conexão esgotado. Verifique sua internet e tente novamente.')
       }
-      
+
       clearTimeout(timeoutId)
       throw error
     } finally {
@@ -422,7 +515,12 @@ export function useClientes(
         venda_paga?: boolean
         data_pagamento_venda?: string | null
         data_lembrete_chamada?: string | null
+        updated_by?: string
       }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
       const updateData: ClienteUpdatePayload = {}
       if (dadosAtualizados.dataContato) updateData.data_contato = dadosAtualizados.dataContato
@@ -437,7 +535,6 @@ export function useClientes(
         updateData.valor_fechado = parseCurrencyInput(dadosAtualizados.valorFechado)
       }
       if (dadosAtualizados.observacao !== undefined) updateData.observacao = dadosAtualizados.observacao || null
-      // Novos campos de pagamento
       if (dadosAtualizados.pagouSinal !== undefined) updateData.pagou_sinal = dadosAtualizados.pagouSinal
       if (dadosAtualizados.valorSinal !== undefined) {
         updateData.valor_sinal = parseCurrencyInput(dadosAtualizados.valorSinal)
@@ -445,14 +542,15 @@ export function useClientes(
       if (dadosAtualizados.dataPagamentoSinal !== undefined) updateData.data_pagamento_sinal = dadosAtualizados.dataPagamentoSinal || null
       if (dadosAtualizados.vendaPaga !== undefined) updateData.venda_paga = dadosAtualizados.vendaPaga
       if (dadosAtualizados.dataPagamentoVenda !== undefined) updateData.data_pagamento_venda = dadosAtualizados.dataPagamentoVenda || null
-      // Campo de notificação
       if (dadosAtualizados.dataLembreteChamada !== undefined) updateData.data_lembrete_chamada = dadosAtualizados.dataLembreteChamada || null
+      if (user) updateData.updated_by = user.id
 
-      const { data: cliente, error } = await clientesTable()
+      let updateQuery = clientesTable()
         .update(updateData)
         .eq('id', id)
-        .select()
-        .single()
+      if (targetUserId) updateQuery = updateQuery.eq('user_id', targetUserId)
+
+      const { data: cliente, error } = await updateQuery.select().single()
 
       if (error) {
         console.error('Erro ao atualizar cliente:', error)
@@ -482,7 +580,10 @@ export function useClientes(
   const excluirCliente = async (id: string) => {
     setLoading(true)
     try {
-      const { error } = await clientesTable().delete().eq('id', id)
+      let deleteQuery = clientesTable().delete().eq('id', id)
+      if (targetUserId) deleteQuery = deleteQuery.eq('user_id', targetUserId)
+
+      const { error } = await deleteQuery
 
       if (error) {
         console.error('Erro ao excluir cliente:', error)
@@ -490,6 +591,7 @@ export function useClientes(
       }
 
       setClientes((prev) => prev.filter((cliente) => cliente.id !== id))
+      setTotal((prev) => Math.max(0, prev - 1))
       await carregarEstatisticas()
     } catch (error) {
       console.error('Erro ao excluir cliente:', error)
@@ -505,6 +607,7 @@ export function useClientes(
 
   return {
     clientes,
+    total,
     loading,
     loadingMais,
     hasMore,
