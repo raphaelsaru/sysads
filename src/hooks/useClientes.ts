@@ -29,6 +29,7 @@ export interface ClienteFiltrosInput {
   comSinal?: boolean
   vendaPaga?: boolean
   mes?: string // formato YYYY-MM
+  categoria?: string
 }
 
 interface EstatisticasClientes {
@@ -62,7 +63,7 @@ const SELECT_CLIENTE = `
   orcamento_enviado, resultado, qualidade_contato, nao_respondeu,
   valor_fechado, observacao, created_at,
   pagou_sinal, valor_sinal, data_pagamento_sinal,
-  venda_paga, data_pagamento_venda, data_lembrete_chamada
+  venda_paga, data_pagamento_venda, data_lembrete_chamada, categoria
 `
 
 type ClienteSupabaseRow = {
@@ -84,6 +85,7 @@ type ClienteSupabaseRow = {
   venda_paga: boolean
   data_pagamento_venda: string | null
   data_lembrete_chamada: string | null
+  categoria: string | null
 }
 
 type ClienteStatsRow = {
@@ -134,6 +136,10 @@ function aplicarFiltros(query: any, filtros?: ClienteFiltrosInput) {
 
   if (filtros.vendaPaga !== undefined) {
     query = query.eq('venda_paga', filtros.vendaPaga)
+  }
+
+  if (filtros.categoria) {
+    query = query.eq('categoria', filtros.categoria)
   }
 
   if (filtros.mes) {
@@ -189,6 +195,7 @@ export function useClientes(
         vendaPaga: cliente.venda_paga || false,
         dataPagamentoVenda: cliente.data_pagamento_venda ?? undefined,
         dataLembreteChamada: cliente.data_lembrete_chamada ?? undefined,
+        categoria: cliente.categoria ?? undefined,
       }
     },
     [currency]
@@ -443,6 +450,7 @@ export function useClientes(
           venda_paga: novoCliente.vendaPaga || false,
           data_pagamento_venda: novoCliente.dataPagamentoVenda || null,
           data_lembrete_chamada: novoCliente.dataLembreteChamada || null,
+          categoria: novoCliente.categoria || null,
           created_by: user.id,
           updated_by: user.id,
         })
@@ -515,6 +523,7 @@ export function useClientes(
         venda_paga?: boolean
         data_pagamento_venda?: string | null
         data_lembrete_chamada?: string | null
+        categoria?: string | null
         updated_by?: string
       }
 
@@ -543,6 +552,7 @@ export function useClientes(
       if (dadosAtualizados.vendaPaga !== undefined) updateData.venda_paga = dadosAtualizados.vendaPaga
       if (dadosAtualizados.dataPagamentoVenda !== undefined) updateData.data_pagamento_venda = dadosAtualizados.dataPagamentoVenda || null
       if (dadosAtualizados.dataLembreteChamada !== undefined) updateData.data_lembrete_chamada = dadosAtualizados.dataLembreteChamada || null
+      if (dadosAtualizados.categoria !== undefined) updateData.categoria = dadosAtualizados.categoria || null
       if (user) updateData.updated_by = user.id
 
       let updateQuery = clientesTable()

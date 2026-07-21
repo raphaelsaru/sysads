@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getTodayBR, formatDateISO } from '@/lib/dateUtils'
 import { Cliente, NovoCliente } from '@/types/crm'
 import { cn } from '@/lib/utils'
+import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
 import MoneyInput from './MoneyInput'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,13 +36,16 @@ interface ClienteModalProps {
   onSave: (cliente: NovoCliente) => void
   cliente?: Cliente
   currency?: SupportedCurrency
+  userId?: string | null
 }
 
 const ORIGENS: NovoCliente['origem'][] = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antigo', 'Site']
 const RESULTADOS: NovoCliente['resultado'][] = ['Venda', 'Orçamento em Processo', 'Não Venda']
 const QUALIDADES: NovoCliente['qualidadeContato'][] = ['Bom', 'Regular', 'Ruim']
 
-export default function ClienteModal({ isOpen, onClose, onSave, cliente, currency = FALLBACK_CURRENCY_VALUE }: ClienteModalProps) {
+export default function ClienteModal({ isOpen, onClose, onSave, cliente, currency = FALLBACK_CURRENCY_VALUE, userId }: ClienteModalProps) {
+  const categorias = useMemo(() => getCategoriasParaUsuario(userId), [userId])
+
   const baseState: NovoCliente = useMemo(
     () => ({
       dataContato: getTodayBR(),
@@ -60,6 +64,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
       vendaPaga: false,
       dataPagamentoVenda: '',
       dataLembreteChamada: '',
+      categoria: '',
     }),
     []
   )
@@ -91,6 +96,7 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
         vendaPaga: cliente.vendaPaga || false,
         dataPagamentoVenda: cliente.dataPagamentoVenda || '',
         dataLembreteChamada: cliente.dataLembreteChamada || '',
+        categoria: cliente.categoria || '',
       })
       setValorNumerico(
         cliente.valorFechadoNumero !== null && cliente.valorFechadoNumero !== undefined
@@ -253,6 +259,27 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente, currenc
                 </SelectContent>
               </Select>
             </div>
+
+            {categorias.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="categoria">Categoria</Label>
+                <Select
+                  value={formData.categoria || ''}
+                  onValueChange={(value) => handleChange('categoria', value)}
+                >
+                  <SelectTrigger id="categoria">
+                    <SelectValue placeholder="Selecione a categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorias.map((categoria) => (
+                      <SelectItem key={categoria} value={categoria}>
+                        {categoria}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Orçamento enviado *</Label>

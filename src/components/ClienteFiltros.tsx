@@ -37,6 +37,7 @@ export type FiltroChave =
   | 'comSinal'
   | 'vendaPaga'
   | 'mes'
+  | 'categoria'
 
 export const TODOS_MESES = 'todos'
 
@@ -51,6 +52,7 @@ export const filtrosIniciais = {
   comSinal: 'todos',
   vendaPaga: 'todos',
   mes: TODOS_MESES,
+  categoria: 'todos',
 } satisfies Record<FiltroChave, string>
 
 export type FiltrosState = typeof filtrosIniciais
@@ -96,6 +98,7 @@ const labelsFiltro: Partial<Record<FiltroChave, (valor: string) => string>> = {
   naoRespondeu: (v) => (v === 'sim' ? 'Não respondeu' : 'Respondeu'),
   comSinal: (v) => (v === 'sim' ? 'Com sinal' : 'Sem sinal'),
   vendaPaga: (v) => (v === 'pagos' ? 'Vendas pagas' : 'Vendas pendentes'),
+  categoria: (v) => `Categoria: ${v}`,
   mes: (v) => {
     const mes = gerarMesesAnoVigente().find((m) => m.valor === v)
     return `Mês: ${mes?.label ?? v}`
@@ -140,6 +143,7 @@ interface ClienteFiltrosPanelProps {
   mostrarStatus?: boolean
   mostrarPagamento?: boolean
   mostrarMes?: boolean
+  categorias?: readonly string[]
 }
 
 export default function ClienteFiltrosPanel({
@@ -151,6 +155,7 @@ export default function ClienteFiltrosPanel({
   mostrarStatus = true,
   mostrarPagamento = false,
   mostrarMes = true,
+  categorias = [],
 }: ClienteFiltrosPanelProps) {
   const isMobile = useIsMobile()
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -208,6 +213,22 @@ export default function ClienteFiltrosPanel({
               {RESULTADOS.map((resultado) => (
                 <SelectItem key={resultado} value={resultado}>
                   {resultado}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {categorias.length > 0 && (
+          <Select value={filtros.categoria} onValueChange={(valor) => atualizarFiltro('categoria', valor)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas as categorias</SelectItem>
+              {categorias.map((categoria) => (
+                <SelectItem key={categoria} value={categoria}>
+                  {categoria}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -48,6 +48,7 @@ export interface Cliente {
   created_by?: string;
   updated_by?: string;
   totalFollowUps?: number;
+  categoria?: string;
 }
 
 export interface NovoCliente {
@@ -69,6 +70,7 @@ export interface NovoCliente {
   dataPagamentoVenda?: string;
   // Campo de notificação
   dataLembreteChamada?: string;
+  categoria?: string;
 }
 
 // =====================================================

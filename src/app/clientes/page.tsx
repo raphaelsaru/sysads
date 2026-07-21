@@ -16,6 +16,7 @@ import { Cliente, NovoCliente } from '@/types/crm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
+import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
 
 export default function ClientesPage() {
   return (
@@ -32,11 +33,13 @@ export default function ClientesPage() {
 }
 
 function ClientesPageContent() {
-  const { userProfile } = useAuth()
+  const { user, userProfile } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
   const searchParams = useSearchParams()
 
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
+  const effectiveUserId = impersonatedUserId ?? user?.id
+  const categorias = getCategoriasParaUsuario(effectiveUserId)
 
   const [filtros, setFiltros] = useState(filtrosIniciais)
 
@@ -51,6 +54,7 @@ function ClientesPageContent() {
     comSinal: filtros.comSinal !== 'todos' ? filtros.comSinal === 'sim' : undefined,
     vendaPaga: filtros.vendaPaga !== 'todos' ? filtros.vendaPaga === 'pagos' : undefined,
     mes: filtros.mes !== TODOS_MESES ? filtros.mes : undefined,
+    categoria: filtros.categoria !== 'todos' ? filtros.categoria : undefined,
   }), [filtros])
 
   const {
@@ -214,6 +218,7 @@ function ClientesPageContent() {
           totalGeral={total}
           mostrarStatus={false}
           mostrarPagamento
+          categorias={categorias}
         />
 
         {/* Tabela de Clientes */}
@@ -255,6 +260,7 @@ function ClientesPageContent() {
             onLoadMore={carregarMaisClientes}
             hasMore={hasMore}
             isLoadingMore={loadingMais}
+            userId={effectiveUserId}
           />
         )}
 
@@ -264,6 +270,7 @@ function ClientesPageContent() {
           onSave={handleSubmitForm}
           cliente={clienteEditando}
           currency={currency}
+          userId={effectiveUserId}
         />
       </section>
     </MainLayout>

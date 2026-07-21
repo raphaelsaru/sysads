@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FALLBACK_CURRENCY_VALUE } from '@/lib/currency'
+import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
 
 export default function Home() {
   return (
@@ -33,11 +34,13 @@ export default function Home() {
 }
 
 function HomePage() {
-  const { userProfile } = useAuth()
+  const { user, userProfile } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
   const searchParams = useSearchParams()
 
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
+  const effectiveUserId = impersonatedUserId ?? user?.id
+  const categorias = getCategoriasParaUsuario(effectiveUserId)
 
   const [filtros, setFiltros] = useState(filtrosIniciais)
 
@@ -51,6 +54,7 @@ function HomePage() {
     naoRespondeu: filtros.naoRespondeu !== 'todos' ? filtros.naoRespondeu === 'sim' : undefined,
     comSinal: filtros.comSinal !== 'todos' ? filtros.comSinal === 'sim' : undefined,
     mes: filtros.mes !== TODOS_MESES ? filtros.mes : undefined,
+    categoria: filtros.categoria !== 'todos' ? filtros.categoria : undefined,
   }), [filtros])
 
   const {
@@ -159,6 +163,7 @@ function HomePage() {
           limparFiltros={limparFiltros}
           totalCarregado={clientes.length}
           totalGeral={total}
+          categorias={categorias}
         />
 
         {loading && clientes.length === 0 ? (
@@ -197,6 +202,7 @@ function HomePage() {
             onLoadMore={carregarMaisClientes}
             hasMore={hasMore}
             isLoadingMore={loadingMais}
+            userId={effectiveUserId}
           />
         )}
 
@@ -206,6 +212,7 @@ function HomePage() {
           onSave={handleSubmitForm}
           cliente={clienteEditando}
           currency={currency}
+          userId={effectiveUserId}
         />
       </section>
     </MainLayout>
