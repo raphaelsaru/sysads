@@ -109,10 +109,10 @@ test('truncado dispara no teto e não abaixo dele', async () => {
   )
   assert.equal(noTeto.truncado, true, 'lista cheia não foi marcada como possivelmente truncada')
 
-  // Agrupado: teto de 200.
+  // Agrupado: teto de 500.
   const args = { ...P, metricas: ['leads'], agrupar_por: 'origem' }
-  assert.equal((await executarTool('agregar_metricas', args, ESCOPO, fake(linhas(199)).fn)).truncado, false)
-  assert.equal((await executarTool('agregar_metricas', args, ESCOPO, fake(linhas(200)).fn)).truncado, true)
+  assert.equal((await executarTool('agregar_metricas', args, ESCOPO, fake(linhas(499)).fn)).truncado, false)
+  assert.equal((await executarTool('agregar_metricas', args, ESCOPO, fake(linhas(500)).fn)).truncado, true)
 
   // Sem teto (contar_leads / agregar sem agrupamento) nunca marca truncado.
   assert.equal((await executarTool('contar_leads', { ...P }, ESCOPO, fake(linhas(1)).fn)).truncado, false)

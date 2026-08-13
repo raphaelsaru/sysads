@@ -50,8 +50,28 @@ test('de depois de ate é rejeitado', () => {
 })
 
 test('período absurdo é rejeitado', () => {
-  const r = validarArgs('contar_leads', { de: '1900-01-01', ate: '2200-01-01' })
-  assert.equal(r.ok, false)
+  for (const [de, ate] of [
+    ['1900-01-01', '2200-01-01'],
+    ['1990-01-01', '2026-12-31'], // ~37 anos
+    ['2000-01-01', '2026-12-31'], // ~27 anos
+  ]) {
+    const r = validarArgs('contar_leads', { de, ate })
+    assert.equal(r.ok, false, `deveria rejeitar ${de}..${ate}`)
+  }
+})
+
+// "desde sempre" / "histórico completo" tem que funcionar. O teto existe para
+// barrar entrada absurda, não para obrigar o modelo a estreitar o período e
+// depois narrar um total parcial como se fosse o total.
+test('período longo mas plausível passa', () => {
+  for (const [de, ate] of [
+    ['2020-01-01', '2026-12-31'], // ~7 anos
+    ['2010-01-01', '2026-12-31'], // ~17 anos
+    ['2007-01-01', '2026-12-31'], // ~20 anos, logo abaixo do teto
+  ]) {
+    const r = validarArgs('contar_leads', { de, ate })
+    assert.equal(r.ok, true, `deveria aceitar ${de}..${ate}`)
+  }
 })
 
 test('tool desconhecida é rejeitada', () => {

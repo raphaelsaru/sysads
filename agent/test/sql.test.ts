@@ -240,8 +240,8 @@ test('o teto de linhas aplicado é declarado', () => {
   // Sem agrupamento sai 1 linha só: nada a truncar.
   assert.equal(montarSQL('agregar_metricas', { ...P, metricas: ['leads'] }, ESCOPO).limite, null)
   const g = montarSQL('agregar_metricas', { ...P, metricas: ['leads'], agrupar_por: 'mes' }, ESCOPO)
-  assert.equal(g.limite, 200)
-  assert.match(g.text, /LIMIT 200/)
+  assert.equal(g.limite, 500)
+  assert.match(g.text, /LIMIT 500/)
 })
 
 test('o limite declarado é o mesmo que foi para o SQL', () => {

@@ -98,7 +98,7 @@ const ORDENAVEIS = new Set(['data_contato', 'valor_fechado', 'data_mes_venda'])
 const ORDENS = new Set(['asc', 'desc'])
 
 const LIMITE_LISTA = 50
-const LIMITE_GRUPOS = 200
+const LIMITE_GRUPOS = 500
 
 // Colunas de filtro -> como comparar. Só chaves daqui viram SQL.
 // origem é enum (origem_tipo): compara como texto, senão texto arbitrário do

@@ -16,7 +16,7 @@ export type Validacao =
 
 const DATA_RE = /^\d{4}-\d{2}-\d{2}$/
 const ORDENAVEIS = new Set(['data_contato', 'valor_fechado', 'data_mes_venda'])
-const MAX_DIAS = 366 * 6
+const MAX_DIAS = 366 * 20
 const MAX_TEXTO = 60
 
 // '2026-02-30' casa com o regex e não vira NaN: o Date rola para 02/03.
