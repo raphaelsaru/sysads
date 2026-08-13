@@ -75,7 +75,16 @@ export async function construirServidor(
   parciais: Partial<ServidorDeps> = {},
 ): Promise<FastifyInstance> {
   const deps: ServidorDeps = { ...PADROES, ...parciais }
-  const app = Fastify({ logger: false, bodyLimit: LIMITE_CORPO })
+  // trustProxy: o serviço só escuta em 172.18.0.1 (bridge do Docker) e só
+  // recebe tráfego do Traefik, que preenche X-Forwarded-For. Sem isso o
+  // rate limit vê o IP do proxy em toda requisição e os 60/hora viram um
+  // teto GLOBAL compartilhado — o segundo usuário da hora tomaria 429.
+  // Confiar no header só é seguro porque ninguém alcança a porta direto.
+  const app = Fastify({
+    logger: false,
+    bodyLimit: LIMITE_CORPO,
+    trustProxy: process.env.TRUST_PROXY === 'true',
+  })
 
   // 60/hora por IP. O custo real é o OpenRouter, não a CPU.
   await app.register(rateLimit, { max: 60, timeWindow: '1 hour' })
