@@ -76,7 +76,7 @@ sem segundo conjunto de testes, e valida exatamente o que o usuário final vê.
 
 ## Acesso a dados
 
-O LLM enxerga 4 funções tipadas. Nenhuma aceita `user_id`. O LLM nunca escreve
+O LLM enxerga 3 funções tipadas. Nenhuma aceita `user_id`. O LLM nunca escreve
 SQL.
 
 **`agregar_metricas`** — cobre relatório mensal/trimestral/anual, comparação
@@ -100,8 +100,19 @@ tipo "as 5 maiores vendas de julho".
 
 **`contar_leads`** — mesmos filtros, sem trazer linhas.
 
-**`listar_followups`** — follow-ups por período ou por lead, com `respondeu` e
-`numero_followup`.
+Cortado do v1: `listar_followups`. A tabela `follow_ups` tem 9 linhas — não
+justifica a tool ainda.
+
+### Moeda
+
+Já existe mecanismo: `user_profiles.preferences.currency`, com fallback para
+`auth.users.raw_user_meta_data.currency` (mesma ordem que o `AuthContext` usa).
+O agente resolve a moeda do `scopeUserId` junto com o resto do perfil e formata
+os valores de acordo. Ausente → `BRL`.
+
+Hoje estão marcados como `USD`: Charbelle, Victor Reis e actattoocorp.
+**Ju tattoo (`jullianalopez.usa@gmail.com`) está `null`** — precisa virar `USD`,
+senão o agente vai formatar em BRL.
 
 ### Semântica de datas
 
@@ -241,7 +252,7 @@ Segue o padrão do `finsheet-bot` na VPS.
     server.ts         Fastify: POST /chat (SSE), GET /health
     auth.ts           valida access_token, resolve scopeUserId
     tools/
-      schema.ts       definições JSON das 4 tools
+      schema.ts       definições JSON das 3 tools
       executor.ts     monta SQL parametrizado, injeta scope
     guard.ts          filtro de entrada, rate limit
     llm.ts            OpenRouter, loop de tool calling
