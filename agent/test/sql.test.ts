@@ -199,6 +199,59 @@ test('ordenacao só sai da allowlist', () => {
   assert.throws(() => montarSQL('listar_leads', { ...P, ordem: 'asc; DROP TABLE clientes' }, ESCOPO))
 })
 
+test('a janela usada é declarada no resultado', () => {
+  // O modelo não vê o SQL. Se a janela não voltar junto, ele narra
+  // "leads contatados em julho" para uma janela de data_mes_venda.
+  const casos: Array<[string, Record<string, any>, string, string]> = [
+    ['contar_leads', { ...P }, 'contato', 'data_contato'],
+    ['contar_leads', { ...P, resultado: 'Venda' }, 'venda', 'data_mes_venda'],
+    ['contar_leads', { ...P, venda_paga: true }, 'venda', 'data_mes_venda'],
+    ['listar_leads', { ...P }, 'contato', 'data_contato'],
+    ['listar_leads', { ...P, resultado: 'Venda' }, 'venda', 'data_mes_venda'],
+    ['listar_leads', { ...P, ordenar_por: 'data_mes_venda' }, 'venda', 'data_mes_venda'],
+  ]
+  for (const [tool, args, janela, coluna] of casos) {
+    const q = montarSQL(tool, args, ESCOPO)
+    assert.equal(q.janela, janela, `${tool} ${JSON.stringify(args)}`)
+    // A janela declarada é a que realmente delimita o BETWEEN.
+    assert.match(q.text, new RegExp(`WHERE user_id = \\$1 AND ${coluna} BETWEEN`))
+  }
+})
+
+test('agregar_metricas declara ambas quando mistura as janelas', () => {
+  const so_lead = montarSQL('agregar_metricas', { ...P, metricas: ['leads'] }, ESCOPO)
+  assert.equal(so_lead.janela, 'contato')
+
+  const so_venda = montarSQL('agregar_metricas', { ...P, metricas: ['faturamento'] }, ESCOPO)
+  assert.equal(so_venda.janela, 'venda')
+
+  const mista = montarSQL('agregar_metricas', { ...P, metricas: ['leads', 'faturamento'] }, ESCOPO)
+  assert.equal(mista.janela, 'ambas')
+
+  // taxa_conversao sozinha já mistura (vendas / leads).
+  const taxa = montarSQL('agregar_metricas', { ...P, metricas: ['taxa_conversao'] }, ESCOPO)
+  assert.equal(taxa.janela, 'ambas')
+})
+
+test('o teto de linhas aplicado é declarado', () => {
+  assert.equal(montarSQL('contar_leads', { ...P }, ESCOPO).limite, null)
+  assert.equal(montarSQL('listar_leads', { ...P, limite: 7 }, ESCOPO).limite, 7)
+  assert.equal(montarSQL('listar_leads', { ...P, limite: 5000 }, ESCOPO).limite, 50)
+  // Sem agrupamento sai 1 linha só: nada a truncar.
+  assert.equal(montarSQL('agregar_metricas', { ...P, metricas: ['leads'] }, ESCOPO).limite, null)
+  const g = montarSQL('agregar_metricas', { ...P, metricas: ['leads'], agrupar_por: 'mes' }, ESCOPO)
+  assert.equal(g.limite, 200)
+  assert.match(g.text, /LIMIT 200/)
+})
+
+test('o limite declarado é o mesmo que foi para o SQL', () => {
+  for (const limite of [1, 7, 20, 50, 5000]) {
+    const q = montarSQL('listar_leads', { ...P, limite }, ESCOPO)
+    const m = q.text.match(/\bLIMIT\s+(\d+)/)
+    assert.equal(Number(m![1]), q.limite)
+  }
+})
+
 test('tool sem SQL levanta erro', () => {
   assert.throws(() => montarSQL('apagar_tudo', { ...P }, ESCOPO), /tool/)
 })

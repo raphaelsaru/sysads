@@ -10,38 +10,47 @@
 //  3. `origem`, `categoria`, `resultado`, `de`, `ate` e os booleanos são VALORES
 //     — vão sempre em $n. `origem`/`categoria` são texto livre vindo do webhook
 //     do WhatsApp; interpolar significaria injeção direta.
-//  4. Métrica de lead conta pela janela `data_contato`; métrica de venda/receita
+//  4. Métrica de contato conta pela janela `data_contato`; métrica de venda/receita
 //     conta por `data_mes_venda` (coluna gerada), igual ao dashboard. Misturar as
 //     duas faz o assistente discordar da tela que o usuário está olhando.
 
 export interface Query {
   text: string
   values: unknown[]
+  /**
+   * Qual coluna de data delimitou o período — 'ambas' quando o pedido mistura
+   * métricas de contato e de venda. Vai junto do resultado até o modelo: sem
+   * isso ele narra "leads contatados em julho" para uma janela de
+   * data_mes_venda, e não há prompt que conserte o que ele não vê.
+   */
+  janela: 'contato' | 'venda' | 'ambas'
+  /** Teto de linhas aplicado, ou null quando a query não tem como truncar. */
+  limite: number | null
 }
 
 // Mapa fechado: agrupamento -> expressão SQL. Nada vem de string do LLM.
-const BUCKETS: Record<string, { lead: string; venda: string }> = {
-  mes: { lead: `date_trunc('month', data_contato)`, venda: `date_trunc('month', data_mes_venda)` },
+const BUCKETS: Record<string, { contato: string; venda: string }> = {
+  mes: { contato: `date_trunc('month', data_contato)`, venda: `date_trunc('month', data_mes_venda)` },
   trimestre: {
-    lead: `date_trunc('quarter', data_contato)`,
+    contato: `date_trunc('quarter', data_contato)`,
     venda: `date_trunc('quarter', data_mes_venda)`,
   },
-  ano: { lead: `date_trunc('year', data_contato)`, venda: `date_trunc('year', data_mes_venda)` },
-  origem: { lead: `origem::text`, venda: `origem::text` },
-  categoria: { lead: `coalesce(categoria, '—')`, venda: `coalesce(categoria, '—')` },
+  ano: { contato: `date_trunc('year', data_contato)`, venda: `date_trunc('year', data_mes_venda)` },
+  origem: { contato: `origem::text`, venda: `origem::text` },
+  categoria: { contato: `coalesce(categoria, '—')`, venda: `coalesce(categoria, '—')` },
   qualidade: {
-    lead: `coalesce(qualidade_contato, '—')`,
+    contato: `coalesce(qualidade_contato, '—')`,
     venda: `coalesce(qualidade_contato, '—')`,
   },
 }
 
-type Janela = 'lead' | 'venda'
+type Janela = 'contato' | 'venda'
 
 // Cada métrica-base declara sobre qual janela de data ela conta.
 const EXPR: Record<string, { sql: string; janela: Janela }> = {
-  leads: { janela: 'lead', sql: `count(*)` },
-  nao_respondeu: { janela: 'lead', sql: `count(*) FILTER (WHERE nao_respondeu)` },
-  orcamentos_enviados: { janela: 'lead', sql: `count(*) FILTER (WHERE orcamento_enviado)` },
+  leads: { janela: 'contato', sql: `count(*)` },
+  nao_respondeu: { janela: 'contato', sql: `count(*) FILTER (WHERE nao_respondeu)` },
+  orcamentos_enviados: { janela: 'contato', sql: `count(*) FILTER (WHERE orcamento_enviado)` },
   vendas: { janela: 'venda', sql: `count(*) FILTER (WHERE resultado = 'Venda')` },
   faturamento: {
     janela: 'venda',
@@ -129,26 +138,35 @@ function inteiroClampado(bruto: unknown, padrao: number, max: number): number {
   return Math.min(Math.max(1, Math.trunc(n)), max)
 }
 
+// Janela de contar_leads/listar_leads: por padrão contato (data_contato).
+// Quando o pedido é claramente sobre vendas, usa data_mes_venda para bater com
+// o dashboard. Mesma regra nas duas tools: "quantas vendas em julho" e "liste as
+// vendas de julho" precisam concordar entre si e com agregar_metricas.
+function janelaDoPedido(args: Record<string, any>): Janela {
+  if (args.resultado === 'Venda') return 'venda'
+  if (args.venda_paga === true) return 'venda'
+  if (args.ordenar_por === 'data_mes_venda') return 'venda'
+  return 'contato'
+}
+
+function colunaDaJanela(janela: Janela): string {
+  return janela === 'venda' ? 'data_mes_venda' : 'data_contato'
+}
+
 function montarContarLeads(args: Record<string, any>, escopo: string): Query {
+  const janela = janelaDoPedido(args)
   const p = new Params(escopo)
   const where = [
     'user_id = $1',
-    `data_contato BETWEEN ${p.add(args.de)}::date AND ${p.add(args.ate)}::date`,
+    `${colunaDaJanela(janela)} BETWEEN ${p.add(args.de)}::date AND ${p.add(args.ate)}::date`,
     ...condicoesFiltro(args, p),
   ]
   return {
     text: `SELECT count(*)::int AS total FROM clientes WHERE ${where.join(' AND ')}`,
     values: p.values,
+    janela,
+    limite: null, // sempre 1 linha
   }
-}
-
-// Janela do listar_leads: por padrão é lead (data_contato). Quando o pedido é
-// claramente sobre vendas, usa data_mes_venda para bater com o dashboard.
-function janelaDaLista(args: Record<string, any>): Janela {
-  if (args.resultado === 'Venda') return 'venda'
-  if (args.venda_paga === true) return 'venda'
-  if (args.ordenar_por === 'data_mes_venda') return 'venda'
-  return 'lead'
 }
 
 function montarListarLeads(args: Record<string, any>, escopo: string): Query {
@@ -158,19 +176,19 @@ function montarListarLeads(args: Record<string, any>, escopo: string): Query {
   if (!ORDENS.has(ordem)) throw new Error(`ordem não permitida: ${ordem}`)
   const limite = inteiroClampado(args.limite, 20, LIMITE_LISTA)
 
-  const coluna = janelaDaLista(args) === 'venda' ? 'data_mes_venda' : 'data_contato'
+  const janela = janelaDoPedido(args)
 
   const p = new Params(escopo)
   const where = [
     'user_id = $1',
-    `${coluna} BETWEEN ${p.add(args.de)}::date AND ${p.add(args.ate)}::date`,
+    `${colunaDaJanela(janela)} BETWEEN ${p.add(args.de)}::date AND ${p.add(args.ate)}::date`,
     ...condicoesFiltro(args, p),
   ]
 
   const text =
     `SELECT ${COLUNAS_LEAD} FROM clientes WHERE ${where.join(' AND ')} ` +
     `ORDER BY ${ordenarPor} ${ordem} NULLS LAST LIMIT ${limite}`
-  return { text, values: p.values }
+  return { text, values: p.values, janela, limite }
 }
 
 function montarAgregar(args: Record<string, any>, escopo: string): Query {
@@ -182,7 +200,7 @@ function montarAgregar(args: Record<string, any>, escopo: string): Query {
   const bucket = agrupar === 'nenhum' ? null : BUCKETS[agrupar]!
 
   // Bases realmente necessárias, incluindo as que só existem para as derivadas.
-  const bases: Record<Janela, string[]> = { lead: [], venda: [] }
+  const bases: Record<Janela, string[]> = { contato: [], venda: [] }
   const addBase = (m: string) => {
     const e = EXPR[m]
     if (!e) throw new Error(`métrica desconhecida: ${m}`)
@@ -209,14 +227,14 @@ function montarAgregar(args: Record<string, any>, escopo: string): Query {
   }
 
   const ctes: string[] = []
-  const usaLead = bases.lead.length > 0
+  const usaContato = bases.contato.length > 0
   const usaVenda = bases.venda.length > 0
-  if (usaLead) ctes.push(cte('lead', 'l', 'data_contato'))
+  if (usaContato) ctes.push(cte('contato', 'l', 'data_contato'))
   if (usaVenda) ctes.push(cte('venda', 'v', 'data_mes_venda'))
 
   const saidas: string[] = []
   if (bucket) {
-    saidas.push(usaLead && usaVenda ? 'coalesce(l.grupo, v.grupo) AS grupo' : `${usaLead ? 'l' : 'v'}.grupo AS grupo`)
+    saidas.push(usaContato && usaVenda ? 'coalesce(l.grupo, v.grupo) AS grupo' : `${usaContato ? 'l' : 'v'}.grupo AS grupo`)
   }
   for (const m of pedidas) {
     const d = DERIVADAS[m]
@@ -224,22 +242,28 @@ function montarAgregar(args: Record<string, any>, escopo: string): Query {
       saidas.push(`${d.sql} AS ${m}`)
       continue
     }
-    const alias = EXPR[m]!.janela === 'lead' ? 'l' : 'v'
+    const alias = EXPR[m]!.janela === 'contato' ? 'l' : 'v'
     saidas.push(`coalesce(${alias}.${m}, 0) AS ${m}`)
   }
 
   let from: string
-  if (usaLead && usaVenda) {
+  if (usaContato && usaVenda) {
     // FULL OUTER exige condição hash/merge-joinable: `=`, não IS NOT DISTINCT FROM.
     from = bucket ? 'l FULL OUTER JOIN v ON l.grupo = v.grupo' : 'l CROSS JOIN v'
   } else {
-    from = usaLead ? 'l' : 'v'
+    from = usaContato ? 'l' : 'v'
   }
 
   const text =
     `WITH ${ctes.join(', ')} SELECT ${saidas.join(', ')} FROM ${from}` +
     (bucket ? ` ORDER BY 1 LIMIT ${LIMITE_GRUPOS}` : '')
-  return { text, values: p.values }
+  return {
+    text,
+    values: p.values,
+    janela: usaContato && usaVenda ? 'ambas' : usaContato ? 'contato' : 'venda',
+    // Sem agrupamento sai exatamente 1 linha: não há o que truncar.
+    limite: bucket ? LIMITE_GRUPOS : null,
+  }
 }
 
 /**
