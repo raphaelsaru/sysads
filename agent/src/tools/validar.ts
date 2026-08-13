@@ -44,17 +44,45 @@ function validarPeriodo(a: Record<string, any>): string | null {
   return null
 }
 
-function extrairFiltros(a: Record<string, any>): Record<string, any> {
+// Ausente = undefined ou null (o modelo emite null para "não definido").
+function ausente(v: unknown): boolean {
+  return v === undefined || v === null
+}
+
+type Filtros =
+  | { ok: true; filtros: Record<string, any> }
+  | { ok: false; motivo: string }
+
+// Filtro presente e inválido é ERRO, não descarte: descartar alargaria o
+// conjunto de resultados e o LLM narraria o número como se estivesse
+// filtrado — errado com confiança. Rejeitar deixa o modelo se corrigir.
+function extrairFiltros(a: Record<string, any>): Filtros {
   const out: Record<string, any> = {}
-  if (typeof a.resultado === 'string' && (RESULTADOS as readonly string[]).includes(a.resultado)) {
+
+  if (!ausente(a.resultado)) {
+    if (typeof a.resultado !== 'string' || !(RESULTADOS as readonly string[]).includes(a.resultado)) {
+      return { ok: false, motivo: `resultado desconhecido: ${String(a.resultado)}` }
+    }
     out.resultado = a.resultado
   }
+
   // origem/categoria são valores, não identificadores — vão parametrizados.
-  if (typeof a.origem === 'string' && a.origem.length <= MAX_TEXTO) out.origem = a.origem
-  if (typeof a.categoria === 'string' && a.categoria.length <= MAX_TEXTO) out.categoria = a.categoria
-  if (typeof a.venda_paga === 'boolean') out.venda_paga = a.venda_paga
-  if (typeof a.nao_respondeu === 'boolean') out.nao_respondeu = a.nao_respondeu
-  return out
+  for (const campo of ['origem', 'categoria'] as const) {
+    const v = a[campo]
+    if (ausente(v)) continue
+    if (typeof v !== 'string') return { ok: false, motivo: `${campo} deve ser texto` }
+    if (v.length > MAX_TEXTO) return { ok: false, motivo: `${campo} longo demais` }
+    out[campo] = v
+  }
+
+  for (const campo of ['venda_paga', 'nao_respondeu'] as const) {
+    const v = a[campo]
+    if (ausente(v)) continue
+    if (typeof v !== 'boolean') return { ok: false, motivo: `${campo} deve ser booleano` }
+    out[campo] = v
+  }
+
+  return { ok: true, filtros: out }
 }
 
 export function validarArgs(tool: string, bruto: unknown): Validacao {
@@ -92,10 +120,15 @@ export function validarArgs(tool: string, bruto: unknown): Validacao {
       return { ok: true, args: { ...base, metricas, agrupar_por: agrupar } }
     }
 
-    case 'contar_leads':
-      return { ok: true, args: { ...base, ...extrairFiltros(a) } }
+    case 'contar_leads': {
+      const f = extrairFiltros(a)
+      if (!f.ok) return f
+      return { ok: true, args: { ...base, ...f.filtros } }
+    }
 
     case 'listar_leads': {
+      const f = extrairFiltros(a)
+      if (!f.ok) return f
       const ordenarPor = a.ordenar_por ?? 'data_contato'
       if (typeof ordenarPor !== 'string' || !ORDENAVEIS.has(ordenarPor)) {
         return { ok: false, motivo: 'ordenação não permitida' }
@@ -105,7 +138,7 @@ export function validarArgs(tool: string, bruto: unknown): Validacao {
       const limite = Number.isFinite(bruta) ? Math.min(Math.max(1, Math.trunc(bruta)), 50) : 20
       return {
         ok: true,
-        args: { ...base, ...extrairFiltros(a), ordenar_por: ordenarPor, ordem, limite },
+        args: { ...base, ...f.filtros, ordenar_por: ordenarPor, ordem, limite },
       }
     }
   }

@@ -244,31 +244,78 @@ test('filtros válidos são copiados', () => {
   })
 })
 
-test('filtros de tipo errado são descartados, não aceitos', () => {
-  const r = validarArgs('contar_leads', {
-    ...P,
-    venda_paga: 'sim',
-    nao_respondeu: 1,
-    origem: { $ne: null },
-    categoria: ['Victor'],
-  })
-  assert.equal(r.ok, true)
-  if (!r.ok) return
-  for (const k of ['venda_paga', 'nao_respondeu', 'origem', 'categoria']) {
-    assert.equal(Object.hasOwn(r.args, k), false, `${k} não deveria estar em args`)
+test('filtros de tipo errado são rejeitados, não descartados', () => {
+  // Descartar aumentaria o conjunto de resultados e o LLM narraria o número
+  // como se estivesse filtrado — errado com confiança. Melhor falhar.
+  const casos: Array<Record<string, unknown>> = [
+    { venda_paga: 'sim' },
+    { venda_paga: 1 },
+    { venda_paga: 'true' },
+    { nao_respondeu: 1 },
+    { nao_respondeu: 'nao' },
+    { origem: { $ne: null } },
+    { origem: 42 },
+    { categoria: ['Victor'] },
+    { categoria: true },
+  ]
+  for (const filtro of casos) {
+    const r = validarArgs('contar_leads', { ...P, ...filtro })
+    assert.equal(r.ok, false, `deveria rejeitar ${JSON.stringify(filtro)}`)
   }
 })
 
-test('resultado fora da allowlist é descartado', () => {
-  const r = validarArgs('contar_leads', { ...P, resultado: "Venda' OR 1=1--" })
-  assert.equal(r.ok, true)
-  assert.equal(r.ok === true && Object.hasOwn(r.args, 'resultado'), false)
+test('filtro inválido também é rejeitado em listar_leads', () => {
+  const r = validarArgs('listar_leads', { ...P, venda_paga: 'sim' })
+  assert.equal(r.ok, false)
 })
 
-test('origem gigante é descartada', () => {
-  const r = validarArgs('contar_leads', { ...P, origem: 'x'.repeat(61) })
+test('resultado fora da allowlist é rejeitado', () => {
+  const r = validarArgs('contar_leads', { ...P, resultado: "Venda' OR 1=1--" })
+  assert.equal(r.ok, false)
+  assert.match(r.ok === false ? r.motivo : '', /resultado/i)
+  // Enums parecidos mas errados (alucinação típica) também caem.
+  for (const resultado of ['venda', 'Vendas', 'Venda ', '', 1, {}]) {
+    assert.equal(
+      validarArgs('contar_leads', { ...P, resultado }).ok,
+      false,
+      `deveria rejeitar ${JSON.stringify(resultado)}`,
+    )
+  }
+})
+
+test('filtros ausentes ou null continuam passando', () => {
+  const r = validarArgs('contar_leads', { ...P })
   assert.equal(r.ok, true)
-  assert.equal(r.ok === true && Object.hasOwn(r.args, 'origem'), false)
+  assert.deepEqual(r.ok === true && Object.keys(r.args).sort(), ['ate', 'de'])
+
+  // O LLM emite null para "não definido"; isso é ausência, não valor inválido.
+  const r2 = validarArgs('contar_leads', {
+    ...P,
+    resultado: null,
+    origem: null,
+    categoria: null,
+    venda_paga: null,
+    nao_respondeu: null,
+  })
+  assert.equal(r2.ok, true)
+  assert.deepEqual(r2.ok === true && Object.keys(r2.args).sort(), ['ate', 'de'])
+
+  const r3 = validarArgs('contar_leads', { ...P, resultado: undefined, venda_paga: undefined })
+  assert.equal(r3.ok, true)
+  assert.deepEqual(r3.ok === true && Object.keys(r3.args).sort(), ['ate', 'de'])
+})
+
+test('venda_paga false é filtro de verdade, não ausência', () => {
+  const r = validarArgs('contar_leads', { ...P, venda_paga: false })
+  assert.equal(r.ok, true)
+  assert.equal(r.ok === true && r.args.venda_paga, false)
+})
+
+test('origem gigante é rejeitada', () => {
+  const r = validarArgs('contar_leads', { ...P, origem: 'x'.repeat(61) })
+  assert.equal(r.ok, false)
+  const rc = validarArgs('contar_leads', { ...P, categoria: 'x'.repeat(61) })
+  assert.equal(rc.ok, false)
   // 60 caracteres ainda passam.
   const r2 = validarArgs('contar_leads', { ...P, origem: 'x'.repeat(60) })
   assert.equal(r2.ok === true && r2.args.origem, 'x'.repeat(60))
