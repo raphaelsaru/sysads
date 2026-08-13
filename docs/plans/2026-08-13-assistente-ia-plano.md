@@ -51,6 +51,8 @@ Três consequências que a implementação precisa respeitar:
 
 **Testes.** O app Next **não tem** framework de teste, e este plano **não** vai introduzir um. Todo teste automatizado vive em `agent/`, usando o test runner nativo do Node 22 (`node --test`) — zero dependência nova. O front é verificado manualmente, com passos exatos descritos.
 
+**Convenção de imports.** Dentro de `agent/src/`, imports relativos usam extensão **`.js`**, não `.ts` — é o exigido por `module: NodeNext`. Com `.ts` o `tsc` falha com TS5097, e não dá pra ligar `allowImportingTsExtensions` porque o build emite. O `tsx` resolve `./x.js` para `x.ts` em dev, e no build o arquivo emitido é `dist/x.js` de verdade. Nos arquivos de `agent/test/`, `.ts` funciona (rodam só sob `tsx` e não entram no `typecheck`, que inclui apenas `src/**/*`).
+
 **Convenção de commits:** mensagens em português, curtas, no imperativo. Termine cada uma com:
 ```
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
@@ -712,7 +714,7 @@ Princípio: **allowlist, nunca blocklist.** Campo que não está na lista é des
 
 ```ts
 // agent/src/tools/validar.ts
-import { METRICAS, AGRUPAMENTOS, RESULTADOS } from './schema.ts'
+import { METRICAS, AGRUPAMENTOS, RESULTADOS } from './schema.js'
 
 export type Validacao =
   | { ok: true; args: Record<string, any> }
@@ -1167,9 +1169,9 @@ export async function consultarComoUsuario<T = any>(
 
 ```ts
 // agent/src/tools/executor.ts
-import { consultarComoUsuario } from '../db.ts'
-import { validarArgs } from './validar.ts'
-import { montarSQL } from './sql.ts'
+import { consultarComoUsuario } from '../db.js'
+import { validarArgs } from './validar.js'
+import { montarSQL } from './sql.js'
 
 export interface ResultadoTool {
   ok: boolean
@@ -1522,9 +1524,9 @@ test('loop de tools tem teto', async () => {
 
 ```ts
 // agent/src/llm.ts
-import { TOOLS } from './tools/schema.ts'
-import { systemPrompt } from './prompt.ts'
-import type { ResultadoTool } from './tools/executor.ts'
+import { TOOLS } from './tools/schema.js'
+import { systemPrompt } from './prompt.js'
+import type { ResultadoTool } from './tools/executor.js'
 
 const MAX_VOLTAS = 6
 
@@ -1699,7 +1701,7 @@ Sem isso o RLS esconde o perfil do alvo e a impersonação de admin falha com "u
 
 ```ts
 // agent/src/audit.ts
-import { pool } from './db.ts'
+import { pool } from './db.js'
 
 export async function registrar(e: {
   requesterId: string
@@ -1738,12 +1740,12 @@ export async function registrar(e: {
 // agent/src/server.ts
 import Fastify from 'fastify'
 import rateLimit from '@fastify/rate-limit'
-import { resolveScope } from './auth.ts'
-import { verificarToken, carregarPerfil } from './supabase.ts'
-import { checarEntrada } from './guard.ts'
-import { responder } from './llm.ts'
-import { executarTool } from './tools/executor.ts'
-import { registrar } from './audit.ts'
+import { resolveScope } from './auth.js'
+import { verificarToken, carregarPerfil } from './supabase.js'
+import { checarEntrada } from './guard.js'
+import { responder } from './llm.js'
+import { executarTool } from './tools/executor.js'
+import { registrar } from './audit.js'
 
 const app = Fastify({ logger: true, bodyLimit: 32 * 1024 })
 
@@ -2053,12 +2055,14 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 14: Toggle em /settings/users
 
 **Files:**
-- Modify: `src/app/api/admin/users/[id]/route.ts`
+- Create: `src/app/api/admin/users/[id]/route.ts`
 - Modify: `src/app/settings/users/page.tsx`
 
-**Step 1: Ler os arquivos antes de mexer**
+**Step 1: Ler antes de mexer**
 
-Leia os dois inteiros. O `PATCH` já existe e atualiza `user_profiles` — estenda, não reescreva.
+Atenção: `src/app/api/admin/users/[id]/route.ts` **não existe** — só existe `[id]/clientes/`. Não há `PATCH` pra estender; a rota precisa ser criada do zero. Leia `src/app/api/admin/users/route.ts` primeiro e siga o padrão dele (checagem de admin no servidor, `createClient` do `@/lib/supabase-server` para escritas em `user_profiles`, `createAdminClient` só para operações de `auth.admin`).
+
+A rota **precisa** validar `role === 'admin'` no servidor antes de escrever. O trigger `proteger_campos_privilegiados` (migration `20260813130000`) bloqueia no banco se ela esquecer, mas a rota não deve depender disso pra falhar bonito.
 
 **Step 2: Aceitar o campo no PATCH**
 
