@@ -8,6 +8,8 @@ const ESCOPO: EscopoLLM = {
   scopeUserId: 'user-dono',
   currency: 'BRL',
   impersonando: false,
+  role: 'user',
+  timezone: 'America/Sao_Paulo',
 }
 
 interface ChamadaFake {
@@ -138,8 +140,18 @@ test('tool é executada e o resultado chega ao modelo', async () => {
   // O aviso de que conteúdo de banco é dado, não instrução.
   assert.match(JSON.stringify(conteudo), /instru/i)
 
+  // `dados` sobe junto: é o que alimenta o rodapé de proveniência da UI.
   assert.deepEqual(r.toolsChamadas, [
-    { tool: 'contar_leads', args: { de: '2026-07-01', ate: '2026-07-31' }, linhas: 1 },
+    {
+      tool: 'contar_leads',
+      args: { de: '2026-07-01', ate: '2026-07-31' },
+      linhas: 1,
+      ok: true,
+      janela: 'contato',
+      truncado: false,
+      dados: [{ total: 42 }],
+      erro: undefined,
+    },
   ])
 })
 
@@ -309,7 +321,7 @@ test('corpo enviado tem tools, temperature 0 e system prompt', async () => {
 // ---------------------------------------------------------------- prompt
 
 test('systemPrompt cobre janelas, janela/truncado e formatação', () => {
-  const p = systemPrompt({ currency: 'BRL', hoje: '2026-08-13', impersonando: false })
+  const p = systemPrompt({ currency: 'BRL', hoje: '2026-08-13', impersonando: false, role: 'user' })
   assert.match(p, /data_contato/)
   assert.match(p, /data_mes_venda/)
   assert.match(p, /truncado/)
@@ -320,11 +332,35 @@ test('systemPrompt cobre janelas, janela/truncado e formatação', () => {
 })
 
 test('systemPrompt marca sessão de impersonação e traduz a moeda', () => {
-  const p = systemPrompt({ currency: 'USD', hoje: '2026-08-13', impersonando: true })
+  const p = systemPrompt({ currency: 'USD', hoje: '2026-08-13', impersonando: true, role: 'admin' })
   assert.match(p, /US\$/)
   assert.match(p, /admin/i)
-  const e = systemPrompt({ currency: 'EUR', hoje: '2026-08-13', impersonando: false })
+  const e = systemPrompt({ currency: 'EUR', hoje: '2026-08-13', impersonando: false, role: 'user' })
   assert.match(e, /€/)
-  const x = systemPrompt({ currency: 'XPTO', hoje: '2026-08-13', impersonando: false })
+  const x = systemPrompt({ currency: 'XPTO', hoje: '2026-08-13', impersonando: false, role: 'user' })
   assert.match(x, /XPTO/)
+})
+
+test('systemPrompt aponta o seletor do painel para admin sem impersonar', () => {
+  const admin = systemPrompt({ currency: 'BRL', hoje: '2026-08-13', impersonando: false, role: 'admin' })
+  assert.match(admin, /seletor/i)
+  const comum = systemPrompt({ currency: 'BRL', hoje: '2026-08-13', impersonando: false, role: 'user' })
+  assert.ok(!/seletor/i.test(comum), 'usuário comum não deve receber instrução de admin')
+  // Impersonando já está no escopo certo: não faz sentido mandar trocar de usuário.
+  const imp = systemPrompt({ currency: 'BRL', hoje: '2026-08-13', impersonando: true, role: 'admin' })
+  assert.ok(!/seletor/i.test(imp))
+})
+
+test('hoje do prompt sai na zona do escopo, não em UTC', async () => {
+  const llm = filaLLM([respostaTexto('Só falo dos seus dados do CRM.')])
+  const ex = executorFake()
+  await responder('oi', { ...ESCOPO, timezone: 'Asia/Tokyo' }, deps(llm.chamar, ex.executar))
+  const sys = (llm.corpos[0] as any).messages[0].content as string
+  const esperado = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+  assert.ok(sys.includes(esperado), `esperava ${esperado} no prompt`)
 })

@@ -14,10 +14,12 @@
 
 import { TOOLS } from './tools/schema.js'
 import { systemPrompt } from './prompt.js'
+import { hojeNaZona } from './tempo.js'
 import type { ResultadoTool } from './tools/executor.js'
 
 const MAX_VOLTAS = 6
-const MODELO = 'deepseek/deepseek-chat'
+// Modelo configurável por env; o padrão é o que está em produção.
+const MODELO = process.env.OPENROUTER_MODEL || 'deepseek/deepseek-chat'
 
 // Mesmo tom das recusas do guard.ts: curta, honesta, sem número.
 const DESISTENCIA = 'Não consegui completar essa consulta agora. Pode tentar de novo?'
@@ -36,6 +38,10 @@ export interface EscopoLLM {
   scopeUserId: string
   currency: string
   impersonando: boolean
+  /** Papel de QUEM PERGUNTA (não do escopo). Só muda o texto do prompt. */
+  role: string
+  /** Zona IANA reportada pelo cliente; inválida ou ausente cai no padrão. */
+  timezone?: string
 }
 
 export interface LLMDeps {
@@ -43,9 +49,27 @@ export interface LLMDeps {
   executarTool: (tool: string, args: unknown, scopeUserId: string) => Promise<ResultadoTool>
 }
 
+/**
+ * O que cada tool devolveu. `dados` sobe até a resposta HTTP de propósito: o
+ * rodapé de proveniência da UI mostra os números REAIS que a consulta trouxe,
+ * então uma divergência entre o texto do modelo e o dado fica visível para o
+ * usuário. É a contrapartida honesta de a trava antialucinação ser rasa.
+ * Não vai para a auditoria — lá só o formato da chamada interessa.
+ */
+export interface ChamadaTool {
+  tool: string
+  args: unknown
+  linhas: number
+  ok: boolean
+  janela?: 'contato' | 'venda' | 'ambas'
+  truncado?: boolean
+  dados?: unknown[]
+  erro?: string
+}
+
 export interface Resposta {
   texto: string
-  toolsChamadas: Array<{ tool: string; args: unknown; linhas: number }>
+  toolsChamadas: ChamadaTool[]
   tokensIn: number
   tokensOut: number
 }
@@ -97,7 +121,8 @@ export async function responder(
   escopo: EscopoLLM,
   deps: LLMDeps,
 ): Promise<Resposta> {
-  const hoje = new Date().toISOString().slice(0, 10)
+  // Nunca UTC: às 21h em São Paulo o UTC já é amanhã, e "hoje" viraria amanhã.
+  const hoje = hojeNaZona(escopo.timezone)
 
   const mensagens: Mensagem[] = [
     {
@@ -106,6 +131,7 @@ export async function responder(
         currency: escopo.currency,
         hoje,
         impersonando: escopo.impersonando,
+        role: escopo.role,
       }),
     },
     { role: 'user', content: pergunta },
@@ -151,7 +177,16 @@ export async function responder(
           console.error(`[llm] executor estourou em ${c.nome}:`, e)
           resultado = { ok: false, tool: c.nome, erro: 'falha ao consultar os dados' }
         }
-        toolsChamadas.push({ tool: c.nome, args: c.args, linhas: resultado.linhas ?? 0 })
+        toolsChamadas.push({
+          tool: c.nome,
+          args: c.args,
+          linhas: resultado.linhas ?? 0,
+          ok: resultado.ok,
+          janela: resultado.janela,
+          truncado: resultado.truncado,
+          dados: resultado.dados,
+          erro: resultado.erro,
+        })
         mensagens.push({
           role: 'tool',
           tool_call_id: c.id,

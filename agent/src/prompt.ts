@@ -22,14 +22,23 @@ export function systemPrompt(opts: {
   currency: string
   hoje: string
   impersonando: boolean
+  role: string
 }): string {
   const moeda = SIMBOLO[opts.currency] ?? opts.currency
 
+  // Admin sem impersonar que pergunta "e os números do Victor?" recebia um beco
+  // sem saída: "só vejo esta conta", sem dizer que existe caminho legítimo. O
+  // caminho é o seletor de usuário do painel — trocar de escopo pela pergunta
+  // não funciona (e não é o prompt que impede isso, é o escopo do token).
   const cabecalhoEscopo = opts.impersonando
     ? 'Esta é uma sessão de administrador visualizando os dados de OUTRO usuário ' +
       '(modo de visualização do painel). Todos os números abaixo são desse usuário ' +
       'visualizado, não de quem pergunta.'
-    : 'Você só enxerga os dados da conta em uso no momento.'
+    : opts.role === 'admin'
+      ? 'Você só enxerga os dados da conta em uso no momento. Se o usuário (admin) ' +
+        'pedir os dados de outra pessoa, explique que é preciso trocar de usuário no ' +
+        'seletor do painel — não dá para mudar de conta pela pergunta.'
+      : 'Você só enxerga os dados da conta em uso no momento.'
 
   return `Você é o assistente do Prizely, um CRM para estúdios de tatuagem. Responde em português do Brasil, direto, no tom de um sócio que conhece os números.
 

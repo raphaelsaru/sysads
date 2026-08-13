@@ -2,7 +2,16 @@
 // Nenhuma ferramenta do agente aceita user_id; tudo vem do scopeUserId daqui.
 
 export type Escopo =
-  | { ok: true; requesterId: string; scopeUserId: string; impersonando: boolean; currency: string }
+  | {
+      ok: true
+      requesterId: string
+      scopeUserId: string
+      impersonando: boolean
+      currency: string
+      /** Papel de QUEM PEDIU. Só o prompt usa: admin sem impersonar recebe a
+       *  instrução de trocar de usuário no seletor em vez de um beco sem saída. */
+      role: string
+    }
   | { ok: false; status: 401 | 403; motivo: string }
 
 export interface Perfil {
@@ -47,6 +56,7 @@ export async function resolveScope(pedido: PedidoEscopo, deps: AuthDeps): Promis
       scopeUserId: usuario.id,
       impersonando: false,
       currency: moedaDe(requester),
+      role: requester.role,
     }
   }
 
@@ -65,5 +75,6 @@ export async function resolveScope(pedido: PedidoEscopo, deps: AuthDeps): Promis
     scopeUserId: pedido.impersonateUserId,
     impersonando: true,
     currency: moedaDe(alvo), // moeda do ESCOPO, não do admin
+    role: requester.role,
   }
 }

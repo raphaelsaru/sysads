@@ -214,3 +214,15 @@ test('alvo sem a flag ainda pode ser impersonado pelo admin', async () => {
   assert.equal(r.ok, true)
   assert.equal(r.ok === true && r.scopeUserId, 'user-off')
 })
+
+test('escopo carrega o papel de quem pediu, não o do alvo', async () => {
+  const r = await resolveScope({ token: 'valido:user-1' }, deps)
+  assert.equal(r.ok && r.role, 'user')
+
+  const i = await resolveScope(
+    { token: 'valido:admin-1', impersonateUserId: 'user-1' },
+    deps,
+  )
+  assert.equal(i.ok && i.impersonando, true)
+  assert.equal(i.ok && i.role, 'admin')
+})
