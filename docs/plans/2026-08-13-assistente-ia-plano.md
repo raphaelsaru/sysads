@@ -26,6 +26,25 @@
 
 2. **`nome` e `observacao` são texto livre vindo de fora** (webhook do WAHA). São vetor de prompt injection. Nunca trate conteúdo dessas colunas como instrução.
 
+**RLS e o role read-only — leia isto antes da Fase 2.** Descoberto ao executar a Task 1: as policies de `clientes` e `user_profiles` são `(user_id = auth.uid()) OR is_admin()`, concedidas ao role `public` — ou seja, **valem também pro `prizely_agent_ro`**. Numa conexão Postgres direta não existe JWT, `auth.uid()` é `NULL`, e o role lê **zero linhas**.
+
+A solução não exige mudança de schema: o serviço declara as claims por transação.
+
+```sql
+BEGIN;
+SET LOCAL request.jwt.claims = '{"sub":"<scopeUserId>","role":"authenticated"}';
+-- query aqui
+COMMIT;
+```
+
+Verificado empiricamente conectando como o role: com `sub` de um usuário, retorna exatamente as linhas dele (1253 e 831 para dois usuários distintos); `UPDATE` dentro da mesma transação continua dando `permission denied`. RLS vira uma **segunda** camada de escopo, embaixo da proibição de escrita.
+
+Três consequências que a implementação precisa respeitar:
+
+1. **`SET LOCAL` exige transação explícita.** Toda query passa por `BEGIN…COMMIT`.
+2. **Porta 5432 (session pooler), não 6543.** No transaction pooler o estado de sessão não é confiável. A `DATABASE_URL` correta usa `aws-1-sa-east-1.pooler.supabase.com:5432` — o host direto `db.*.supabase.co` é IPv6-only e o `aws-0-` é o pooler errado.
+3. **Pra admin, o RLS é no-op** (`is_admin()` é true, enxerga tudo). Isso **não** afrouxa o design: quem restringe é o `WHERE user_id = $1` explícito, obrigatório em todo SQL e coberto por teste na Task 7. O RLS é defesa em profundidade, não a defesa principal.
+
 **Moeda por usuário:** `user_profiles.preferences.currency`, fallback `auth.users.raw_user_meta_data.currency`, default `BRL`. Hoje `USD`: Charbelle, Victor Reis, actattoocorp, Ju tattoo.
 
 **Feature flag:** `user_profiles.preferences.assistant_enabled` (boolean). Ausente = desligado. Ninguém está ligado ainda — é intencional.
@@ -244,7 +263,7 @@ OPENROUTER_API_KEY=
 OPENROUTER_MODEL=deepseek/deepseek-chat
 SUPABASE_URL=https://bjtjyzdbewxoypjaphqs.supabase.co
 SUPABASE_ANON_KEY=
-DATABASE_URL=postgresql://prizely_agent_ro:SENHA@db.bjtjyzdbewxoypjaphqs.supabase.co:5432/postgres
+DATABASE_URL=postgresql://prizely_agent_ro.bjtjyzdbewxoypjaphqs:SENHA@aws-1-sa-east-1.pooler.supabase.com:5432/postgres
 PRIZELY_SHARED_SECRET=
 PORT=3030
 ```
@@ -1023,49 +1042,64 @@ Expected: PASS.
 
 Agora rode uma vez de verdade, porque SQL só se prova executando. Crie `agent/test/integracao.test.ts`:
 
+Este teste depende do helper `consultarComoUsuario` da Task 8. Se estiver executando na ordem, crie `agent/src/db.ts` agora (o código está na Task 8) — ele é pré-requisito, não trabalho extra.
+
 ```ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import pg from 'pg'
 import { montarSQL } from '../src/tools/sql.ts'
+import { consultarComoUsuario, pool } from '../src/db.ts'
 
 const url = process.env.DATABASE_URL
+const VICTOR   = '21662ef5-cba6-403f-a5d0-7ce66e35aee8'
+const CHARBELLE = '193aed03-650f-43ed-82e7-3be20113d6e0'
+
 // Pula quando não há credencial (ex.: CI). Não falha o suite.
 test('agregar_metricas executa no Postgres', { skip: !url }, async () => {
-  const client = new pg.Client({ connectionString: url })
-  await client.connect()
-  try {
-    const q = montarSQL('agregar_metricas', {
-      de: '2026-01-01', ate: '2026-12-31',
-      metricas: ['leads', 'vendas', 'faturamento', 'ticket_medio', 'taxa_conversao'],
-      agrupar_por: 'mes',
-    }, '21662ef5-cba6-403f-a5d0-7ce66e35aee8') // Victor Reis
-    const r = await client.query(q.text, q.values)
-    assert.ok(Array.isArray(r.rows))
-  } finally {
-    await client.end()
-  }
+  const q = montarSQL('agregar_metricas', {
+    de: '2026-01-01', ate: '2026-12-31',
+    metricas: ['leads', 'vendas', 'faturamento', 'ticket_medio', 'taxa_conversao'],
+    agrupar_por: 'mes',
+  }, VICTOR)
+  const r = await consultarComoUsuario(VICTOR, q.text, q.values)
+  assert.ok(Array.isArray(r.rows))
 })
 
 test('escopo diferente devolve dados diferentes', { skip: !url }, async () => {
-  const client = new pg.Client({ connectionString: url })
-  await client.connect()
-  try {
-    const fazer = async (uid: string) => {
-      const q = montarSQL('contar_leads', { de: '2020-01-01', ate: '2026-12-31' }, uid)
-      const r = await client.query(q.text, q.values)
-      return Number(r.rows[0].total)
-    }
-    const a = await fazer('21662ef5-cba6-403f-a5d0-7ce66e35aee8')
-    const b = await fazer('193aed03-650f-43ed-82e7-3be20113d6e0')
-    assert.notEqual(a, b) // se der igual, o filtro de escopo não está funcionando
-  } finally {
-    await client.end()
+  const contar = async (uid: string) => {
+    const q = montarSQL('contar_leads', { de: '2020-01-01', ate: '2026-12-31' }, uid)
+    const r = await consultarComoUsuario(uid, q.text, q.values)
+    return Number(r.rows[0].total)
   }
+  const a = await contar(VICTOR)
+  const b = await contar(CHARBELLE)
+  assert.ok(a > 0, 'Victor sem linhas — claims JWT não foram aplicadas')
+  assert.ok(b > 0, 'Charbelle sem linhas — claims JWT não foram aplicadas')
+  assert.notEqual(a, b) // se der igual, o filtro de escopo não está funcionando
 })
+
+test('WHERE explícito restringe mesmo quando o RLS é permissivo', { skip: !url }, async () => {
+  // Claims de admin (RLS libera tudo), mas o WHERE user_id = $1 é do Victor.
+  const ADMIN = '32b521df-53ed-433e-97d2-0a18ccda1964'
+  const q = montarSQL('contar_leads', { de: '2020-01-01', ate: '2026-12-31' }, VICTOR)
+  const r = await consultarComoUsuario(ADMIN, q.text, q.values)
+
+  const q2 = montarSQL('contar_leads', { de: '2020-01-01', ate: '2026-12-31' }, VICTOR)
+  const r2 = await consultarComoUsuario(VICTOR, q2.text, q2.values)
+
+  // Mesmo número: quem restringe é o WHERE, não o RLS.
+  assert.equal(Number(r.rows[0].total), Number(r2.rows[0].total))
+})
+
+test.after(() => pool.end())
 ```
 
-Run: `cd agent && DATABASE_URL='postgresql://prizely_agent_ro:...@db.bjtjyzdbewxoypjaphqs.supabase.co:5432/postgres' npm test`
+O último teste é o que importa: prova que o `WHERE user_id = $1` sozinho já segura o escopo, mesmo com o RLS liberando tudo. É a garantia de que a decisão de design ("admin sem impersonar vê só o próprio") continua valendo.
+
+Run:
+```bash
+cd agent && DATABASE_URL='postgresql://prizely_agent_ro.bjtjyzdbewxoypjaphqs:<SENHA>@aws-1-sa-east-1.pooler.supabase.com:5432/postgres' npm test
+```
 Expected: PASS. Se `agregar_metricas` der erro de sintaxe, conserte agora — o LLM não vai salvar você disso depois.
 
 **Step 6: Commit**
@@ -1085,19 +1119,57 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 **Step 1: Implementar**
 
-```ts
-// agent/src/tools/executor.ts
-import pg from 'pg'
-import { validarArgs } from './validar.ts'
-import { montarSQL } from './sql.ts'
+Crie primeiro `agent/src/db.ts`, com o pool e o helper de transação com claims — ele é usado tanto pelo executor quanto por `carregarPerfil` na Task 11.
 
-const pool = new pg.Pool({
+```ts
+// agent/src/db.ts
+import pg from 'pg'
+
+export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   max: 5,
   idleTimeoutMillis: 30_000,
   statement_timeout: 5_000,       // nenhuma query trava o serviço
   application_name: 'prizely-agent',
 })
+
+/**
+ * Roda uma query com as claims JWT do usuário informado, dentro de uma
+ * transação. Sem isso o RLS esconde todas as linhas (auth.uid() = NULL).
+ * `comoUsuario` alimenta o RLS; NÃO substitui o WHERE user_id explícito.
+ */
+export async function consultarComoUsuario<T = any>(
+  comoUsuario: string,
+  text: string,
+  values: unknown[],
+): Promise<{ rows: T[]; rowCount: number }> {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    // Parametrizado: o uuid nunca é concatenado no SQL.
+    await client.query('SELECT set_config($1, $2, true)', [
+      'request.jwt.claims',
+      JSON.stringify({ sub: comoUsuario, role: 'authenticated' }),
+    ])
+    const r = await client.query(text, values)
+    await client.query('COMMIT')
+    return { rows: r.rows, rowCount: r.rowCount ?? 0 }
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw e
+  } finally {
+    client.release()
+  }
+}
+```
+
+`set_config(..., true)` é o equivalente parametrizável de `SET LOCAL` — some no fim da transação, e evita interpolar o uuid no texto do SQL.
+
+```ts
+// agent/src/tools/executor.ts
+import { consultarComoUsuario } from '../db.ts'
+import { validarArgs } from './validar.ts'
+import { montarSQL } from './sql.ts'
 
 export interface ResultadoTool {
   ok: boolean
@@ -1117,8 +1189,9 @@ export async function executarTool(
 
   try {
     const { text, values } = montarSQL(tool, v.args, scopeUserId)
-    const r = await pool.query(text, values)
-    return { ok: true, tool, linhas: r.rowCount ?? 0, dados: r.rows }
+    // Duas camadas com o MESMO escopo: RLS via claims + WHERE user_id = $1.
+    const r = await consultarComoUsuario(scopeUserId, text, values)
+    return { ok: true, tool, linhas: r.rowCount, dados: r.rows }
   } catch (e) {
     // Nunca devolva a mensagem crua do Postgres ao LLM — vaza estrutura do schema.
     console.error(`[executor] ${tool} falhou:`, e)
@@ -1595,18 +1668,32 @@ export async function verificarToken(token: string) {
   return { id: data.user.id }
 }
 
-export async function carregarPerfil(id: string) {
-  // Lê via role read-only, não via anon — RLS não deve mascarar o alvo.
-  const { pool } = await import('./db.ts')
-  const r = await pool.query(
-    'SELECT role::text AS role, coalesce(preferences, $2::jsonb) AS preferences FROM user_profiles WHERE id = $1',
-    [id, '{}'],
+/**
+ * Carrega um perfil. `comoUsuario` é quem "assina" a leitura pro RLS:
+ * - perfil próprio      -> comoUsuario = o próprio id
+ * - perfil do alvo      -> comoUsuario = o ADMIN que pediu (a policy
+ *   `Users can view own profile` só libera outro id via is_admin())
+ */
+export async function carregarPerfil(id: string, comoUsuario = id) {
+  const r = await consultarComoUsuario(
+    comoUsuario,
+    `SELECT role::text AS role, coalesce(preferences, '{}'::jsonb) AS preferences
+     FROM user_profiles WHERE id = $1`,
+    [id],
   )
   return r.rows[0] ?? null
 }
 ```
 
-Extraia o `pool` de `executor.ts` para `agent/src/db.ts` e importe nos dois lugares — evita dois pools.
+Importe `consultarComoUsuario` de `./db.ts` (criado na Task 8).
+
+**Ajuste necessário na Task 4.** A assinatura de `carregarPerfil` ganhou um segundo parâmetro, então `resolveScope` precisa passá-lo ao buscar o perfil do alvo:
+
+```ts
+const alvo = await deps.carregarPerfil(pedido.impersonateUserId, usuario.id)
+```
+
+Sem isso o RLS esconde o perfil do alvo e a impersonação de admin falha com "usuário alvo não encontrado". Atualize também o teste `'admin consegue impersonar'` da Task 4 para refletir a nova assinatura no dublê.
 
 **Step 2: `agent/src/audit.ts`**
 
