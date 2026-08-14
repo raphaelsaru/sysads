@@ -58,7 +58,10 @@ Note: DB still has tenant_id columns and RLS policies from multi-tenant era — 
 
 ## Styling
 - Dark mode via `[data-pc-theme="dark"]` class selector
-- Custom typography classes: `f-h1` through `f-h6`
+- Typography: classes utilitárias do Tailwind (`text-sm`, `text-lg`…). Não há
+  escala tipográfica customizada — este arquivo já documentou `f-h1`…`f-h6`, que
+  nunca existiram no código.
+- Superfícies "Liquid Glass": `glass-floating`, `glass-control`
 - Custom spacing tokens: `sidebar-width`, `header-height`
 
 ## Refactoring
