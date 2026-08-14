@@ -400,7 +400,6 @@ export function useClientes(
     setClientes([])
     setHasMore(true)
     void carregarClientes()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregarClientes])
 
   const adicionarCliente = async (novoCliente: NovoCliente) => {
