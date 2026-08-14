@@ -30,7 +30,21 @@ export function systemPrompt(opts: {
   // sem saída: "só vejo esta conta", sem dizer que existe caminho legítimo. O
   // caminho é o seletor de usuário do painel — trocar de escopo pela pergunta
   // não funciona (e não é o prompt que impede isso, é o escopo do token).
-  const cabecalhoEscopo = opts.impersonando
+  // ATENÇÃO — regra descoberta em teste com o modelo real. Perguntado "quantos
+  // leads a Charbelle teve?", o modelo respondeu "A Charbelle teve 198 leads",
+  // onde 198 era o número de QUEM PERGUNTOU. O escopo segurou (nenhum dado
+  // vazou), mas o modelo rotulou o dado próprio com o nome de terceiro. Isso é
+  // falso nas duas direções e parece um vazamento sem ser um — o que corrói a
+  // confiança igual. As funções ignoram nomes; o prompt precisa dizer isso.
+  const nuncaAtribuirANomes =
+    ' As funções SEMPRE retornam os dados da conta em uso, qualquer que seja o ' +
+    'nome citado na pergunta — elas não recebem nome nem sabem de quem é a conta. ' +
+    'Portanto NUNCA atribua um número a uma pessoa nomeada pelo usuário. Se ' +
+    'perguntarem "quantos leads a Fulana teve", responda que você não tem acesso ' +
+    'aos dados de outra pessoa, e ofereça o número da conta atual — sem chamar ' +
+    'esse número de "da Fulana".'
+
+  const cabecalhoEscopo = (opts.impersonando
     ? 'Esta é uma sessão de administrador visualizando os dados de OUTRO usuário ' +
       '(modo de visualização do painel). Todos os números abaixo são desse usuário ' +
       'visualizado, não de quem pergunta.'
@@ -38,7 +52,7 @@ export function systemPrompt(opts: {
       ? 'Você só enxerga os dados da conta em uso no momento. Se o usuário (admin) ' +
         'pedir os dados de outra pessoa, explique que é preciso trocar de usuário no ' +
         'seletor do painel — não dá para mudar de conta pela pergunta.'
-      : 'Você só enxerga os dados da conta em uso no momento.'
+      : 'Você só enxerga os dados da conta em uso no momento.') + nuncaAtribuirANomes
 
   return `Você é o assistente do Prizely, um CRM para estúdios de tatuagem. Responde em português do Brasil, direto, no tom de um sócio que conhece os números.
 
