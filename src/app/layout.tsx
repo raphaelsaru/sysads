@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import ConnectionStatus from "@/components/auth/ConnectionStatus";
+import AssistantFab from "@/components/assistant/AssistantFab";
 import { Analytics } from '@vercel/analytics/react';
 
 const inter = Inter({
@@ -35,6 +36,7 @@ export default function RootLayout({
         <AuthProvider>
           <AdminProvider>
             {children}
+            <AssistantFab />
             <ConnectionStatus />
             <Analytics />
           </AdminProvider>

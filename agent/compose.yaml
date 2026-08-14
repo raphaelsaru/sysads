@@ -1,0 +1,13 @@
+services:
+  prizely-agent:
+    build: .
+    container_name: prizely-agent
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # O Traefik preenche X-Forwarded-For. Ver comentario em server.ts:
+      # sem isso o rate limit vira teto global em vez de por usuario.
+      TRUST_PROXY: "true"
+    ports:
+      # Bind na bridge do Docker, nao em 0.0.0.0: so o Traefik alcanca.
+      - "172.18.0.1:3030:3030"

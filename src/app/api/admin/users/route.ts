@@ -47,9 +47,11 @@ export async function GET() {
       return {
         id: profile.id,
         email: authUser?.email || 'N/A',
+        full_name: profile.full_name,
         company_name: profile.full_name || 'Sem nome',
         currency,
         role: profile.role,
+        assistant_enabled: preferences.assistant_enabled === true,
         created_at: profile.created_at,
       }
     })

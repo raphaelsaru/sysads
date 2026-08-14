@@ -20,16 +20,20 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { UserProfile } from '@/types/crm'
+
+type UsuarioListado = UserProfile & { assistant_enabled?: boolean }
 
 function UsersPageContent() {
   const router = useRouter()
   const { userProfile } = useAuth()
-  const [users, setUsers] = useState<UserProfile[]>([])
+  const [users, setUsers] = useState<UsuarioListado[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [assistantSaving, setAssistantSaving] = useState<string | null>(null)
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
@@ -112,6 +116,30 @@ function UsersPageContent() {
     }
   }
 
+  const handleToggleAssistant = async (userId: string, enabled: boolean) => {
+    const anterior = users
+    setAssistantSaving(userId)
+    setUsers(users.map(u => (u.id === userId ? { ...u, assistant_enabled: enabled } : u)))
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assistant_enabled: enabled }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Erro ao atualizar acesso ao assistente')
+      }
+    } catch (err) {
+      setUsers(anterior)
+      alert(err instanceof Error ? err.message : 'Erro ao atualizar acesso ao assistente')
+    } finally {
+      setAssistantSaving(null)
+    }
+  }
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin':
@@ -123,7 +151,9 @@ function UsersPageContent() {
     }
   }
 
-  if (userProfile?.role !== 'admin') {
+  const isAdmin = userProfile?.role === 'admin'
+
+  if (!isAdmin) {
     return (
       <MainLayout>
         <div className="flex min-h-[60vh] items-center justify-center">
@@ -195,6 +225,7 @@ function UsersPageContent() {
                     <TableHead>Nome</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Telefone</TableHead>
+                    {isAdmin && <TableHead>Assistente</TableHead>}
                     <TableHead>Criado em</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -209,6 +240,16 @@ function UsersPageContent() {
                       </TableCell>
                       <TableCell>{getRoleBadge(user.role)}</TableCell>
                       <TableCell>{user.phone || '-'}</TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <Switch
+                            checked={user.assistant_enabled === true}
+                            disabled={assistantSaving === user.id}
+                            onCheckedChange={(checked) => handleToggleAssistant(user.id, checked)}
+                            aria-label={`Acesso ao assistente de ${user.full_name || 'usuário'}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>
                         {format(new Date(user.created_at), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
