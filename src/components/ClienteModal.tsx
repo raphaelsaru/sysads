@@ -39,7 +39,7 @@ interface ClienteModalProps {
   userId?: string | null
 }
 
-const ORIGENS: NovoCliente['origem'][] = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antigo', 'Site']
+const ORIGENS: NovoCliente['origem'][] = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antigo', 'Site', 'Instagram']
 const RESULTADOS: NovoCliente['resultado'][] = ['Venda', 'Orçamento em Processo', 'Não Venda']
 const QUALIDADES: NovoCliente['qualidadeContato'][] = ['Bom', 'Regular', 'Ruim']
 

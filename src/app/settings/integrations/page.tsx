@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Loader2, QrCode, Smartphone } from 'lucide-react'
+import { CheckCircle2, Instagram as InstagramIcon, Loader2, QrCode, Smartphone } from 'lucide-react'
 
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import MainLayout from '@/components/layout/MainLayout'
@@ -15,6 +15,73 @@ type WhatsappStatus =
   | { status: 'qr'; qr: string }
   | { status: 'connected'; phone: string | null }
   | { status: 'failed' }
+
+type InstagramStatus =
+  | { status: 'loading' }
+  | { status: 'not_connected' }
+  | { status: 'connected'; username: string | null }
+
+function InstagramCard() {
+  const [state, setState] = useState<InstagramStatus>({ status: 'loading' })
+  const erro = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('instagram_error')
+
+  const fetchStatus = useCallback(async () => {
+    const res = await fetch('/api/integrations/instagram/status')
+    setState(await res.json())
+  }, [])
+
+  useEffect(() => {
+    fetchStatus()
+  }, [fetchStatus])
+
+  async function handleDisconnect() {
+    setState({ status: 'loading' })
+    await fetch('/api/integrations/instagram/disconnect', { method: 'POST' })
+    await fetchStatus()
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <InstagramIcon className="h-5 w-5" />
+          Instagram
+        </CardTitle>
+        <CardDescription>Conecte o Instagram do seu negócio para transformar DMs em leads automaticamente.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {erro && (
+          <p className="mb-3 text-sm text-destructive">Não foi possível conectar o Instagram. Tente novamente.</p>
+        )}
+
+        {state.status === 'loading' && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Carregando...
+          </div>
+        )}
+
+        {state.status === 'not_connected' && (
+          <Button asChild>
+            <a href="/api/integrations/instagram/connect">Conectar Instagram</a>
+          </Button>
+        )}
+
+        {state.status === 'connected' && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm text-green-600">
+              <CheckCircle2 className="h-5 w-5" />
+              Conectado{state.username ? ` — @${state.username}` : ''}
+            </div>
+            <Button variant="outline" onClick={handleDisconnect}>
+              Desconectar
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 function IntegrationsPageContent() {
   const [state, setState] = useState<WhatsappStatus>({ status: 'loading' })
@@ -135,6 +202,8 @@ function IntegrationsPageContent() {
             )}
           </CardContent>
         </Card>
+
+        <InstagramCard />
       </div>
     </MainLayout>
   )

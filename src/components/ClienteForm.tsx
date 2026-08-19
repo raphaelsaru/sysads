@@ -115,6 +115,7 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
                   <SelectItem value="Anúncio">Anúncio</SelectItem>
                   <SelectItem value="Cliente antigo">Cliente antigo</SelectItem>
                   <SelectItem value="Site">Site</SelectItem>
+                  <SelectItem value="Instagram">Instagram</SelectItem>
                 </SelectContent>
               </Select>
             </div>

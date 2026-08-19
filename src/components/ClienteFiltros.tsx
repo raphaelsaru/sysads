@@ -22,7 +22,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 
-export const ORIGENS = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antigo', 'Site'] as const
+export const ORIGENS = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antigo', 'Site', 'Instagram'] as const
 export const RESULTADOS = ['Venda', 'Orçamento em Processo', 'Não Venda'] as const
 export const QUALIDADES = ['Bom', 'Regular', 'Ruim'] as const
 

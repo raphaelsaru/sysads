@@ -27,7 +27,7 @@ export interface Cliente {
   dataContato: string;
   nome: string;
   whatsappInstagram: string;
-  origem: 'Indicação' | 'Orgânico / Perfil' | 'Anúncio' | 'Cliente antigo' | 'Site';
+  origem: 'Indicação' | 'Orgânico / Perfil' | 'Anúncio' | 'Cliente antigo' | 'Site' | 'Instagram';
   orcamentoEnviado: 'Sim' | 'Não';
   resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda';
   qualidadeContato: 'Bom' | 'Regular' | 'Ruim';
