@@ -29,6 +29,25 @@ function formatDateFromTimestamp(timestampSeconds: number): string {
   return date.toISOString().split('T')[0]
 }
 
+async function resolveLidToPhone(session: string, lidJid: string): Promise<string | null> {
+  const baseUrl = process.env.WAHA_API_URL
+  const apiKey = process.env.WAHA_API_KEY
+  if (!baseUrl || !apiKey) return null
+
+  try {
+    const res = await fetch(
+      `${baseUrl}/api/contacts?session=${encodeURIComponent(session)}&contactId=${encodeURIComponent(lidJid)}`,
+      { headers: { 'X-Api-Key': apiKey } }
+    )
+    if (!res.ok) return null
+    const contact = (await res.json()) as { id?: string }
+    if (!contact.id?.endsWith('@c.us')) return null
+    return contact.id.replace('@c.us', '')
+  } catch {
+    return null
+  }
+}
+
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-waha-secret')
   if (!process.env.WAHA_WEBHOOK_SECRET || secret !== process.env.WAHA_WEBHOOK_SECRET) {
@@ -43,28 +62,51 @@ export async function POST(request: NextRequest) {
 
   const { payload, session } = body
 
-  if (!payload || payload.fromMe || !payload.from?.endsWith('@c.us')) {
+  if (!payload || payload.fromMe || !payload.from) {
     return NextResponse.json({ ignored: true })
   }
 
-  const userId = getSessionUserMap()[session]
+  let whatsapp: string | null = null
+  if (payload.from.endsWith('@c.us')) {
+    whatsapp = payload.from.replace('@c.us', '')
+  } else if (payload.from.endsWith('@lid')) {
+    whatsapp = await resolveLidToPhone(session, payload.from)
+  }
+
+  if (!whatsapp) {
+    return NextResponse.json({ ignored: true })
+  }
+
+  const supabase = createAdminClient()
+
+  const { data: sessionRow } = await supabase
+    .from('whatsapp_sessions')
+    .select('user_id')
+    .eq('session_name', session)
+    .maybeSingle()
+
+  const userId = sessionRow?.user_id ?? getSessionUserMap()[session]
   if (!userId) {
     return NextResponse.json({ ignored: true, reason: 'sessão não mapeada' })
   }
 
-  const whatsapp = payload.from.replace('@c.us', '')
+  if (sessionRow) {
+    await supabase
+      .from('whatsapp_sessions')
+      .update({ last_message_at: new Date().toISOString() })
+      .eq('session_name', session)
+  }
+
   const nome = payload._data?.notifyName?.trim() || whatsapp
 
-  const supabase = createAdminClient()
-
-  const { data: existente } = await supabase
+  const { data: existentes } = await supabase
     .from('clientes')
     .select('id')
     .eq('user_id', userId)
     .eq('whatsapp_instagram', whatsapp)
-    .maybeSingle()
+    .limit(1)
 
-  if (existente) {
+  if (existentes && existentes.length > 0) {
     return NextResponse.json({ ignored: true, reason: 'lead já existe' })
   }
 
