@@ -42,6 +42,12 @@ export async function POST() {
     return NextResponse.json({ status: 'connected', phone: session.me?.id ?? null })
   }
 
-  const qr = await getQrCodeDataUrl(sessionName)
-  return NextResponse.json({ status: 'qr', qr })
+  if (session?.status === 'SCAN_QR_CODE') {
+    const qr = await getQrCodeDataUrl(sessionName)
+    return NextResponse.json({ status: 'qr', qr })
+  }
+
+  // Logo após criar/reiniciar a sessão o engine ainda está subindo (STARTING) —
+  // o frontend deve continuar consultando /status até aparecer o QR ou conectar.
+  return NextResponse.json({ status: 'syncing' })
 }

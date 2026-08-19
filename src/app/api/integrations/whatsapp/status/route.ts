@@ -41,6 +41,12 @@ export async function GET() {
     return NextResponse.json({ status: 'qr', qr })
   }
 
+  // Estados como STARTING (logo após escanear o QR, antes do engine sincronizar)
+  // não significam falha — só ainda não terminou de conectar.
+  if (session && session.status !== 'FAILED' && session.status !== 'STOPPED') {
+    return NextResponse.json({ status: 'syncing' })
+  }
+
   if (row.status !== 'disconnected' && row.status !== 'failed') {
     await admin.from('whatsapp_sessions').update({ status: 'failed' }).eq('user_id', user.id)
   }

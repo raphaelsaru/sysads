@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 type WhatsappStatus =
   | { status: 'loading' }
   | { status: 'not_connected' }
+  | { status: 'syncing' }
   | { status: 'qr'; qr: string }
   | { status: 'connected'; phone: string | null }
   | { status: 'failed' }
@@ -37,13 +38,13 @@ function IntegrationsPageContent() {
     stopPolling()
     pollRef.current = setInterval(async () => {
       const data = await fetchStatus()
-      if (data.status === 'connected') stopPolling()
+      if (data.status === 'connected' || data.status === 'failed') stopPolling()
     }, 3000)
   }, [fetchStatus, stopPolling])
 
   useEffect(() => {
     fetchStatus().then((data) => {
-      if (data.status === 'qr') startPolling()
+      if (data.status === 'qr' || data.status === 'syncing') startPolling()
     })
     return stopPolling
   }, [fetchStatus, startPolling, stopPolling])
@@ -53,7 +54,7 @@ function IntegrationsPageContent() {
     const res = await fetch('/api/integrations/whatsapp/connect', { method: 'POST' })
     const data = await res.json()
     setState(data)
-    if (data.status === 'qr') startPolling()
+    if (data.status === 'qr' || data.status === 'syncing') startPolling()
   }
 
   async function handleDisconnect() {
@@ -97,6 +98,13 @@ function IntegrationsPageContent() {
               <div className="space-y-3">
                 <p className="text-sm text-destructive">Sua conexão caiu. Reconecte para voltar a receber leads.</p>
                 <Button onClick={handleConnect}>Reconectar WhatsApp</Button>
+              </div>
+            )}
+
+            {state.status === 'syncing' && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Sincronizando com o WhatsApp... isso pode levar até 1 minuto.
               </div>
             )}
 
