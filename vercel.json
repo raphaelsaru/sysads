@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/whatsapp-health",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }

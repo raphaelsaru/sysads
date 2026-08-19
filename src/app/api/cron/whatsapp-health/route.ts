@@ -4,8 +4,8 @@ import { getSession, sendText } from '@/lib/waha'
 
 const ALERT_SESSION = 'default'
 const ALERT_CHAT_ID = process.env.ALERT_WHATSAPP_TO ?? '5511991753582@c.us'
-const STALE_HOURS = 48
-const ALERT_COOLDOWN_HOURS = 6
+const STALE_HOURS = 72
+const ALERT_COOLDOWN_HOURS = 20
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
