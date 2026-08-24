@@ -27,11 +27,24 @@ export function webhookConfig() {
     webhooks: [
       {
         url: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.prizely.com.br'}/api/webhooks/waha`,
-        events: ['message'],
+        events: ['message', 'label.chat.added', 'label.chat.deleted'],
         customHeaders: [{ name: 'X-Waha-Secret', value: process.env.WAHA_WEBHOOK_SECRET ?? '' }],
       },
     ],
   }
+}
+
+export interface WahaLabel {
+  id: string
+  name: string
+  color: number
+  colorHex: string
+}
+
+export async function getChatLabels(sessionName: string, chatId: string): Promise<WahaLabel[]> {
+  const res = await wahaFetch(`/api/${sessionName}/labels/chats/${encodeURIComponent(chatId)}`)
+  if (!res.ok) throw new Error(`Falha ao buscar etiquetas do chat WAHA: ${res.status}`)
+  return res.json()
 }
 
 export async function createSession(sessionName: string): Promise<WahaSession> {
@@ -41,6 +54,14 @@ export async function createSession(sessionName: string): Promise<WahaSession> {
   })
   if (!res.ok) throw new Error(`Falha ao criar sessão WAHA: ${res.status}`)
   return res.json()
+}
+
+export async function updateSessionConfig(sessionName: string): Promise<void> {
+  const res = await wahaFetch(`/api/sessions/${sessionName}`, {
+    method: 'PUT',
+    body: JSON.stringify({ config: webhookConfig() }),
+  })
+  if (!res.ok) throw new Error(`Falha ao atualizar config da sessão WAHA: ${res.status}`)
 }
 
 export async function restartSession(sessionName: string): Promise<void> {

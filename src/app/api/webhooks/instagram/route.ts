@@ -7,6 +7,7 @@ interface InstagramMessagingEvent {
   recipient: { id: string }
   timestamp: number
   message?: { mid: string; text?: string; is_echo?: boolean }
+  referral?: { ad_id?: string; source?: string; type?: string }
 }
 
 interface InstagramWebhookBody {
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
   for (const entry of body.entry ?? []) {
     for (const event of entry.messaging ?? []) {
       if (!event.message || event.message.is_echo || !event.message.text) continue
+      if (event.referral?.source !== 'ADS') continue
 
       const { data: account } = await supabase
         .from('instagram_accounts')
@@ -56,28 +58,18 @@ export async function POST(request: NextRequest) {
       const username = await getSenderUsername(event.sender.id, account.access_token)
       const identificador = username ? `@${username}` : event.sender.id
 
-      const { data: existentes } = await supabase
-        .from('clientes')
-        .select('id')
-        .eq('user_id', account.user_id)
-        .eq('whatsapp_instagram', identificador)
-        .limit(1)
-
-      if (existentes && existentes.length > 0) continue
-
-      await supabase.from('clientes').insert({
-        user_id: account.user_id,
-        data_contato: new Date(event.timestamp).toISOString().split('T')[0],
-        nome: username ?? identificador,
-        whatsapp_instagram: identificador,
-        origem: 'Instagram',
-        orcamento_enviado: false,
-        resultado: 'Orçamento em Processo',
-        qualidade_contato: 'Regular',
-        nao_respondeu: false,
-        created_by: account.user_id,
-        updated_by: account.user_id,
+      const { error } = await supabase.rpc('create_lead_dedup', {
+        p_user_id: account.user_id,
+        p_data_contato: new Date(event.timestamp).toISOString().split('T')[0],
+        p_nome: username ?? identificador,
+        p_identificador: identificador,
+        p_origem: 'Instagram',
+        p_created_by: account.user_id,
       })
+
+      if (error) {
+        console.error('Erro ao criar lead via webhook Instagram:', error)
+      }
     }
   }
 
