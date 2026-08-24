@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { updateSessionConfig, getSession } from '@/lib/waha'
 
-export async function POST(request: NextRequest) {
+async function requireAdmin(): Promise<NextResponse | null> {
   const supabase = await createClient()
-
   const {
     data: { user },
     error: authError,
@@ -22,6 +21,26 @@ export async function POST(request: NextRequest) {
   if (profileError || !userProfile || userProfile.role !== 'admin') {
     return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
   }
+
+  return null
+}
+
+export async function GET(request: NextRequest) {
+  const denied = await requireAdmin()
+  if (denied) return denied
+
+  const sessionName = request.nextUrl.searchParams.get('sessionName')
+  if (!sessionName) {
+    return NextResponse.json({ error: 'sessionName obrigatório' }, { status: 400 })
+  }
+
+  const session = await getSession(sessionName).catch(() => null)
+  return NextResponse.json({ status: session?.status ?? 'desconhecido' })
+}
+
+export async function POST(request: NextRequest) {
+  const denied = await requireAdmin()
+  if (denied) return denied
 
   const { sessionName } = (await request.json()) as { sessionName?: string }
   if (!sessionName) {
