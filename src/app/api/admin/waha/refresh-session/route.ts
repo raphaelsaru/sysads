@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
-import { updateSessionConfig } from '@/lib/waha'
+import { updateSessionConfig, getSession } from '@/lib/waha'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -35,5 +35,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Falha ao atualizar sessão WAHA' }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true })
+  const session = await getSession(sessionName).catch(() => null)
+
+  return NextResponse.json({ ok: true, status: session?.status ?? 'desconhecido' })
 }
