@@ -63,7 +63,7 @@ const SELECT_CLIENTE = `
   orcamento_enviado, resultado, qualidade_contato, nao_respondeu,
   valor_fechado, observacao, created_at,
   pagou_sinal, valor_sinal, data_pagamento_sinal,
-  venda_paga, data_pagamento_venda, data_lembrete_chamada, categoria
+  venda_paga, data_pagamento_venda, data_lembrete_chamada, categoria, user_id
 `
 
 type ClienteSupabaseRow = {
@@ -86,6 +86,7 @@ type ClienteSupabaseRow = {
   data_pagamento_venda: string | null
   data_lembrete_chamada: string | null
   categoria: string | null
+  user_id: string
 }
 
 type ClienteStatsRow = {
@@ -196,6 +197,7 @@ export function useClientes(
         dataPagamentoVenda: cliente.data_pagamento_venda ?? undefined,
         dataLembreteChamada: cliente.data_lembrete_chamada ?? undefined,
         categoria: cliente.categoria ?? undefined,
+        userId: cliente.user_id,
       }
     },
     [currency]

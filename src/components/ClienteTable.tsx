@@ -49,6 +49,8 @@ interface ClienteTableProps {
   hasMore?: boolean
   isLoadingMore?: boolean
   userId?: string | null
+  mostrarUsuario?: boolean
+  nomesPorUsuario?: Record<string, string>
 }
 
 const resultadoVariant: Record<Cliente['resultado'], 'success' | 'warning' | 'destructive'> = {
@@ -79,7 +81,7 @@ function QualidadeBadge({ qualidade }: { qualidade: Cliente['qualidadeContato'] 
   )
 }
 
-export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, hasMore = false, isLoadingMore = false, userId }: ClienteTableProps) {
+export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, hasMore = false, isLoadingMore = false, userId, mostrarUsuario = false, nomesPorUsuario = {} }: ClienteTableProps) {
   const mostrarCategoria = getCategoriasParaUsuario(userId).length > 0
   const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null)
   const [sortField, setSortField] = useState<SortField>('createdAt')
@@ -340,6 +342,14 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                   <QualidadeBadge qualidade={cliente.qualidadeContato} />
                 </div>
               </div>
+              {mostrarUsuario && (
+                <div className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Usuário</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {(cliente.userId && nomesPorUsuario[cliente.userId]) || '—'}
+                  </span>
+                </div>
+              )}
               {mostrarCategoria && cliente.categoria && (
                 <div className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2">
                   <span className="text-xs font-semibold text-muted-foreground">Categoria</span>
@@ -457,6 +467,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                 <TableHead>Nome</TableHead>
                 <TableHead>Contato</TableHead>
                 <TableHead>Origem</TableHead>
+                {mostrarUsuario && <TableHead>Usuário</TableHead>}
                 {mostrarCategoria && <TableHead>Categoria</TableHead>}
                 <TableHead>Orçamento</TableHead>
                 <TableHead>Status</TableHead>
@@ -505,6 +516,11 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                     </span>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{cliente.origem}</TableCell>
+                  {mostrarUsuario && (
+                    <TableCell className="text-sm text-muted-foreground">
+                      {(cliente.userId && nomesPorUsuario[cliente.userId]) || '—'}
+                    </TableCell>
+                  )}
                   {mostrarCategoria && (
                     <TableCell className="text-sm text-muted-foreground">{cliente.categoria || '—'}</TableCell>
                   )}

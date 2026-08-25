@@ -49,6 +49,7 @@ export interface Cliente {
   updated_by?: string;
   totalFollowUps?: number;
   categoria?: string;
+  userId?: string;
 }
 
 export interface NovoCliente {

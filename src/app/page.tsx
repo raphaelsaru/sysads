@@ -42,6 +42,25 @@ function HomePage() {
   const effectiveUserId = impersonatedUserId ?? user?.id
   const categorias = getCategoriasParaUsuario(effectiveUserId)
 
+  const isAdmin = userProfile?.role === 'admin'
+  const mostrarColunaUsuario = isAdmin && !impersonatedUserId
+  const [nomesPorUsuario, setNomesPorUsuario] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (!mostrarColunaUsuario) return
+    fetch('/api/admin/users')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data?.users) return
+        const mapa: Record<string, string> = {}
+        for (const u of data.users as { id: string; company_name: string }[]) {
+          mapa[u.id] = u.company_name
+        }
+        setNomesPorUsuario(mapa)
+      })
+      .catch(() => {})
+  }, [mostrarColunaUsuario])
+
   const [filtros, setFiltros] = useState(filtrosIniciais)
 
   const filtrosQuery: ClienteFiltrosInput = useMemo(() => ({
@@ -203,6 +222,8 @@ function HomePage() {
             hasMore={hasMore}
             isLoadingMore={loadingMais}
             userId={effectiveUserId}
+            mostrarUsuario={mostrarColunaUsuario}
+            nomesPorUsuario={nomesPorUsuario}
           />
         )}
 
