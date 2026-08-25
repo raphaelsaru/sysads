@@ -28,7 +28,11 @@ export async function POST() {
     await admin.from('whatsapp_sessions').insert({ user_id: user.id, session_name: sessionName, status: 'pending' })
   } else {
     const session = await getSession(sessionName)
-    if (!session || session.status === 'STOPPED' || session.status === 'FAILED') {
+    if (!session) {
+      // Sessão existe na nossa tabela mas não existe (mais) no WAHA (ex: apagada
+      // manualmente do servidor) — restart falharia com 404, precisa recriar.
+      await createSession(sessionName)
+    } else if (session.status === 'STOPPED' || session.status === 'FAILED') {
       await restartSession(sessionName)
     }
   }
