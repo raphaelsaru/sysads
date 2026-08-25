@@ -46,14 +46,13 @@ async function resolveJidToPhone(session: string, jid: string): Promise<string |
   if (!baseUrl || !apiKey) return null
 
   try {
-    const res = await fetch(
-      `${baseUrl}/api/contacts?session=${encodeURIComponent(session)}&contactId=${encodeURIComponent(jid)}`,
-      { headers: { 'X-Api-Key': apiKey } }
-    )
+    const res = await fetch(`${baseUrl}/api/${encodeURIComponent(session)}/lids/${encodeURIComponent(jid)}`, {
+      headers: { 'X-Api-Key': apiKey },
+    })
     if (!res.ok) return null
-    const contact = (await res.json()) as { id?: string }
-    if (!contact.id?.endsWith('@c.us')) return null
-    return contact.id.replace('@c.us', '')
+    const data = (await res.json()) as { pn?: string }
+    if (!data.pn?.endsWith('@c.us')) return null
+    return data.pn.replace('@c.us', '')
   } catch {
     return null
   }
