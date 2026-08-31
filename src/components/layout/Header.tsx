@@ -79,10 +79,12 @@ export default function Header() {
     { href: '/', label: 'Leads' },
     { href: '/clientes', label: 'Clientes' },
     { href: '/dashboard', label: 'Dashboard' },
+    { href: '/calendario', label: 'Agenda' },
     { href: '/settings/integrations', label: 'Integrações' },
     ...(isAdmin ? [
       { href: '/admin', label: 'Admin' },
       { href: '/settings/users', label: 'Usuários' },
+      { href: '/admin/google-calendar', label: 'Google Calendar' },
     ] : []),
   ]
 
