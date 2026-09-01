@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Moon, Sun, Eye, X } from 'lucide-react'
@@ -124,15 +123,7 @@ export default function Header() {
       <div className="mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-12">
         <div className="flex items-center justify-between gap-4 py-6">
           <div className="flex items-center">
-            <div className="relative h-auto w-[125px]">
-              <Image
-                src="/logo-prizely.png"
-                alt="Prizely Logo"
-                width={125}
-                height={125}
-                className="object-contain"
-              />
-            </div>
+            <span className="font-display text-2xl font-medium text-foreground">Prizely</span>
           </div>
 
           <nav className="hidden md:flex md:flex-1 md:justify-center">

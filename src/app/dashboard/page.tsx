@@ -302,21 +302,21 @@ function DashboardContent() {
       label: 'Vendas com sinal',
       value: periodSummary.vendasComSinal,
       icon: DollarSign,
-      tone: 'from-blue-500/20 via-blue-400/10 to-blue-500/20',
+      tone: 'from-secondary/20 via-secondary/10 to-secondary/20',
     },
     {
       id: 'vendasPagas',
       label: 'Vendas pagas',
       value: periodSummary.vendasPagas,
       icon: CheckCircle2,
-      tone: 'from-green-500/20 via-green-400/10 to-green-500/20',
+      tone: 'from-success/20 via-success/10 to-success/20',
     },
     {
       id: 'leadsComLembrete',
       label: 'Leads com lembrete',
       value: periodSummary.leadsComLembrete,
       icon: Bell,
-      tone: 'from-amber-500/20 via-amber-400/10 to-amber-500/20',
+      tone: 'from-warning/20 via-warning/10 to-warning/20',
     },
   ]
 

@@ -19,10 +19,15 @@ const config: Config = {
   	extend: {
   		fontFamily: {
   			sans: [
-  				'var(--font-inter)',
-  				'Inter',
-  				'Open Sans',
+  				'var(--font-body)',
+  				'Instrument Sans',
+  				'system-ui',
   				'sans-serif'
+  			],
+  			display: [
+  				'var(--font-display)',
+  				'Fraunces',
+  				'serif'
   			]
   		},
   		colors: {

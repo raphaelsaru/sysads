@@ -4,116 +4,118 @@
 
 @layer base {
   :root {
-    --background: 210 45% 97%;
-    --foreground: 222 47% 11%;
+    /* Prizely — tema claro (plaster / ink / brass / verdigris) */
+    --background: 38 36% 92%;
+    --foreground: 40 20% 9%;
 
-    --muted: 210 40% 92%;
-    --muted-foreground: 220 14% 46%;
+    --muted: 40 37% 89%;
+    --muted-foreground: 37 8% 51%;
 
-    --accent: 192 88% 49%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 32 46% 45%;
+    --accent-foreground: 38 40% 97%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 40 25% 97%;
+    --popover-foreground: 40 20% 9%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: 40 25% 97%;
+    --card-foreground: 40 20% 9%;
 
-    --border: 210 38% 86%;
-    --input: 210 38% 86%;
-    --ring: 199 93% 52%;
+    --border: 40 28% 85%;
+    --input: 40 28% 85%;
+    --ring: 32 46% 45%;
 
-    --primary: 199 93% 52%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 32 46% 45%;
+    --primary-foreground: 38 40% 97%;
 
-    --secondary: 217 21% 45%;
-    --secondary-foreground: 210 40% 96%;
+    --secondary: 130 9% 40%;
+    --secondary-foreground: 38 40% 97%;
 
-    --destructive: 3 90% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 13 50% 47%;
+    --destructive-foreground: 38 40% 97%;
 
-    --success: 162 84% 50%;
-    --success-foreground: 154 100% 9%;
+    --success: 150 30% 38%;
+    --success-foreground: 38 40% 97%;
 
-    --warning: 44 96% 58%;
-    --warning-foreground: 30 100% 16%;
+    --warning: 38 55% 50%;
+    --warning-foreground: 40 20% 9%;
 
-    --info: 197 94% 60%;
-    --info-foreground: 207 100% 18%;
+    --info: 150 20% 45%;
+    --info-foreground: 38 40% 97%;
 
     --radius: 0.875rem;
 
     /* Liquid Glass */
-    --glass-bg: 0 0% 100%;
+    --glass-bg: 40 25% 97%;
     --glass-opacity: 0.55;
-    --glass-border: 0 0% 100%;
-    --glass-border-opacity: 0.55;
-    --glass-highlight: 0 0% 100%;
+    --glass-border: 40 20% 9%;
+    --glass-border-opacity: 0.10;
+    --glass-highlight: 38 40% 100%;
     --glass-highlight-opacity: 0.7;
-    --glass-shadow: 220 45% 25%;
+    --glass-shadow: 40 20% 15%;
 
-    --chart-1: 12 76% 61%;
+    --chart-1: 32 46% 45%;
 
-    --chart-2: 173 58% 39%;
+    --chart-2: 130 9% 40%;
 
-    --chart-3: 197 37% 24%;
+    --chart-3: 37 8% 51%;
 
-    --chart-4: 43 74% 66%;
+    --chart-4: 13 50% 47%;
 
-    --chart-5: 27 87% 67%;
+    --chart-5: 38 45% 65%;
   }
 
   .dark {
-    --background: 216 33% 9%;
-    --foreground: 210 40% 96%;
+    /* Prizely — tema escuro */
+    --background: 38 21% 7%;
+    --foreground: 38 36% 92%;
 
-    --muted: 215 27% 17%;
-    --muted-foreground: 215 15% 65%;
+    --muted: 38 20% 11%;
+    --muted-foreground: 36 15% 60%;
 
-    --accent: 191 95% 64%;
-    --accent-foreground: 210 40% 14%;
+    --accent: 33 51% 56%;
+    --accent-foreground: 40 20% 9%;
 
-    --popover: 215 30% 11%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 38 20% 11%;
+    --popover-foreground: 38 36% 92%;
 
-    --card: 215 30% 11%;
-    --card-foreground: 210 40% 96%;
+    --card: 38 20% 11%;
+    --card-foreground: 38 36% 92%;
 
-    --border: 215 19% 24%;
-    --input: 215 19% 24%;
-    --ring: 198 94% 58%;
+    --border: 37 21% 16%;
+    --input: 37 21% 16%;
+    --ring: 33 51% 56%;
 
-    --primary: 198 94% 58%;
-    --primary-foreground: 210 40% 96%;
+    --primary: 33 51% 56%;
+    --primary-foreground: 40 20% 9%;
 
-    --secondary: 222 18% 23%;
-    --secondary-foreground: 210 40% 96%;
+    --secondary: 150 11% 54%;
+    --secondary-foreground: 40 20% 9%;
 
-    --destructive: 359 92% 64%;
-    --destructive-foreground: 210 40% 96%;
+    --destructive: 13 55% 58%;
+    --destructive-foreground: 40 20% 9%;
 
-    --success: 160 84% 45%;
-    --success-foreground: 210 40% 96%;
+    --success: 150 30% 50%;
+    --success-foreground: 40 20% 9%;
 
-    --warning: 45 88% 54%;
-    --warning-foreground: 210 40% 10%;
+    --warning: 38 55% 60%;
+    --warning-foreground: 40 20% 9%;
 
-    --info: 197 92% 68%;
-    --info-foreground: 215 30% 12%;
+    --info: 150 20% 60%;
+    --info-foreground: 40 20% 9%;
 
     /* Liquid Glass (dark) */
-    --glass-bg: 218 28% 14%;
+    --glass-bg: 38 20% 14%;
     --glass-opacity: 0.5;
-    --glass-border: 0 0% 100%;
-    --glass-border-opacity: 0.14;
-    --glass-highlight: 0 0% 100%;
-    --glass-highlight-opacity: 0.12;
-    --glass-shadow: 220 60% 3%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --glass-border: 38 36% 100%;
+    --glass-border-opacity: 0.10;
+    --glass-highlight: 38 36% 100%;
+    --glass-highlight-opacity: 0.08;
+    --glass-shadow: 38 21% 3%;
+    --chart-1: 33 51% 56%;
+    --chart-2: 150 11% 54%;
+    --chart-3: 36 15% 60%;
+    --chart-4: 13 55% 58%;
+    --chart-5: 38 45% 40%;
   }
 
   * {
@@ -122,23 +124,25 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: var(--font-inter), 'Inter', 'Open Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--font-body), 'Instrument Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background-image:
-      radial-gradient(ellipse 80% 55% at 8% -5%, hsla(199, 94%, 60%, 0.28) 0%, transparent 55%),
-      radial-gradient(ellipse 60% 45% at 95% 15%, hsla(262, 80%, 70%, 0.18) 0%, transparent 55%),
-      radial-gradient(ellipse 70% 50% at 85% 100%, hsla(162, 84%, 55%, 0.22) 0%, transparent 55%),
-      radial-gradient(ellipse 55% 40% at 15% 85%, hsla(199, 94%, 60%, 0.14) 0%, transparent 55%),
-      linear-gradient(160deg, hsl(210 50% 98%) 0%, hsl(212 46% 94%) 50%, hsl(208 40% 91%) 100%);
+      radial-gradient(ellipse 70% 50% at 10% -5%, hsla(32, 46%, 45%, 0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 45% at 95% 10%, hsla(130, 9%, 40%, 0.08) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 45% at 85% 100%, hsla(32, 46%, 45%, 0.06) 0%, transparent 55%),
+      linear-gradient(160deg, hsl(38 40% 94%) 0%, hsl(38 36% 92%) 50%, hsl(38 30% 89%) 100%);
     background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display), 'Fraunces', serif;
   }
 
   .dark body {
     background-image:
-      radial-gradient(ellipse 80% 55% at 8% -5%, hsla(199, 94%, 52%, 0.26) 0%, transparent 55%),
-      radial-gradient(ellipse 60% 45% at 95% 15%, hsla(262, 75%, 60%, 0.16) 0%, transparent 55%),
-      radial-gradient(ellipse 70% 50% at 85% 100%, hsla(162, 84%, 45%, 0.18) 0%, transparent 55%),
-      radial-gradient(ellipse 55% 40% at 15% 85%, hsla(199, 94%, 52%, 0.12) 0%, transparent 55%),
-      linear-gradient(160deg, hsl(221 40% 11%) 0%, hsl(220 40% 8%) 50%, hsl(222 34% 6%) 100%);
+      radial-gradient(ellipse 70% 50% at 10% -5%, hsla(33, 51%, 56%, 0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 45% at 95% 10%, hsla(150, 11%, 54%, 0.08) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 45% at 85% 100%, hsla(33, 51%, 56%, 0.06) 0%, transparent 55%),
+      linear-gradient(160deg, hsl(38 22% 9%) 0%, hsl(38 21% 7%) 50%, hsl(38 22% 5%) 100%);
     background-attachment: fixed;
   }
 

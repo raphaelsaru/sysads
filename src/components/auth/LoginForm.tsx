@@ -10,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import Image from 'next/image'
 import EmailConfirmation from './EmailConfirmation'
 
 export default function LoginForm() {
@@ -93,16 +92,7 @@ export default function LoginForm() {
     <div className="flex min-h-screen items-center justify-center px-6 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center flex flex-col items-center gap-4">
-          <div className="relative h-auto w-[125px]">
-            <Image
-              src="/logo-prizely.png"
-              alt="Prizely Logo"
-              width={125}
-              height={125}
-              className="object-contain"
-              priority
-            />
-          </div>
+          <span className="font-display text-4xl font-medium text-foreground">Prizely</span>
           <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
             Prizely CRM
           </span>
