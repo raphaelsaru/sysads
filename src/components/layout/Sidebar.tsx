@@ -223,17 +223,17 @@ export default function Sidebar() {
   return (
     <>
       {impersonatedUser && (
-        <div className="border-b border-warning/30 bg-warning/10 px-4 py-1.5">
-          <div className="mx-auto flex max-w-screen-2xl items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-foreground">
-              <Eye className="h-4 w-4" />
+        <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+          <div className="flex items-center gap-3 rounded-full border border-warning/30 bg-warning/95 px-4 py-2 text-sm text-warning-foreground shadow-lg backdrop-blur">
+            <Eye className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">
               Visualizando como <strong>{impersonatedUser.company_name}</strong>
-            </div>
+            </span>
             <Button
               variant="ghost"
               size="sm"
               onClick={stopImpersonation}
-              className="h-7 gap-1 text-xs"
+              className="h-6 gap-1 rounded-full px-2 text-xs text-warning-foreground hover:bg-warning-foreground/10 hover:text-warning-foreground"
             >
               <X className="h-3 w-3" />
               Voltar
