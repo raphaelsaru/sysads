@@ -264,9 +264,8 @@ begin
     where c.id = m.duplicado
     returning 1
   )
-  select count(*) from merges into v_linhas;
+  select count(*), count(distinct canonico) from merges into v_linhas, v_clusters;
 
-  select count(*) from clusters into v_clusters;
   raise notice 'telefone: % clusters, % linhas mescladas', v_clusters, v_linhas;
 
   -- repete pra instagram_normalizado (clusters remanescentes após o merge por telefone)
@@ -301,12 +300,13 @@ begin
     where c.id = m.duplicado
     returning 1
   )
-  select count(*) from merges into v_linhas;
+  select count(*), count(distinct canonico) from merges into v_linhas, v_clusters;
 
-  select count(*) from clusters into v_clusters;
   raise notice 'instagram: % clusters, % linhas mescladas', v_clusters, v_linhas;
 end $$;
 ```
+
+Nota de execução (achado no code review após a implementação real): as três CTEs graváveis (`reponta_followups`, `reponta_negociacoes`, `apaga`) sendo irmãs num único `WITH`, sem dependência de dados entre si, dependem de ordem de execução que o Postgres não garante formalmente — e `negociacoes`/`follow_ups` têm `ON DELETE CASCADE` pra `clientes`, então se `apaga` rodasse antes das duas UPDATEs, o cascade apagaria os filhos silenciosamente antes do reponte. Funcionou (zero órfãos, conservação exata, verificado independentemente), mas é sorte de ordem declarativa, não garantia. Pra qualquer migration futura no mesmo padrão (reponta-depois-apaga com FK CASCADE), preferir statements sequenciais explícitos (UPDATE, UPDATE, DELETE em três comandos separados, não CTEs irmãs) ou um `assert`/`raise exception` antes do DELETE confirmando que não sobrou nenhuma referência nas tabelas filhas.
 
 Nota: como `telefone_normalizado`/`instagram_normalizado` são colunas geradas
 a partir de `whatsapp_instagram`, o merge por telefone já elimina duplicados
