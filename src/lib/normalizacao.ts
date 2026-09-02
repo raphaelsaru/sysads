@@ -7,7 +7,17 @@
  * não é possível chamar o banco. Deve se comportar identicamente às
  * funções SQL para a mesma entrada.
  *
- * ATENÇÃO: se as funções SQL mudarem, atualize este arquivo também.
+ * ATENÇÃO: se as funções SQL mudarem, atualize este arquivo também. Esta
+ * lógica espelha as migrations:
+ *   - supabase/migrations/20260902100000_normalizacao_contato.sql
+ *   - supabase/migrations/20260902100150_fix_normalizar_instagram_requer_arroba.sql
+ *   - supabase/migrations/20260902100160_fix_normalizar_instagram_exclui_email.sql
+ *   - supabase/migrations/20260902100170_fix_normalizar_telefone_tamanho_minimo.sql
+ *   - supabase/migrations/20260902100180_fix_normalizar_telefone_rejeita_texto.sql
+ *   - supabase/migrations/20260902100190_fix_normalizar_instagram_placeholders.sql
+ * Para reverificar paridade se o SQL mudar, rode no banco:
+ *   select pg_get_functiondef('public.normalizar_telefone(text)'::regprocedure);
+ *   select pg_get_functiondef('public.normalizar_instagram(text)'::regprocedure);
  */
 
 const INSTAGRAM_DENYLIST = new Set([
@@ -35,6 +45,11 @@ export function normalizarTelefone(texto: string | null | undefined): string | n
   if (/^\s*@/.test(texto)) return null;
   if (/[a-zA-Z]/.test(texto)) return null;
 
+  // Limitação conhecida/aceita: \D do JS é ASCII-only e remove dígitos
+  // fullwidth/não-Latin (ex: "１１９８７..."), enquanto o \D do Postgres
+  // (locale-aware) pode não removê-los. Risco baixo: OCR raramente produz
+  // dígitos fullwidth a partir de fontes em script latino. Não ajustado
+  // aqui pois a extração de dígitos precisa continuar capturando só 0-9.
   const digitos = texto.replace(/\D/g, "");
 
   let resultado: string;
@@ -61,7 +76,9 @@ export function normalizarTelefone(texto: string | null | undefined): string | n
 export function normalizarInstagram(texto: string | null | undefined): string | null {
   if (texto == null) return null;
 
-  const match = texto.match(/(?:^|[^\w])@([\w.]+)/);
+  // \p{L}/\p{N} (Unicode) em vez de \w (ASCII-only) para casar com o \w
+  // locale-aware do Postgres, que trata acentos como caractere de palavra.
+  const match = texto.match(/(?:^|[^\p{L}\p{N}_])@([\p{L}\p{N}_.]+)/u);
   if (!match) return null;
 
   const valor = match[1].toLowerCase();
