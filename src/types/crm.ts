@@ -32,8 +32,8 @@ export interface Cliente {
   origem: 'Indicação' | 'Orgânico / Perfil' | 'Anúncio' | 'Cliente antigo' | 'Anúncio Promoção' | 'Anúncio Geral' | 'Instagram' | 'Google' | 'Outro' | 'WhatsApp' | 'Site';
   observacao?: string;
   createdAt?: string;
-  created_by?: string;
-  updated_by?: string;
+  createdBy?: string;
+  updatedBy?: string;
   categoria?: string;
   userId?: string;
   // agregados calculados na leitura (join com negociacoes), não colunas de clientes
@@ -44,14 +44,12 @@ export interface Cliente {
 }
 
 // resultado/qualidadeContato são colunas `text` no banco (não enum Postgres),
-// os unions abaixo são convenção da aplicação. orcamentoEnviado é `boolean`
-// no banco (coluna `orcamento_enviado`) — o union 'Sim'/'Não' aqui é a
-// representação de UI, convertida pra boolean na camada de hooks (Fase 3).
+// os unions abaixo são convenção da aplicação.
 export interface Negociacao {
   id: string;
   clienteId: string;
   dataContato: string;
-  orcamentoEnviado: 'Sim' | 'Não';
+  orcamentoEnviado: boolean;
   resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda';
   // nullable no banco (sem NOT NULL em qualidade_contato)
   qualidadeContato?: 'Bom' | 'Regular' | 'Ruim';
