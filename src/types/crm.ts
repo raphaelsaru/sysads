@@ -22,34 +22,56 @@ export interface UserProfile {
 // TIPOS DE CLIENTES (CRM)
 // =====================================================
 
+// origem: enum Postgres `origem_tipo` (valores confirmados via live DB em
+// 2026-09-02 — não é mais um palpite, é a lista real do enum).
 export interface Cliente {
   id?: string;
   dataContato: string;
   nome: string;
   whatsappInstagram: string;
-  origem: 'Indicação' | 'Orgânico / Perfil' | 'Anúncio' | 'Cliente antigo' | 'Site' | 'Instagram';
+  origem: 'Indicação' | 'Orgânico / Perfil' | 'Anúncio' | 'Cliente antigo' | 'Anúncio Promoção' | 'Anúncio Geral' | 'Instagram' | 'Google' | 'Outro' | 'WhatsApp' | 'Site';
+  observacao?: string;
+  createdAt?: string;
+  created_by?: string;
+  updated_by?: string;
+  categoria?: string;
+  userId?: string;
+  // agregados calculados na leitura (join com negociacoes), não colunas de clientes
+  totalFollowUps?: number;
+  negociacoes?: Negociacao[];
+  ltv?: number;
+  ultimaNegociacao?: Negociacao;
+}
+
+// resultado/qualidadeContato são colunas `text` no banco (não enum Postgres),
+// os unions abaixo são convenção da aplicação. orcamentoEnviado é `boolean`
+// no banco (coluna `orcamento_enviado`) — o union 'Sim'/'Não' aqui é a
+// representação de UI, convertida pra boolean na camada de hooks (Fase 3).
+export interface Negociacao {
+  id: string;
+  clienteId: string;
+  dataContato: string;
   orcamentoEnviado: 'Sim' | 'Não';
   resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda';
-  qualidadeContato: 'Bom' | 'Regular' | 'Ruim';
+  // nullable no banco (sem NOT NULL em qualidade_contato)
+  qualidadeContato?: 'Bom' | 'Regular' | 'Ruim';
   naoRespondeu?: boolean;
   valorFechado?: string;
   valorFechadoNumero?: number | null;
   observacao?: string;
-  createdAt?: string;
-  // Campos de pagamento
   pagouSinal?: boolean;
   valorSinal?: string;
   valorSinalNumero?: number | null;
   dataPagamentoSinal?: string;
   vendaPaga?: boolean;
   dataPagamentoVenda?: string;
-  // Campo de notificação
   dataLembreteChamada?: string;
-  created_by?: string;
-  updated_by?: string;
-  totalFollowUps?: number;
-  categoria?: string;
-  userId?: string;
+  // coluna gerada (`data_mes_venda`, stored, read-only) — coalesce(data_pagamento_sinal, data_contato).
+  // exposta como opcional pra leitura (ex.: dashboard/Fase 7); nunca setável, por isso ausente de NovaNegociacao.
+  dataMesVenda?: string;
+  createdAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface NovoCliente {
@@ -57,21 +79,25 @@ export interface NovoCliente {
   nome: string;
   whatsappInstagram: string;
   origem: Cliente['origem'];
-  orcamentoEnviado: Cliente['orcamentoEnviado'];
-  resultado: Cliente['resultado'];
-  qualidadeContato: Cliente['qualidadeContato'];
+  observacao?: string;
+  categoria?: string;
+}
+
+export interface NovaNegociacao {
+  clienteId: string;
+  dataContato: string;
+  orcamentoEnviado: Negociacao['orcamentoEnviado'];
+  resultado: Negociacao['resultado'];
+  qualidadeContato?: Negociacao['qualidadeContato'];
   naoRespondeu?: boolean;
   valorFechado?: string;
   observacao?: string;
-  // Campos de pagamento
   pagouSinal?: boolean;
   valorSinal?: string;
   dataPagamentoSinal?: string;
   vendaPaga?: boolean;
   dataPagamentoVenda?: string;
-  // Campo de notificação
   dataLembreteChamada?: string;
-  categoria?: string;
 }
 
 // =====================================================
