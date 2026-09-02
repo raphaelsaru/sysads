@@ -104,5 +104,31 @@ negociação se necessário, sem campo de "apelidos").
 - Coluna resultado/valor da `ClienteTable`: negociação mais recente.
 - Dashboard filtra período pela data da negociação (`negociacoes.dataContato`).
 - `ClienteModal` é removido — toda criação/edição de negociação migra pra
-  dentro da página `/clientes/[id]`. `ClienteTable` linha clicada navega
+  dentro da página de detalhe do lead. `ClienteTable` linha clicada navega
   direto pra lá (sem modal intermediário).
+- Rota da página de detalhe: **`/leads/[id]`** (não `/clientes/[id]` — colide
+  com `/clientes`, que já é a lista filtrada de vendas fechadas).
+- `POST /api/clientes` (usado pela extensão Chrome) continua aceitando o
+  payload atual (pessoa + campos de negociação juntos); internamente passa a
+  achar-ou-criar a pessoa (dedup) e sempre criar uma negociação nova. Extensão
+  não precisa mudar.
+- Sem test runner no app Next.js hoje — verificação em cada tarefa é manual
+  (SQL via MCP Supabase, `curl`, checagem no browser), não automatizada.
+
+## Achados da pesquisa de código (inventário técnico)
+
+- Schema real de `clientes`/`follow_ups` não está em nenhuma migration do
+  repo (criado fora do fluxo) — peguei do banco ao vivo via MCP Supabase.
+  `clientes` ainda tem `tenant_id` (era multi-tenant). `data_mes_venda` é
+  coluna gerada (`data_pagamento_sinal` senão `data_contato`) — precisa
+  existir em `negociacoes` também.
+- `origem_tipo` (enum do banco) tem mais valores que `Cliente['origem']` em
+  `crm.ts:30` — TS type está desatualizado.
+- **`useClientes.ts` fala direto com Supabase JS**, não via `/api/clientes`
+  — é o caminho usado pela UI principal (`/` e `/clientes`). `/api/clientes/*`
+  é usado só pela extensão Chrome (CORS) e OCR batch.
+- `create_lead_dedup` (webhooks WAHA/Instagram) tem bug atual: quando o lead
+  já existe, retorna sem registrar nada do evento novo — nem follow-up nem
+  negociação. `find_or_create_cliente` corrige isso (sempre cria negociação).
+- Nenhum framework de teste configurado pro app (`package.json`: só
+  dev/build/start/lint). `agent/test/*` é de outro serviço.
