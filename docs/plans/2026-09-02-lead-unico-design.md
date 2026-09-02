@@ -99,13 +99,10 @@ negociação se necessário, sem campo de "apelidos").
   como fluxo de edição). Coluna resultado/valor mostra dado da negociação
   mais recente (assunção — ver pergunta em aberto).
 
-## Perguntas em aberto
+## Decisões (confirmadas)
 
-- Coluna resultado/valor da `ClienteTable` (e filtros que dependem dela): uso
-  a negociação mais recente como default. Confirmar se é isso mesmo ou se
-  deveria ser "pior caso" / soma / outra regra.
-- Filtros/KPIs do dashboard que hoje leem `Cliente.resultado` direto:
-  recalcular em cima de `negociacoes` — precisa validar se período do
-  dashboard filtra por `dataContato` do cliente ou da negociação.
-- `ClienteModal` — mantém pra criação rápida de negociação a partir da
-  tabela, ou tudo migra pra dentro da página do lead?
+- Coluna resultado/valor da `ClienteTable`: negociação mais recente.
+- Dashboard filtra período pela data da negociação (`negociacoes.dataContato`).
+- `ClienteModal` é removido — toda criação/edição de negociação migra pra
+  dentro da página `/clientes/[id]`. `ClienteTable` linha clicada navega
+  direto pra lá (sem modal intermediário).
