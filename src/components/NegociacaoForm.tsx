@@ -123,6 +123,71 @@ export default function NegociacaoForm({
     }))
   }
 
+  // valorFechado só aparece quando orcamentoEnviado || resultado === 'Venda'
+  const handleResultadoChange = (value: Negociacao['resultado']) => {
+    const wasVenda = formData.resultado === 'Venda'
+    const willBeVenda = value === 'Venda'
+    const wasValorVisible = formData.orcamentoEnviado || wasVenda
+    const willBeValorVisible = formData.orcamentoEnviado || willBeVenda
+
+    setFormData((prev) => ({
+      ...prev,
+      resultado: value,
+      ...(wasVenda && !willBeVenda
+        ? {
+            pagouSinal: false,
+            valorSinal: '',
+            dataPagamentoSinal: '',
+            vendaPaga: false,
+            dataPagamentoVenda: '',
+          }
+        : {}),
+      ...(wasValorVisible && !willBeValorVisible ? { valorFechado: '' } : {}),
+    }))
+
+    if (wasVenda && !willBeVenda) {
+      setValorSinalNumerico(undefined)
+    }
+    if (wasValorVisible && !willBeValorVisible) {
+      setValorNumerico(undefined)
+    }
+  }
+
+  const handleOrcamentoEnviadoChange = (checked: boolean) => {
+    const wasValorVisible = formData.orcamentoEnviado || formData.resultado === 'Venda'
+    const willBeValorVisible = checked || formData.resultado === 'Venda'
+
+    setFormData((prev) => ({
+      ...prev,
+      orcamentoEnviado: checked,
+      ...(wasValorVisible && !willBeValorVisible ? { valorFechado: '' } : {}),
+    }))
+
+    if (wasValorVisible && !willBeValorVisible) {
+      setValorNumerico(undefined)
+    }
+  }
+
+  const handlePagouSinalChange = (checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      pagouSinal: checked,
+      ...(!checked ? { valorSinal: '', dataPagamentoSinal: '' } : {}),
+    }))
+
+    if (!checked) {
+      setValorSinalNumerico(undefined)
+    }
+  }
+
+  const handleVendaPagaChange = (checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      vendaPaga: checked,
+      ...(!checked ? { dataPagamentoVenda: '' } : {}),
+    }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -167,7 +232,7 @@ export default function NegociacaoForm({
             </div>
             <Switch
               checked={formData.orcamentoEnviado}
-              onCheckedChange={(checked) => handleChange('orcamentoEnviado', checked)}
+              onCheckedChange={handleOrcamentoEnviadoChange}
             />
           </div>
         </div>
@@ -176,7 +241,7 @@ export default function NegociacaoForm({
           <Label htmlFor="resultado">Resultado *</Label>
           <Select
             value={formData.resultado}
-            onValueChange={(value) => handleChange('resultado', value as Negociacao['resultado'])}
+            onValueChange={(value) => handleResultadoChange(value as Negociacao['resultado'])}
           >
             <SelectTrigger id="resultado">
               <SelectValue placeholder="Selecione o status" />
@@ -258,7 +323,7 @@ export default function NegociacaoForm({
                 </div>
                 <Switch
                   checked={formData.pagouSinal || false}
-                  onCheckedChange={(checked) => handleChange('pagouSinal', checked)}
+                  onCheckedChange={handlePagouSinalChange}
                 />
               </div>
             </div>
@@ -274,7 +339,7 @@ export default function NegociacaoForm({
                 </div>
                 <Switch
                   checked={formData.vendaPaga || false}
-                  onCheckedChange={(checked) => handleChange('vendaPaga', checked)}
+                  onCheckedChange={handleVendaPagaChange}
                 />
               </div>
             </div>
