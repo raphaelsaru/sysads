@@ -1,18 +1,17 @@
 'use client'
 
 import { useMemo, useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Users, DollarSign, CheckCircle2, Clock, Loader2 } from 'lucide-react'
 
 import MainLayout from '@/components/layout/MainLayout'
 import ClienteTable from '@/components/ClienteTable'
-import ClienteModal from '@/components/ClienteModal'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import ClienteFiltrosPanel, { filtrosIniciais, TODOS_MESES } from '@/components/ClienteFiltros'
 import { useClientes, type ClienteFiltrosInput } from '@/hooks/useClientes'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAdmin } from '@/contexts/AdminContext'
-import { Cliente, NovoCliente } from '@/types/crm'
+import { Cliente } from '@/types/crm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
@@ -36,6 +35,7 @@ function ClientesPageContent() {
   const { user, userProfile } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
   const effectiveUserId = impersonatedUserId ?? user?.id
@@ -62,55 +62,22 @@ function ClientesPageContent() {
     total,
     loading,
     loadingMais,
-    adicionarCliente,
-    editarCliente,
     excluirCliente,
     hasMore,
     carregarMaisClientes,
     estatisticas,
   } = useClientes(currency, impersonatedUserId, filtrosQuery)
 
-  const [mostrarModal, setMostrarModal] = useState(false)
-  const [clienteEditando, setClienteEditando] = useState<Cliente | undefined>(undefined)
-
   useEffect(() => {
     const editId = searchParams.get('edit')
     if (editId) {
-      if (clientes.length === 0 && loading) {
-        return
-      }
-
-      const clienteParaEditar = clientes.find((c) => c.id === editId)
-      if (clienteParaEditar) {
-        setClienteEditando(clienteParaEditar)
-        setMostrarModal(true)
-        window.history.replaceState({}, '', window.location.pathname)
-      }
+      router.replace(`/leads/${editId}`)
     }
-  }, [searchParams, clientes, loading])
-
-  const handleSubmitForm = async (dadosCliente: NovoCliente) => {
-    try {
-      if (clienteEditando) {
-        await editarCliente(clienteEditando.id!, dadosCliente)
-        setClienteEditando(undefined)
-      } else {
-        await adicionarCliente(dadosCliente)
-      }
-      window.dispatchEvent(new CustomEvent('cliente-atualizado'))
-    } catch (error) {
-      throw error
-    }
-  }
+  }, [searchParams, router])
 
   const handleEditarCliente = (cliente: Cliente) => {
-    setClienteEditando(cliente)
-    setMostrarModal(true)
-  }
-
-  const handleFecharModal = () => {
-    setMostrarModal(false)
-    setClienteEditando(undefined)
+    if (!cliente.id) return
+    router.push(`/leads/${cliente.id}`)
   }
 
   const handleExcluirCliente = async (id: string) => {
@@ -263,15 +230,6 @@ function ClientesPageContent() {
             userId={effectiveUserId}
           />
         )}
-
-        <ClienteModal
-          isOpen={mostrarModal}
-          onClose={handleFecharModal}
-          onSave={handleSubmitForm}
-          cliente={clienteEditando}
-          currency={currency}
-          userId={effectiveUserId}
-        />
       </section>
     </MainLayout>
   )

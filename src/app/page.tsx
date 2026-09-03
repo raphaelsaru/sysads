@@ -1,12 +1,12 @@
 'use client'
 
 import { useMemo, useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Loader2 } from 'lucide-react'
 
 import MainLayout from '@/components/layout/MainLayout'
 import ClienteTable from '@/components/ClienteTable'
-import ClienteModal from '@/components/ClienteModal'
+import ClienteForm from '@/components/ClienteForm'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import ClienteFiltrosPanel, { filtrosIniciais, TODOS_MESES } from '@/components/ClienteFiltros'
 import { useClientes, type ClienteFiltrosInput } from '@/hooks/useClientes'
@@ -15,6 +15,7 @@ import { useAdmin } from '@/contexts/AdminContext'
 import { Cliente, NovoCliente } from '@/types/crm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { FALLBACK_CURRENCY_VALUE } from '@/lib/currency'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
@@ -37,6 +38,7 @@ function HomePage() {
   const { user, userProfile } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
   const effectiveUserId = impersonatedUserId ?? user?.id
@@ -82,39 +84,24 @@ function HomePage() {
     loading,
     loadingMais,
     adicionarCliente,
-    editarCliente,
     excluirCliente,
     hasMore,
     carregarMaisClientes,
   } = useClientes(currency, impersonatedUserId, filtrosQuery)
 
   const [mostrarModal, setMostrarModal] = useState(false)
-  const [clienteEditando, setClienteEditando] = useState<Cliente | undefined>(undefined)
 
   useEffect(() => {
     const editId = searchParams.get('edit')
     if (editId) {
-      if (clientes.length === 0 && loading) {
-        return
-      }
-
-      const clienteParaEditar = clientes.find((c) => c.id === editId)
-      if (clienteParaEditar) {
-        setClienteEditando(clienteParaEditar)
-        setMostrarModal(true)
-        window.history.replaceState({}, '', window.location.pathname)
-      }
+      router.replace(`/leads/${editId}`)
     }
-  }, [searchParams, clientes, loading])
+  }, [searchParams, router])
 
   const handleSubmitForm = async (dadosCliente: NovoCliente) => {
     try {
-      if (clienteEditando) {
-        await editarCliente(clienteEditando.id!, dadosCliente)
-        setClienteEditando(undefined)
-      } else {
-        await adicionarCliente(dadosCliente)
-      }
+      await adicionarCliente(dadosCliente)
+      setMostrarModal(false)
       window.dispatchEvent(new CustomEvent('cliente-atualizado'))
     } catch (error) {
       throw error
@@ -122,13 +109,8 @@ function HomePage() {
   }
 
   const handleEditarCliente = (cliente: Cliente) => {
-    setClienteEditando(cliente)
-    setMostrarModal(true)
-  }
-
-  const handleFecharModal = () => {
-    setMostrarModal(false)
-    setClienteEditando(undefined)
+    if (!cliente.id) return
+    router.push(`/leads/${cliente.id}`)
   }
 
   const handleExcluirCliente = async (id: string) => {
@@ -227,14 +209,18 @@ function HomePage() {
           />
         )}
 
-        <ClienteModal
-          isOpen={mostrarModal}
-          onClose={handleFecharModal}
-          onSave={handleSubmitForm}
-          cliente={clienteEditando}
-          currency={currency}
-          userId={effectiveUserId}
-        />
+        <Dialog open={mostrarModal} onOpenChange={setMostrarModal}>
+          <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="sr-only">Novo cliente</DialogTitle>
+            </DialogHeader>
+            <ClienteForm
+              onSubmit={handleSubmitForm}
+              onCancel={() => setMostrarModal(false)}
+              userId={effectiveUserId}
+            />
+          </DialogContent>
+        </Dialog>
       </section>
     </MainLayout>
   )

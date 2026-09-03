@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUp, ArrowDown, UserX, DollarSign, CheckCircle2, Bell, Plus, History } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -31,10 +32,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Cliente, FollowUp } from '@/types/crm'
+import { Cliente, FollowUp, Negociacao } from '@/types/crm'
 import { formatDateBR, formatDateISO } from '@/lib/dateUtils'
 import AddFollowUpModal from '@/components/followup/AddFollowUpModal'
-import FollowUpHistoryModal from '@/components/followup/FollowUpHistoryModal'
 import { useFollowUps } from '@/hooks/useFollowUps'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
 
@@ -53,19 +53,26 @@ interface ClienteTableProps {
   nomesPorUsuario?: Record<string, string>
 }
 
-const resultadoVariant: Record<Cliente['resultado'], 'success' | 'warning' | 'destructive'> = {
+const resultadoVariant: Record<Negociacao['resultado'], 'success' | 'warning' | 'destructive'> = {
   Venda: 'success',
   'Orçamento em Processo': 'warning',
   'Não Venda': 'destructive',
 }
 
-const qualidadeColor: Record<Cliente['qualidadeContato'], string> = {
+const qualidadeColor: Record<NonNullable<Negociacao['qualidadeContato']>, string> = {
   Bom: 'bg-success/15 text-success font-semibold',
   Regular: 'bg-warning/20 text-warning font-semibold',
   Ruim: 'bg-destructive/15 text-destructive font-semibold',
 }
 
-function StatusBadge({ resultado }: { resultado: Cliente['resultado'] }) {
+function StatusBadge({ resultado }: { resultado?: Negociacao['resultado'] }) {
+  if (!resultado) {
+    return (
+      <Badge variant="muted" className="capitalize">
+        Sem negociação
+      </Badge>
+    )
+  }
   return (
     <Badge variant={resultadoVariant[resultado]} className="capitalize">
       {resultado}
@@ -73,7 +80,10 @@ function StatusBadge({ resultado }: { resultado: Cliente['resultado'] }) {
   )
 }
 
-function QualidadeBadge({ qualidade }: { qualidade: Cliente['qualidadeContato'] }) {
+function QualidadeBadge({ qualidade }: { qualidade?: Negociacao['qualidadeContato'] }) {
+  if (!qualidade) {
+    return <span className="text-xs text-muted-foreground">—</span>
+  }
   return (
     <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs ${qualidadeColor[qualidade]}`}>
       {qualidade}
@@ -82,17 +92,16 @@ function QualidadeBadge({ qualidade }: { qualidade: Cliente['qualidadeContato'] 
 }
 
 export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, hasMore = false, isLoadingMore = false, userId, mostrarUsuario = false, nomesPorUsuario = {} }: ClienteTableProps) {
+  const router = useRouter()
   const mostrarCategoria = getCategoriasParaUsuario(userId).length > 0
   const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null)
   const [sortField, setSortField] = useState<SortField>('createdAt')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
-  
-  // Estados para modais de follow-ups
+
+  // Estados para modal de adicionar follow-up (histórico completo agora vive em /leads/[id])
   const [clienteParaFollowUp, setClienteParaFollowUp] = useState<Cliente | null>(null)
   const [isAddFollowUpOpen, setIsAddFollowUpOpen] = useState(false)
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
-  const [followUpParaEditar, setFollowUpParaEditar] = useState<FollowUp | null>(null)
   const [followUpsCounts, setFollowUpsCounts] = useState<Record<string, number>>({})
   const { buscarFollowUps, followUps } = useFollowUps()
   
@@ -135,12 +144,10 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
     setIsAddFollowUpOpen(true)
   }
   
-  // Função para abrir modal de histórico
-  const handleViewHistory = async (cliente: Cliente) => {
+  // Histórico completo (negociações + follow-ups) agora vive na página do lead
+  const handleViewHistory = (cliente: Cliente) => {
     if (!cliente.id) return
-    setClienteParaFollowUp(cliente)
-    await buscarContagemFollowUps(cliente.id)
-    setIsHistoryOpen(true)
+    router.push(`/leads/${cliente.id}`)
   }
   
   // Callback quando um follow-up é criado com sucesso
@@ -187,8 +194,8 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
           bValue = b.nome.toLowerCase()
           break
         case 'valorFechado':
-          aValue = normalizarValor(a.valorFechado)
-          bValue = normalizarValor(b.valorFechado)
+          aValue = normalizarValor(a.ultimaNegociacao?.valorFechado)
+          bValue = normalizarValor(b.ultimaNegociacao?.valorFechado)
           break
         default:
           return 0
@@ -286,35 +293,37 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
             </div>
           </CardContent>
         </Card>
-        {clientesOrdenados.map((cliente) => (
+        {clientesOrdenados.map((cliente) => {
+          const neg = cliente.ultimaNegociacao
+          return (
  <Card key={cliente.id ?? cliente.nome} className="">
             <CardHeader className="pb-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
                     {cliente.nome}
-                    {cliente.naoRespondeu && (
-                      <UserX 
-                        className="h-4 w-4 text-destructive flex-shrink-0" 
+                    {neg?.naoRespondeu && (
+                      <UserX
+                        className="h-4 w-4 text-destructive flex-shrink-0"
                         aria-label="Cliente não respondeu"
                       />
                     )}
-                    {cliente.pagouSinal && (
-                      <DollarSign 
-                        className="h-4 w-4 text-primary flex-shrink-0" 
+                    {neg?.pagouSinal && (
+                      <DollarSign
+                        className="h-4 w-4 text-primary flex-shrink-0"
                         aria-label="Sinal pago"
                       />
                     )}
-                    {cliente.vendaPaga && (
-                      <CheckCircle2 
-                        className="h-4 w-4 text-success flex-shrink-0" 
+                    {neg?.vendaPaga && (
+                      <CheckCircle2
+                        className="h-4 w-4 text-success flex-shrink-0"
                         aria-label="Venda paga"
                       />
                     )}
-                    {cliente.dataLembreteChamada && (
-                      <Bell 
-                        className="h-4 w-4 text-warning flex-shrink-0" 
-                        aria-label={`Lembrete: ${formatDateBR(cliente.dataLembreteChamada)}`}
+                    {neg?.dataLembreteChamada && (
+                      <Bell
+                        className="h-4 w-4 text-warning flex-shrink-0"
+                        aria-label={`Lembrete: ${formatDateBR(neg.dataLembreteChamada)}`}
                       />
                     )}
                   </CardTitle>
@@ -323,7 +332,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                     {formatDateBR(cliente.dataContato)}
                   </CardDescription>
                 </div>
-                <StatusBadge resultado={cliente.resultado} />
+                <StatusBadge resultado={neg?.resultado} />
               </div>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
@@ -339,7 +348,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                 </div>
                 <div className="flex flex-col items-end">
                   <span className="text-xs font-semibold text-muted-foreground">Qualidade</span>
-                  <QualidadeBadge qualidade={cliente.qualidadeContato} />
+                  <QualidadeBadge qualidade={neg?.qualidadeContato} />
                 </div>
               </div>
               {mostrarUsuario && (
@@ -362,7 +371,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                   <span className="text-sm font-semibold">Valor</span>
                 </div>
                 <span className="text-sm font-semibold text-success">
-                  {cliente.valorFechado || '—'}
+                  {neg?.valorFechado || '—'}
                 </span>
               </div>
               {cliente.observacao && (
@@ -423,7 +432,8 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
               )}
             </CardFooter>
           </Card>
-        ))}
+          )
+        })}
       </div>
 
  <Card className="hidden lg:block">
@@ -478,33 +488,35 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clientesOrdenados.map((cliente) => (
+              {clientesOrdenados.map((cliente) => {
+                const neg = cliente.ultimaNegociacao
+                return (
                 <TableRow key={cliente.id ?? cliente.nome}>
                   <TableCell className="font-medium">{formatDateBR(cliente.dataContato)}</TableCell>
                   <TableCell className="font-semibold text-foreground">
                     <div className="flex items-center gap-2">
-                      {cliente.naoRespondeu && (
-                        <UserX 
-                          className="h-4 w-4 text-destructive flex-shrink-0" 
+                      {neg?.naoRespondeu && (
+                        <UserX
+                          className="h-4 w-4 text-destructive flex-shrink-0"
                           aria-label="Cliente não respondeu"
                         />
                       )}
-                      {cliente.pagouSinal && (
-                        <DollarSign 
-                          className="h-4 w-4 text-primary flex-shrink-0" 
+                      {neg?.pagouSinal && (
+                        <DollarSign
+                          className="h-4 w-4 text-primary flex-shrink-0"
                           aria-label="Sinal pago"
                         />
                       )}
-                      {cliente.vendaPaga && (
-                        <CheckCircle2 
-                          className="h-4 w-4 text-success flex-shrink-0" 
+                      {neg?.vendaPaga && (
+                        <CheckCircle2
+                          className="h-4 w-4 text-success flex-shrink-0"
                           aria-label="Venda paga"
                         />
                       )}
-                      {cliente.dataLembreteChamada && (
-                        <Bell 
-                          className="h-4 w-4 text-warning flex-shrink-0" 
-                          aria-label={`Lembrete: ${formatDateBR(cliente.dataLembreteChamada)}`}
+                      {neg?.dataLembreteChamada && (
+                        <Bell
+                          className="h-4 w-4 text-warning flex-shrink-0"
+                          aria-label={`Lembrete: ${formatDateBR(neg.dataLembreteChamada)}`}
                         />
                       )}
                       <span>{cliente.nome}</span>
@@ -525,21 +537,25 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                     <TableCell className="text-sm text-muted-foreground">{cliente.categoria || '—'}</TableCell>
                   )}
                   <TableCell>
-                    <Badge
-                      variant={cliente.orcamentoEnviado === 'Sim' ? 'success' : 'muted'}
-                      className="uppercase"
-                    >
-                      {cliente.orcamentoEnviado}
-                    </Badge>
+                    {neg ? (
+                      <Badge
+                        variant={neg.orcamentoEnviado ? 'success' : 'muted'}
+                        className="uppercase"
+                      >
+                        {neg.orcamentoEnviado ? 'Sim' : 'Não'}
+                      </Badge>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge resultado={cliente.resultado} />
+                    <StatusBadge resultado={neg?.resultado} />
                   </TableCell>
                   <TableCell>
-                    <QualidadeBadge qualidade={cliente.qualidadeContato} />
+                    <QualidadeBadge qualidade={neg?.qualidadeContato} />
                   </TableCell>
                   <TableCell className="text-right text-sm font-semibold text-success">
-                    {cliente.valorFechado || '—'}
+                    {neg?.valorFechado || '—'}
                   </TableCell>
                   <TableCell className="text-center">
                     {cliente.id ? (
@@ -595,7 +611,8 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                )
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -629,41 +646,18 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modais de Follow-ups */}
+      {/* Modal de adicionar follow-up (histórico completo agora vive em /leads/[id]) */}
       {clienteParaFollowUp && clienteParaFollowUp.id && (
-        <>
-          <FollowUpHistoryModal
-            isOpen={isHistoryOpen}
-            onClose={() => {
-              setIsHistoryOpen(false)
-              // Não limpar clienteParaFollowUp aqui para permitir adicionar follow-up
-            }}
-            clienteId={clienteParaFollowUp.id}
-            clienteNome={clienteParaFollowUp.nome}
-            onAddFollowUp={() => {
-              setIsHistoryOpen(false)
-              setIsAddFollowUpOpen(true)
-              setFollowUpParaEditar(null)
-            }}
-            onEditFollowUp={(followUp) => {
-              setIsHistoryOpen(false)
-              setFollowUpParaEditar(followUp)
-              setIsAddFollowUpOpen(true)
-            }}
-          />
-          <AddFollowUpModal
-            isOpen={isAddFollowUpOpen}
-            onClose={() => {
-              setIsAddFollowUpOpen(false)
-              setFollowUpParaEditar(null)
-              setClienteParaFollowUp(null)
-            }}
-            clienteId={clienteParaFollowUp.id}
-            clienteNome={clienteParaFollowUp.nome}
-            onSuccess={handleFollowUpCreated}
-            followUpParaEditar={followUpParaEditar}
-          />
-        </>
+        <AddFollowUpModal
+          isOpen={isAddFollowUpOpen}
+          onClose={() => {
+            setIsAddFollowUpOpen(false)
+            setClienteParaFollowUp(null)
+          }}
+          clienteId={clienteParaFollowUp.id}
+          clienteNome={clienteParaFollowUp.nome}
+          onSuccess={handleFollowUpCreated}
+        />
       )}
     </>
   )
