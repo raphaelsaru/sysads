@@ -168,7 +168,9 @@ export function useNegociacoes(currency: SupportedCurrency = FALLBACK_CURRENCY_V
 
         const transformada = formatarNegociacao(negociacao as unknown as NegociacaoSupabaseRow)
 
-        setNegociacoes((prev) => [transformada, ...prev])
+        setNegociacoes((prev) =>
+          [...prev, transformada].sort((a, b) => b.dataContato.localeCompare(a.dataContato))
+        )
 
         return transformada
       } catch (err) {
