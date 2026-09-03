@@ -100,17 +100,17 @@ const NEGOCIACAO_COLUMNS = `
 `
 
 // Select de clientes + última negociação (embed ordenado por data_contato desc,
-// limitado a 1). Quando há filtro que só existe em negociacoes (resultado,
-// valor, etc.) o embed precisa virar `negociacoes!inner(...)` pra restringir
-// os clientes retornados de fato — com embed normal (left join) o filtro
-// aplicado via dot-path só filtraria as linhas embutidas, não a lista de
-// clientes.
-function selectClientes(comFiltroDeNegociacao: boolean) {
-  const negTable = comFiltroDeNegociacao ? 'negociacoes!inner' : 'negociacoes'
+// limitado a 1). Sempre um embed normal (left join): quando há filtro que só
+// existe em negociacoes (resultado, valor, etc.), o cliente já foi restringido
+// antes disso via buscarClienteIdsFiltrados + .in('id', ids) — nunca usamos
+// `negociacoes!inner(...)` aqui, porque o `count: 'exact'` do PostgREST conta
+// LINHAS DO JOIN (uma por negociação), não clientes distintos, o que inflava
+// total/hasMore quando um cliente tinha mais de uma negociação.
+function selectClientes() {
   return `
     id, data_contato, nome, whatsapp_instagram, origem, observacao, created_at,
     categoria, user_id,
-    ${negTable}(${NEGOCIACAO_COLUMNS})
+    negociacoes(${NEGOCIACAO_COLUMNS})
   `
 }
 
@@ -173,8 +173,10 @@ type NegociacaoStatsRow = {
   pagou_sinal: boolean | null
 }
 
+// Filtros que vivem em `clientes` (pessoa) — sempre aplicados direto na
+// tabela clientes, com ou sem filtro de negociação ativo.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function aplicarFiltros(query: any, filtros?: ClienteFiltrosInput) {
+function aplicarFiltrosPessoa(query: any, filtros?: ClienteFiltrosInput) {
   if (!filtros) return query
 
   if (filtros.busca && filtros.busca.trim()) {
@@ -190,37 +192,44 @@ function aplicarFiltros(query: any, filtros?: ClienteFiltrosInput) {
     query = query.eq('categoria', filtros.categoria)
   }
 
-  // Os filtros abaixo vivem em negociacoes agora — exigem que o select tenha
-  // usado `negociacoes!inner(...)` (ver temFiltroDeNegociacao/selectClientes)
-  // pra de fato restringir os clientes retornados.
+  return query
+}
+
+// Filtros que vivem em `negociacoes` — aplicados direto na tabela negociacoes
+// (colunas simples, sem dot-path) por buscarClienteIdsFiltrados, nunca mais
+// via embed `!inner` + count (ver nota em selectClientes).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function aplicarFiltrosNegociacao(query: any, filtros?: ClienteFiltrosInput) {
+  if (!filtros) return query
+
   if (filtros.resultado) {
-    query = query.eq('negociacoes.resultado', filtros.resultado)
+    query = query.eq('resultado', filtros.resultado)
   }
 
   if (filtros.qualidadeContato) {
-    query = query.eq('negociacoes.qualidade_contato', filtros.qualidadeContato)
+    query = query.eq('qualidade_contato', filtros.qualidadeContato)
   }
 
   if (filtros.valorMin !== undefined && !Number.isNaN(filtros.valorMin)) {
-    query = query.gte('negociacoes.valor_fechado', filtros.valorMin)
+    query = query.gte('valor_fechado', filtros.valorMin)
   }
 
   if (filtros.valorMax !== undefined && !Number.isNaN(filtros.valorMax)) {
-    query = query.lte('negociacoes.valor_fechado', filtros.valorMax)
+    query = query.lte('valor_fechado', filtros.valorMax)
   }
 
   if (filtros.naoRespondeu !== undefined) {
-    query = query.eq('negociacoes.nao_respondeu', filtros.naoRespondeu)
+    query = query.eq('nao_respondeu', filtros.naoRespondeu)
   }
 
   if (filtros.comSinal !== undefined) {
     query = filtros.comSinal
-      ? query.not('negociacoes.valor_sinal', 'is', null)
-      : query.is('negociacoes.valor_sinal', null)
+      ? query.not('valor_sinal', 'is', null)
+      : query.is('valor_sinal', null)
   }
 
   if (filtros.vendaPaga !== undefined) {
-    query = query.eq('negociacoes.venda_paga', filtros.vendaPaga)
+    query = query.eq('venda_paga', filtros.vendaPaga)
   }
 
   if (filtros.mes) {
@@ -230,11 +239,34 @@ function aplicarFiltros(query: any, filtros?: ClienteFiltrosInput) {
       const proximoMes = new Date(ano, mes, 1)
       const fim = proximoMes.toISOString().split('T')[0]
       // data_mes_venda = data_pagamento_sinal (se a venda tiver) senão data_contato
-      query = query.gte('negociacoes.data_mes_venda', inicio).lt('negociacoes.data_mes_venda', fim)
+      query = query.gte('data_mes_venda', inicio).lt('data_mes_venda', fim)
     }
   }
 
   return query
+}
+
+// Quando há filtro de negociação ativo, resolvemos primeiro o conjunto de
+// cliente_id que batem no filtro consultando `negociacoes` diretamente (sem
+// embed), e deduplicamos em JS — isso dá a contagem exata de clientes
+// distintos (ao contrário de `negociacoes!inner(...)` + `count: 'exact'`, que
+// conta linhas do JOIN, uma por negociação). ~3958 clientes no total hoje, um
+// único select sem paginação aqui é suficiente.
+async function buscarClienteIdsFiltrados(
+  filtros: ClienteFiltrosInput | undefined,
+  targetUserId?: string | null,
+): Promise<string[]> {
+  let query = targetUserId
+    ? negociacoesTable().select('cliente_id, clientes!inner(user_id)').eq('clientes.user_id', targetUserId)
+    : negociacoesTable().select('cliente_id')
+
+  query = aplicarFiltrosNegociacao(query, filtros)
+
+  const { data, error } = await query
+  if (error) throw error
+
+  const linhas = (data as { cliente_id: string }[] | null) ?? []
+  return [...new Set(linhas.map((linha) => linha.cliente_id))]
 }
 
 export function useClientes(
@@ -429,13 +461,21 @@ export function useClientes(
 
       const comFiltroDeNegociacao = temFiltroDeNegociacao(filtros)
 
+      // Filtro de negociação ativo: resolve o conjunto exato (deduplicado)
+      // de clientes primeiro — ver buscarClienteIdsFiltrados.
+      let idsFiltrados: string[] | null = null
+      if (comFiltroDeNegociacao) {
+        idsFiltrados = await buscarClienteIdsFiltrados(filtros, targetUserId)
+      }
+
       let query = clientesTable()
-        .select(selectClientes(comFiltroDeNegociacao), { count: 'exact' })
+        .select(selectClientes(), idsFiltrados === null ? { count: 'exact' } : undefined)
         .order('created_at', { ascending: false })
         .order('data_contato', { ascending: false, foreignTable: 'negociacoes' })
         .limit(1, { foreignTable: 'negociacoes' })
       if (targetUserId) query = query.eq('user_id', targetUserId)
-      query = aplicarFiltros(query, filtros)
+      query = aplicarFiltrosPessoa(query, filtros)
+      if (idsFiltrados !== null) query = query.in('id', idsFiltrados)
       query = query.range(0, PAGE_SIZE - 1)
 
       const { data: clientesData, error, count } = await query
@@ -452,7 +492,7 @@ export function useClientes(
       }
 
       const transformados = ((clientesData as ClienteSupabaseRow[] | null) ?? []).map(formatarCliente)
-      const totalCount = count ?? transformados.length
+      const totalCount = idsFiltrados !== null ? idsFiltrados.length : (count ?? transformados.length)
 
       setClientes(transformados)
       setTotal(totalCount)
@@ -482,13 +522,19 @@ export function useClientes(
       const end = start + PAGE_SIZE - 1
       const comFiltroDeNegociacao = temFiltroDeNegociacao(filtros)
 
+      let idsFiltrados: string[] | null = null
+      if (comFiltroDeNegociacao) {
+        idsFiltrados = await buscarClienteIdsFiltrados(filtros, targetUserId)
+      }
+
       let query = clientesTable()
-        .select(selectClientes(comFiltroDeNegociacao), { count: 'exact' })
+        .select(selectClientes(), idsFiltrados === null ? { count: 'exact' } : undefined)
         .order('created_at', { ascending: false })
         .order('data_contato', { ascending: false, foreignTable: 'negociacoes' })
         .limit(1, { foreignTable: 'negociacoes' })
       if (targetUserId) query = query.eq('user_id', targetUserId)
-      query = aplicarFiltros(query, filtros)
+      query = aplicarFiltrosPessoa(query, filtros)
+      if (idsFiltrados !== null) query = query.in('id', idsFiltrados)
       query = query.range(start, end)
 
       const { data: clientesData, error, count } = await query
@@ -501,15 +547,16 @@ export function useClientes(
       }
 
       const transformados = ((clientesData as ClienteSupabaseRow[] | null) ?? []).map(formatarCliente)
+      const totalCount = idsFiltrados !== null ? idsFiltrados.length : (count ?? undefined)
 
       setClientes((prev) => {
         const existingIds = new Set(prev.map(c => c.id))
         const novos = transformados.filter(c => !existingIds.has(c.id))
         const atualizados = [...prev, ...novos]
-        setHasMore(atualizados.length < (count ?? atualizados.length))
+        setHasMore(atualizados.length < (totalCount ?? atualizados.length))
         return atualizados
       })
-      if (count !== null && count !== undefined) setTotal(count)
+      if (totalCount !== null && totalCount !== undefined) setTotal(totalCount)
       setPage((prev) => prev + 1)
     } catch (error) {
       console.error('Erro ao carregar mais clientes:', error)
@@ -624,7 +671,7 @@ export function useClientes(
       }
 
       const { data: clienteRow, error: fetchError } = await clientesTable()
-        .select(selectClientes(false))
+        .select(selectClientes())
         .eq('id', clienteId)
         .order('data_contato', { ascending: false, foreignTable: 'negociacoes' })
         .limit(1, { foreignTable: 'negociacoes' })
@@ -705,7 +752,7 @@ export function useClientes(
       if (targetUserId) updateQuery = updateQuery.eq('user_id', targetUserId)
 
       const { data: cliente, error } = await updateQuery
-        .select(selectClientes(false))
+        .select(selectClientes())
         .order('data_contato', { ascending: false, foreignTable: 'negociacoes' })
         .limit(1, { foreignTable: 'negociacoes' })
         .single()
