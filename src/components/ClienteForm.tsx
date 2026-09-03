@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,15 +16,19 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { NovoCliente, Cliente } from '@/types/crm'
 import { DatePicker } from '@/components/ui/date-picker'
+import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
 
 interface ClienteFormProps {
   onSubmit: (cliente: NovoCliente) => void
   onCancel?: () => void
   cliente?: Cliente
   isEditing?: boolean
+  userId?: string | null
 }
 
-export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = false }: ClienteFormProps) {
+export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = false, userId }: ClienteFormProps) {
+  const categorias = useMemo(() => getCategoriasParaUsuario(userId), [userId])
+
   const getToday = () => {
     const today = new Date()
     return today.toISOString().split('T')[0]
@@ -117,15 +121,26 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="categoria">Categoria</Label>
-              <Input
-                id="categoria"
-                value={formData.categoria}
-                onChange={(event) => handleChange('categoria', event.target.value)}
-                placeholder="Categoria do lead"
-              />
-            </div>
+            {categorias.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="categoria">Categoria</Label>
+                <Select
+                  value={formData.categoria || ''}
+                  onValueChange={(value) => handleChange('categoria', value)}
+                >
+                  <SelectTrigger id="categoria">
+                    <SelectValue placeholder="Selecione a categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorias.map((categoria) => (
+                      <SelectItem key={categoria} value={categoria}>
+                        {categoria}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
