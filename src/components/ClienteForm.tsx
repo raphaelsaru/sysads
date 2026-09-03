@@ -19,7 +19,7 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
 
 interface ClienteFormProps {
-  onSubmit: (cliente: NovoCliente) => void
+  onSubmit: (cliente: NovoCliente) => void | Promise<void>
   onCancel?: () => void
   cliente?: Cliente
   isEditing?: boolean
@@ -28,6 +28,7 @@ interface ClienteFormProps {
 
 export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = false, userId }: ClienteFormProps) {
   const categorias = useMemo(() => getCategoriasParaUsuario(userId), [userId])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const getToday = () => {
     const today = new Date()
@@ -43,9 +44,18 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
     categoria: cliente?.categoria || '',
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(formData)
+    setIsSubmitting(true)
+
+    try {
+      await onSubmit(formData)
+    } catch (error) {
+      console.error('Erro ao salvar cliente:', error)
+      alert('Erro ao salvar cliente. Verifique sua conexão e tente novamente.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleChange = (
@@ -160,8 +170,8 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
                 Cancelar
               </Button>
             )}
-            <Button type="submit" className="sm:min-w-[200px]">
-              {isEditing ? 'Atualizar cliente' : 'Adicionar cliente'}
+            <Button type="submit" disabled={isSubmitting} className="sm:min-w-[200px]">
+              {isSubmitting ? 'Salvando...' : isEditing ? 'Atualizar cliente' : 'Adicionar cliente'}
             </Button>
           </div>
         </form>
