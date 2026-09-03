@@ -173,23 +173,37 @@ type NegociacaoStatsRow = {
   pagou_sinal: boolean | null
 }
 
-// Filtros que vivem em `clientes` (pessoa) — sempre aplicados direto na
-// tabela clientes, com ou sem filtro de negociação ativo.
+function temFiltroDePessoa(filtros?: ClienteFiltrosInput): boolean {
+  if (!filtros) return false
+  return Boolean(filtros.busca?.trim()) || filtros.origem !== undefined || filtros.categoria !== undefined
+}
+
+// Filtros que vivem em `clientes` (pessoa) — fonte única usada tanto na query
+// direta em `clientes` (carregarClientes/carregarMaisClientes) quanto no
+// embed `clientes!inner(...)` dentro de `negociacoes`
+// (buscarClienteIdsFiltrados). `options.embedded` troca a sintaxe (dot-path +
+// `referencedTable` em vez de coluna direta) sem duplicar os valores/condições
+// de cada filtro — evita as duas aplicações divergirem quando um filtro novo
+// for adicionado aqui só de um lado.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function aplicarFiltrosPessoa(query: any, filtros?: ClienteFiltrosInput) {
+function aplicarFiltrosPessoa(query: any, filtros?: ClienteFiltrosInput, options?: { embedded?: boolean }) {
   if (!filtros) return query
+
+  const embedded = options?.embedded ?? false
+  const coluna = (nome: string) => (embedded ? `clientes.${nome}` : nome)
 
   if (filtros.busca && filtros.busca.trim()) {
     const termo = filtros.busca.trim().replace(/[%,]/g, '')
-    query = query.or(`nome.ilike.%${termo}%,whatsapp_instagram.ilike.%${termo}%`)
+    const orExpr = `nome.ilike.%${termo}%,whatsapp_instagram.ilike.%${termo}%`
+    query = embedded ? query.or(orExpr, { referencedTable: 'clientes' }) : query.or(orExpr)
   }
 
   if (filtros.origem) {
-    query = query.eq('origem', filtros.origem)
+    query = query.eq(coluna('origem'), filtros.origem)
   }
 
   if (filtros.categoria) {
-    query = query.eq('categoria', filtros.categoria)
+    query = query.eq(coluna('categoria'), filtros.categoria)
   }
 
   return query
@@ -252,15 +266,31 @@ function aplicarFiltrosNegociacao(query: any, filtros?: ClienteFiltrosInput) {
 // distintos (ao contrário de `negociacoes!inner(...)` + `count: 'exact'`, que
 // conta linhas do JOIN, uma por negociação). ~3958 clientes no total hoje, um
 // único select sem paginação aqui é suficiente.
+//
+// Precisa aplicar TANTO aplicarFiltrosNegociacao QUANTO aplicarFiltrosPessoa
+// (busca/origem/categoria) aqui — senão o id set (e portanto total/hasMore)
+// reflete só o filtro de negociação, enquanto a query principal (que faz
+// aplicarFiltrosPessoa direto + .in('id', idsFiltrados)) retorna a
+// interseção real. Isso quebrava paginação sempre que busca/origem/categoria
+// era combinado com um filtro de negociação: idsFiltrados.length > registros
+// reais, hasMore nunca virava false. Como aplicarFiltrosPessoa embutido
+// precisa de `clientes!inner(...)`, o embed passa a ser necessário sempre
+// que targetUserId OU um filtro de pessoa estiver ativo (antes só entrava
+// para targetUserId).
 async function buscarClienteIdsFiltrados(
   filtros: ClienteFiltrosInput | undefined,
   targetUserId?: string | null,
 ): Promise<string[]> {
-  let query = targetUserId
-    ? negociacoesTable().select('cliente_id, clientes!inner(user_id)').eq('clientes.user_id', targetUserId)
+  const precisaEmbedClientes = Boolean(targetUserId) || temFiltroDePessoa(filtros)
+
+  let query = precisaEmbedClientes
+    ? negociacoesTable().select('cliente_id, clientes!inner(user_id)')
     : negociacoesTable().select('cliente_id')
 
+  if (targetUserId) query = query.eq('clientes.user_id', targetUserId)
+
   query = aplicarFiltrosNegociacao(query, filtros)
+  query = aplicarFiltrosPessoa(query, filtros, { embedded: true })
 
   const { data, error } = await query
   if (error) throw error
