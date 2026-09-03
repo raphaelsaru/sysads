@@ -57,18 +57,52 @@ export async function POST(request: NextRequest) {
 
       const username = await getSenderUsername(event.sender.id, account.access_token)
       const identificador = username ? `@${username}` : event.sender.id
+      const dataContato = new Date(event.timestamp).toISOString().split('T')[0]
 
-      const { error } = await supabase.rpc('create_lead_dedup', {
-        p_user_id: account.user_id,
-        p_data_contato: new Date(event.timestamp).toISOString().split('T')[0],
-        p_nome: username ?? identificador,
-        p_identificador: identificador,
-        p_origem: 'Instagram',
-        p_created_by: account.user_id,
+      const { data, error } = await supabase
+        .rpc('find_or_create_cliente', {
+          p_user_id: account.user_id,
+          p_data_contato: dataContato,
+          p_nome: username ?? identificador,
+          p_identificador: identificador,
+          p_origem: 'Instagram',
+          p_created_by: account.user_id,
+        })
+        .single()
+
+      if (error || !data) {
+        console.error('Erro ao criar/encontrar cliente via webhook Instagram:', error)
+        continue
+      }
+
+      const { id: clienteId } = data as { id: string; created: boolean }
+
+      // Sempre registra uma negociação nova pro evento, mesmo quando o cliente já
+      // existia (created:false) — mesma correção da Task 5.1 (WAHA): um lead
+      // recorrente não gerava nenhum registro do novo contato.
+      //
+      // Instagram (Meta Graph API) também reentrega o mesmo webhook em caso de
+      // timeout/resposta não-2xx. message.mid é o id da mensagem, campo padrão
+      // documentado nos webhooks de Messenger/Instagram da Meta — reusa
+      // origem_evento_id (mesma coluna/índice único parcial da Task 5.1, não é
+      // específico do WAHA) pra tornar esse insert idempotente: uma reentrega
+      // com o mesmo mid colide (23505) e é tratada como no-op.
+      const origemEventoId = event.message.mid ?? null
+
+      const { error: negociacaoError } = await supabase.from('negociacoes').insert({
+        cliente_id: clienteId,
+        data_contato: dataContato,
+        created_by: account.user_id,
+        updated_by: account.user_id,
+        origem_evento_id: origemEventoId,
       })
 
-      if (error) {
-        console.error('Erro ao criar lead via webhook Instagram:', error)
+      if (negociacaoError) {
+        if (negociacaoError.code === '23505' && origemEventoId) {
+          console.warn('Negociação duplicada ignorada (evento Instagram já processado):', origemEventoId)
+          continue
+        }
+        console.error('Erro ao criar negociação via webhook Instagram:', negociacaoError)
       }
     }
   }
