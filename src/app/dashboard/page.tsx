@@ -49,8 +49,7 @@ interface PeriodoResumo {
   leadsComLembrete: number
 }
 
-type ClienteRegistro = {
-  data_contato: string | null
+type NegociacaoRegistro = {
   data_mes_venda: string | null
   resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda' | null
   valor_fechado: number | string | null
@@ -135,21 +134,30 @@ function DashboardContent() {
         }
 
         // data_mes_venda = data_pagamento_sinal (quando a venda tiver) senão data_contato
-        let query = supabase
-          .from('clientes')
-          .select('data_contato, data_mes_venda, resultado, valor_fechado, pagou_sinal, venda_paga, data_lembrete_chamada')
+        // (coluna gerada em negociacoes). negociacoes não tem user_id próprio:
+        // pra escopar por impersonatedUserId precisamos do join com clientes
+        // (!inner) e filtrar clientes.user_id — mesmo padrão de useClientes.ts.
+        let query = impersonatedUserId
+          ? supabase
+              .from('negociacoes')
+              .select('data_mes_venda, resultado, valor_fechado, pagou_sinal, venda_paga, data_lembrete_chamada, clientes!inner(user_id)')
+              .eq('clientes.user_id', impersonatedUserId)
+          : supabase
+              .from('negociacoes')
+              .select('data_mes_venda, resultado, valor_fechado, pagou_sinal, venda_paga, data_lembrete_chamada')
+
+        query = query
           .gte('data_mes_venda', inicioISO)
           .lte('data_mes_venda', fimISO)
           .order('data_mes_venda', { ascending: true })
-        if (impersonatedUserId) query = query.eq('user_id', impersonatedUserId)
         const { data, error } = await query
 
         if (error) {
           throw error
         }
 
-        const registros: ClienteRegistro[] = data
-          ? (data as ClienteRegistro[])
+        const registros: NegociacaoRegistro[] = data
+          ? (data as NegociacaoRegistro[])
           : []
 
         const diasIntervalo = eachDayOfInterval({ start: dateRange.from, end: dateRange.to })
