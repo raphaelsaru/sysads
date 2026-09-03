@@ -35,11 +35,8 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
     nome: cliente?.nome || '',
     whatsappInstagram: cliente?.whatsappInstagram || '',
     origem: cliente?.origem || 'Orgânico / Perfil',
-    orcamentoEnviado: cliente?.orcamentoEnviado || 'Não',
-    resultado: cliente?.resultado || 'Orçamento em Processo',
-    qualidadeContato: cliente?.qualidadeContato || 'Regular',
-    valorFechado: cliente?.valorFechado || '',
     observacao: cliente?.observacao || '',
+    categoria: cliente?.categoria || '',
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -121,62 +118,12 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="orcamentoEnviado">Orçamento enviado</Label>
-              <Select
-                value={formData.orcamentoEnviado}
-                onValueChange={(value) => handleChange('orcamentoEnviado', value)}
-              >
-                <SelectTrigger id="orcamentoEnviado">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Sim">Sim</SelectItem>
-                  <SelectItem value="Não">Não</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="resultado">Resultado</Label>
-              <Select
-                value={formData.resultado}
-                onValueChange={(value) => handleChange('resultado', value)}
-              >
-                <SelectTrigger id="resultado">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Venda">Venda</SelectItem>
-                  <SelectItem value="Orçamento em Processo">Orçamento em Processo</SelectItem>
-                  <SelectItem value="Não Venda">Não Venda</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="qualidadeContato">Qualidade do contato</Label>
-              <Select
-                value={formData.qualidadeContato}
-                onValueChange={(value) => handleChange('qualidadeContato', value)}
-              >
-                <SelectTrigger id="qualidadeContato">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Bom">Bom</SelectItem>
-                  <SelectItem value="Regular">Regular</SelectItem>
-                  <SelectItem value="Ruim">Ruim</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="valorFechado">Valor fechado</Label>
+              <Label htmlFor="categoria">Categoria</Label>
               <Input
-                id="valorFechado"
-                value={formData.valorFechado}
-                onChange={(event) => handleChange('valorFechado', event.target.value)}
-                placeholder="R$ 0,00"
+                id="categoria"
+                value={formData.categoria}
+                onChange={(event) => handleChange('categoria', event.target.value)}
+                placeholder="Categoria do lead"
               />
             </div>
           </div>
