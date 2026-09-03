@@ -3,6 +3,14 @@ import { createAdminClient } from '@/lib/supabase-admin'
 import { getChatLabels } from '@/lib/waha'
 
 interface WahaMessagePayload {
+  // Id da mensagem WAHA, formato tipo whatsapp-web.js:
+  // "{fromMe}_{remoteJid}_{msgId}" (ex: "false_5511999998888@c.us_3EB0...").
+  // Não confirmado contra um servidor WAHA ao vivo neste ambiente — inferido
+  // pela convenção documentada da API WAHA (que expõe o id serializado da
+  // engine no campo `id` de nível superior do payload). Usado só como chave
+  // de idempotência abaixo; se vier ausente/undefined, cai pra `null` e o
+  // comportamento é o mesmo de antes (sem idempotência), não uma regressão.
+  id?: string
   from: string
   fromMe: boolean
   timestamp: number
@@ -122,14 +130,26 @@ async function handleMessage(
   // Sempre registra uma negociação nova pro evento, mesmo quando o cliente já
   // existia (created:false) — corrige o bug em que um lead recorrente não
   // gerava nenhum registro do novo contato.
+  //
+  // WAHA pode reentregar o mesmo webhook em caso de timeout/resposta não-2xx.
+  // origem_evento_id (id da mensagem WAHA) + índice único parcial em
+  // negociacoes tornam esse insert idempotente: uma reentrega com o mesmo id
+  // colide (23505) e é tratada como no-op, em vez de duplicar a negociação.
+  const origemEventoId = payload.id ?? null
+
   const { error: negociacaoError } = await supabase.from('negociacoes').insert({
     cliente_id: clienteId,
     data_contato: dataContato,
     created_by: userId,
     updated_by: userId,
+    origem_evento_id: origemEventoId,
   })
 
   if (negociacaoError) {
+    if (negociacaoError.code === '23505' && origemEventoId) {
+      console.warn('Negociação duplicada ignorada (evento WAHA já processado):', origemEventoId)
+      return NextResponse.json({ ok: true, created, duplicate: true })
+    }
     console.error('Erro ao criar negociação via webhook WAHA:', negociacaoError)
     return NextResponse.json({ error: 'Erro ao criar negociação' }, { status: 500 })
   }
