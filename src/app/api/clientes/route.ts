@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { Cliente, NovoCliente } from '@/types/crm';
+import { Cliente, Negociacao } from '@/types/crm';
+
+// Payload recebido no POST: formato plano legado (pessoa+negociação juntos),
+// usado pela extensão do Chrome (chrome-extension/popup.js, sidebar.js,
+// content.js) — não muda, mesmo com a separação pessoa/negociação interna
+// (Fase 2 / Task 4.1). orcamentoEnviado chega como string 'Sim'/'Não'.
+interface NovoClientePayload {
+  dataContato: string;
+  nome: string;
+  whatsappInstagram: string;
+  origem: Cliente['origem'];
+  orcamentoEnviado?: 'Sim' | 'Não';
+  resultado?: Negociacao['resultado'];
+  qualidadeContato?: Negociacao['qualidadeContato'];
+  naoRespondeu?: boolean;
+  valorFechado?: string;
+  observacao?: string;
+  pagouSinal?: boolean;
+  valorSinal?: string;
+  dataPagamentoSinal?: string;
+  vendaPaga?: boolean;
+  dataPagamentoVenda?: string;
+  dataLembreteChamada?: string;
+}
 
 // Headers CORS para permitir requisições da extensão do Chrome
 function getCorsHeaders(origin?: string | null) {
@@ -182,7 +205,7 @@ export async function POST(request: NextRequest) {
   const origin = request.headers.get('origin');
   
   try {
-    const novoCliente: NovoCliente = await request.json();
+    const novoCliente: NovoClientePayload = await request.json();
     const supabase = await createClient();
 
     // Get the current user
@@ -197,17 +220,46 @@ export async function POST(request: NextRequest) {
       return errorResponse;
     }
 
-    // Insert cliente with user_id
-    // created_by will be set to current user
-    const { data: cliente, error } = await supabase
-      .from('clientes')
+    // Acha-ou-cria a pessoa (dedup por telefone/instagram normalizado, mesmo
+    // contrato do adicionarCliente em src/hooks/useClientes.ts). Sempre cria
+    // uma negociação nova em seguida — o payload da extensão continua
+    // misturando pessoa+negociação num único POST, aqui é que se separa
+    // internamente (decisão Fase 2: extensão não muda).
+    const { data: resultado, error: rpcError } = await supabase
+      .rpc('find_or_create_cliente', {
+        p_user_id: user.id,
+        p_data_contato: novoCliente.dataContato,
+        p_nome: novoCliente.nome,
+        p_identificador: novoCliente.whatsappInstagram,
+        p_origem: novoCliente.origem,
+        p_created_by: user.id,
+      })
+      .single();
+
+    if (rpcError || !resultado) {
+      console.error('Erro ao criar/encontrar cliente:', rpcError);
+      const errorResponse = NextResponse.json(
+        { error: 'Erro interno do servidor' },
+        { status: 500 }
+      );
+      Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+        errorResponse.headers.set(key, value);
+      });
+      return errorResponse;
+    }
+
+    const { id: clienteId } = resultado as { id: string; created: boolean };
+
+    // orcamentoEnviado chega da extensão como string 'Sim'/'Não' — converte
+    // pro boolean que a coluna negociacoes.orcamento_enviado espera.
+    const orcamentoEnviadoBool = novoCliente.orcamentoEnviado === 'Sim';
+
+    const { data: negociacao, error: negociacaoError } = await supabase
+      .from('negociacoes')
       .insert({
-        user_id: user.id,
+        cliente_id: clienteId,
         data_contato: novoCliente.dataContato,
-        nome: novoCliente.nome,
-        whatsapp_instagram: novoCliente.whatsappInstagram,
-        origem: novoCliente.origem,
-        orcamento_enviado: novoCliente.orcamentoEnviado === 'Sim',
+        orcamento_enviado: orcamentoEnviadoBool,
         resultado: novoCliente.resultado,
         qualidade_contato: novoCliente.qualidadeContato,
         nao_respondeu: novoCliente.naoRespondeu || false,
@@ -219,42 +271,74 @@ export async function POST(request: NextRequest) {
         venda_paga: novoCliente.vendaPaga || false,
         data_pagamento_venda: novoCliente.dataPagamentoVenda || null,
         data_lembrete_chamada: novoCliente.dataLembreteChamada || null,
+        created_by: user.id,
+        updated_by: user.id,
       })
       .select()
       .single();
 
-    if (error) {
-      console.error('Erro ao criar cliente:', error);
+    if (negociacaoError || !negociacao) {
+      console.error('Erro ao criar negociação:', negociacaoError);
       const errorResponse = NextResponse.json(
         { error: 'Erro interno do servidor' },
         { status: 500 }
       );
-      // Adicionar headers CORS mesmo em caso de erro
       Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
         errorResponse.headers.set(key, value);
       });
       return errorResponse;
     }
 
-    // Transform to match existing interface
-    const transformedCliente: Cliente = {
+    const { data: cliente, error } = await supabase
+      .from('clientes')
+      .select()
+      .eq('id', clienteId)
+      .single();
+
+    if (error || !cliente) {
+      console.error('Erro ao buscar cliente recém-criado:', error);
+      const errorResponse = NextResponse.json(
+        { error: 'Erro interno do servidor' },
+        { status: 500 }
+      );
+      Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+        errorResponse.headers.set(key, value);
+      });
+      return errorResponse;
+    }
+
+    // Transform to match existing interface (payload plano pessoa+negociação,
+    // formato que a extensão já espera — não muda o contrato externo).
+    const transformedCliente: Cliente & {
+      orcamentoEnviado: 'Sim' | 'Não';
+      resultado: Negociacao['resultado'];
+      qualidadeContato: Negociacao['qualidadeContato'];
+      naoRespondeu: boolean;
+      valorFechado?: string;
+      pagouSinal: boolean;
+      valorSinal?: string;
+      dataPagamentoSinal?: string;
+      vendaPaga: boolean;
+      dataPagamentoVenda?: string;
+      dataLembreteChamada?: string;
+    } = {
       id: cliente.id,
       dataContato: cliente.data_contato,
       nome: cliente.nome,
       whatsappInstagram: cliente.whatsapp_instagram,
       origem: cliente.origem as Cliente['origem'],
-      orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
-      resultado: cliente.resultado as Cliente['resultado'],
-      qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
-      naoRespondeu: cliente.nao_respondeu || false,
-      valorFechado: cliente.valor_fechado?.toString(),
+      orcamentoEnviado: negociacao.orcamento_enviado ? 'Sim' : 'Não',
+      resultado: negociacao.resultado as Negociacao['resultado'],
+      qualidadeContato: negociacao.qualidade_contato as Negociacao['qualidadeContato'],
+      naoRespondeu: negociacao.nao_respondeu || false,
+      valorFechado: negociacao.valor_fechado?.toString(),
       observacao: cliente.observacao,
-      pagouSinal: cliente.pagou_sinal || false,
-      valorSinal: cliente.valor_sinal?.toString(),
-      dataPagamentoSinal: cliente.data_pagamento_sinal,
-      vendaPaga: cliente.venda_paga || false,
-      dataPagamentoVenda: cliente.data_pagamento_venda,
-      dataLembreteChamada: cliente.data_lembrete_chamada,
+      pagouSinal: negociacao.pagou_sinal || false,
+      valorSinal: negociacao.valor_sinal?.toString(),
+      dataPagamentoSinal: negociacao.data_pagamento_sinal,
+      vendaPaga: negociacao.venda_paga || false,
+      dataPagamentoVenda: negociacao.data_pagamento_venda,
+      dataLembreteChamada: negociacao.data_lembrete_chamada,
     };
 
     const response = NextResponse.json(transformedCliente, { status: 201 });
