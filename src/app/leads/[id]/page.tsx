@@ -26,6 +26,7 @@ import { Cliente, FollowUp, Negociacao, NovaNegociacao, NovoCliente } from '@/ty
 import { FALLBACK_CURRENCY_VALUE, formatCurrency, type SupportedCurrency } from '@/lib/currency'
 import { formatDateBR } from '@/lib/dateUtils'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
+import { calcularLtv, calcularTotalVendas } from '@/lib/negociacoes'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -146,25 +147,17 @@ function LeadDetailPageContent() {
   }, [clienteId, buscarFollowUps])
 
   // ---- KPIs derivados do estado local (não só do payload inicial da API) ----
-  // Recalculados aqui (mesma fórmula do GET /api/clientes/[id]) em vez de só
-  // guardar o `ltv`/contagens que vieram prontos da API, porque negociações
-  // criadas/editadas nesta página atualizam `cliente.negociacoes` localmente
-  // sem refetch — se ficássemos só com os números iniciais da API eles
-  // ficariam desatualizados até um reload.
+  // Recalculados aqui (mesma fórmula do GET /api/clientes/[id], via
+  // src/lib/negociacoes.ts) em vez de só guardar o `ltv`/contagens que vieram
+  // prontos da API, porque negociações criadas/editadas nesta página
+  // atualizam `cliente.negociacoes` localmente sem refetch — se ficássemos só
+  // com os números iniciais da API eles ficariam desatualizados até um reload.
   const negociacoes = useMemo(() => cliente?.negociacoes ?? [], [cliente])
 
-  const ltv = useMemo(
-    () =>
-      negociacoes.reduce((soma, n) => {
-        if (n.resultado !== 'Venda') return soma
-        const valor = n.valorFechado ? Number(n.valorFechado) : 0
-        return soma + (Number.isFinite(valor) ? valor : 0)
-      }, 0),
-    [negociacoes]
-  )
+  const ltv = useMemo(() => calcularLtv(negociacoes), [negociacoes])
 
   const totalNegociacoes = negociacoes.length
-  const totalVendas = useMemo(() => negociacoes.filter((n) => n.resultado === 'Venda').length, [negociacoes])
+  const totalVendas = useMemo(() => calcularTotalVendas(negociacoes), [negociacoes])
 
   const ultimaInteracao = useMemo(() => {
     const datas = [...negociacoes.map((n) => n.dataContato), ...followUps.map((f) => f.createdAt)]

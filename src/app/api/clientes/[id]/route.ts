@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { Cliente, Negociacao } from '@/types/crm';
+import { calcularLtv } from '@/lib/negociacoes';
 
 // Campos que existem SÓ em Negociacao/NovaNegociacao (não em Cliente/NovoCliente).
 // PATCH rejeita qualquer um desses no payload em vez de descartar silenciosamente
@@ -126,11 +127,8 @@ export async function GET(
     // agora é barato e evita repetir essa soma no futuro /leads/[id] ou em
     // outro consumidor. Deixado de fora do endpoint de listagem (que só tem
     // a última negociação, não o histórico completo necessário pro cálculo).
-    const ltv = negociacoes.reduce((soma, n) => {
-      if (n.resultado !== 'Venda') return soma;
-      const valor = n.valorFechado ? parseFloat(n.valorFechado) : 0;
-      return soma + (Number.isFinite(valor) ? valor : 0);
-    }, 0);
+    // Fórmula compartilhada com /leads/[id] via src/lib/negociacoes.ts.
+    const ltv = calcularLtv(negociacoes);
 
     const transformedCliente: Cliente = {
       id: cliente.id,
