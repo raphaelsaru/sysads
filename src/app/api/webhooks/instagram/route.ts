@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient()
+  let hasGenuineFailure = false
 
   for (const entry of body.entry ?? []) {
     for (const event of entry.messaging ?? []) {
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
 
       if (error || !data) {
         console.error('Erro ao criar/encontrar cliente via webhook Instagram:', error)
+        hasGenuineFailure = true
         continue
       }
 
@@ -103,8 +105,13 @@ export async function POST(request: NextRequest) {
           continue
         }
         console.error('Erro ao criar negociação via webhook Instagram:', negociacaoError)
+        hasGenuineFailure = true
       }
     }
+  }
+
+  if (hasGenuineFailure) {
+    return NextResponse.json({ error: 'Erro ao processar webhook Instagram' }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })
