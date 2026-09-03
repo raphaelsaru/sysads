@@ -125,6 +125,12 @@ export interface BatchImportResult {
   total: number
   success: number
   failed: number
+  // Usernames cujo cliente foi criado com sucesso mas cuja negociação
+  // inicial falhou ao ser inserida — ainda contam em `success`/`created`
+  // (a pessoa existe e está visível/editável no CRM), mas ficam sem
+  // negociação inicial e precisam de atenção manual. Subconjunto de
+  // `created`, não um terceiro balde.
+  negociacaoFailed: string[]
 }
 
 // =====================================================

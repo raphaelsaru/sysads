@@ -70,12 +70,16 @@ export async function POST(request: NextRequest) {
     // de dedup GLOBAL (contra instagram_normalizado no banco inteiro, não só
     // os clientes do usuário atual) usada em POST /api/clientes (Task 3.2/4.1).
     // Chamado sequencialmente (lote de OCR costuma ser pequeno — poucos
-    // contatos por print de tela) para não abrir dezenas de conexões
-    // concorrentes contra o lock consultivo da RPC.
+    // contatos por print de tela): mantém simples e limita a concorrência de
+    // conexões no banco por requisição. Não é sobre lock contention — o
+    // advisory lock da RPC (20260902100601_fix_find_or_create_cliente_race.sql)
+    // é por identificador normalizado, e usernames diferentes nunca colidem;
+    // identificadores iguais já foram removidos pelo dedup em lote acima.
     const hoje = new Date().toISOString().split('T')[0]
     const dbDuplicates: string[] = []
     const errors: string[] = []
     const createdIds: string[] = []
+    const usernameByCreatedId = new Map<string, string>()
 
     for (const username of uniqueUsers) {
       const nome = username.startsWith('@') ? username.substring(1) : username
@@ -100,6 +104,7 @@ export async function POST(request: NextRequest) {
       const { id, created } = resultado as { id: string; created: boolean }
       if (created) {
         createdIds.push(id)
+        usernameByCreatedId.set(id, username)
       } else {
         dbDuplicates.push(username)
       }
@@ -108,6 +113,7 @@ export async function POST(request: NextRequest) {
     // Cria a negociação inicial de cada cliente novo (mesmos defaults que a
     // importação por OCR sempre usou — sem dados de negociação vindos do
     // OCR em si, só o contato).
+    const negociacaoFailed: string[] = []
     if (createdIds.length > 0) {
       const { error: negociacoesError } = await supabase
         .from('negociacoes')
@@ -128,8 +134,15 @@ export async function POST(request: NextRequest) {
       if (negociacoesError) {
         console.error('Erro ao criar negociações da importação em lote:', negociacoesError)
         // Os clientes já foram criados (find_or_create_cliente comitou) —
-        // não falha a requisição inteira, só loga. As pessoas ficam sem
-        // negociação inicial, mas visíveis/editáveis no CRM.
+        // não falha a requisição inteira. O insert é único pra todo o lote,
+        // então uma falha aqui afeta TODOS os createdIds dessa chamada
+        // (não dá pra saber qual item específico causou o erro). Eles
+        // continuam contando como `success`/`created` (a pessoa existe e
+        // está visível/editável no CRM), mas ficam sem negociação inicial —
+        // sinalizado ao caller via `negociacaoFailed` em vez de silenciado.
+        negociacaoFailed.push(
+          ...createdIds.map(id => usernameByCreatedId.get(id)!).filter(Boolean)
+        )
       }
     }
 
@@ -181,6 +194,7 @@ export async function POST(request: NextRequest) {
       total: users.length,
       success: transformedClientes.length,
       failed: skipped.length,
+      negociacaoFailed,
     }
 
     return NextResponse.json(result, { status: 201 })
