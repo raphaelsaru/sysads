@@ -86,6 +86,22 @@ export function useNotifications(targetUserId?: string | null) {
         return
       }
 
+      // Lead único: um cliente pode ter várias negociações, cada uma com seu
+      // próprio data_lembrete_chamada. Dedupe por cliente_id ANTES de agrupar
+      // por período, mantendo só a negociação com o lembrete mais próximo —
+      // senão o mesmo cliente aparece com id duplicado (quebra key={lead.id}
+      // no NotificationsBell) e pode até cair em dois buckets diferentes
+      // (ex: uma negociação amanhã + outra em 3 dias -> apareceria em "amanhã"
+      // E "próximos"). A query já vem ordenada por data_lembrete_chamada asc,
+      // então o primeiro lead de cada cliente_id é sempre o mais próximo.
+      const leadsPorCliente = new Map<string, LeadRow>()
+      for (const lead of leads) {
+        if (!leadsPorCliente.has(lead.cliente_id)) {
+          leadsPorCliente.set(lead.cliente_id, lead)
+        }
+      }
+      const leadsDeduplicados = Array.from(leadsPorCliente.values())
+
       // Agrupar leads por período
       const hojeStr = hoje.toISOString().split('T')[0]
       const amanhaStr = amanha.toISOString().split('T')[0]
@@ -94,7 +110,7 @@ export function useNotifications(targetUserId?: string | null) {
       const amanhaLeads: LeadNotification[] = []
       const proximosLeads: LeadNotification[] = []
 
-      for (const lead of leads) {
+      for (const lead of leadsDeduplicados) {
         if (!lead.clientes) continue
         const leadFormatada: LeadNotification = {
           id: lead.cliente_id,
