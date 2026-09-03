@@ -9,7 +9,7 @@ import ClienteTable from '@/components/ClienteTable'
 import ClienteForm from '@/components/ClienteForm'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import ClienteFiltrosPanel, { filtrosIniciais, TODOS_MESES } from '@/components/ClienteFiltros'
-import { useClientes, type ClienteFiltrosInput } from '@/hooks/useClientes'
+import { useClientes, ClienteDuplicadoError, type ClienteFiltrosInput } from '@/hooks/useClientes'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAdmin } from '@/contexts/AdminContext'
 import { Cliente, NovoCliente } from '@/types/crm'
@@ -104,6 +104,12 @@ function HomePage() {
       setMostrarModal(false)
       window.dispatchEvent(new CustomEvent('cliente-atualizado'))
     } catch (error) {
+      if (error instanceof ClienteDuplicadoError) {
+        setMostrarModal(false)
+        alert('Esse lead já está cadastrado. Você será direcionado para a página dele para lançar a negociação.')
+        router.push(`/leads/${error.clienteId}`)
+        return
+      }
       throw error
     }
   }
