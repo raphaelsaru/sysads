@@ -2,16 +2,21 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase-browser'
-import { Cliente } from '@/types/crm'
+import { Negociacao } from '@/types/crm'
 
 const supabase = createClient()
 
+// data_lembrete_chamada e resultado moram em negociacoes (não mais em
+// clientes). negociacoes não tem user_id próprio — join com clientes
+// (!inner) e filtro em clientes.user_id, mesmo padrão de useClientes.ts/dashboard.
 type LeadRow = {
-  id: string
-  nome: string
-  whatsapp_instagram: string
+  cliente_id: string
   data_lembrete_chamada: string
-  resultado: Cliente['resultado'] | null
+  resultado: Negociacao['resultado'] | null
+  clientes: {
+    nome: string
+    whatsapp_instagram: string
+  } | null
 }
 
 export interface LeadNotification {
@@ -19,7 +24,7 @@ export interface LeadNotification {
   nome: string
   whatsappInstagram: string
   dataLembrete: string
-  resultado: Cliente['resultado']
+  resultado: Negociacao['resultado'] | null
 }
 
 export interface NotificationGroup {
@@ -57,16 +62,18 @@ export function useNotifications(targetUserId?: string | null) {
       const tresDiasDepois = new Date(hoje)
       tresDiasDepois.setDate(tresDiasDepois.getDate() + 3)
 
-      // Buscar leads com data_lembrete_chamada nos próximos 3 dias
+      // Buscar negociações com data_lembrete_chamada nos próximos 3 dias
+      // (coluna vive em negociacoes desde a Fase 5; join !inner com clientes
+      // pra filtrar por dono, já que negociacoes não tem user_id próprio).
       const { data: leadsRaw, error } = await supabase
-        .from('clientes')
-        .select('id, nome, whatsapp_instagram, data_lembrete_chamada, resultado')
-        .eq('user_id', targetUserId ?? user.id)
+        .from('negociacoes')
+        .select('cliente_id, data_lembrete_chamada, resultado, clientes!inner(nome, whatsapp_instagram, user_id)')
+        .eq('clientes.user_id', targetUserId ?? user.id)
         .not('data_lembrete_chamada', 'is', null)
         .gte('data_lembrete_chamada', hoje.toISOString().split('T')[0])
         .lte('data_lembrete_chamada', tresDiasDepois.toISOString().split('T')[0])
         .order('data_lembrete_chamada', { ascending: true })
-      const leads = (leadsRaw as LeadRow[] | null) ?? []
+      const leads = (leadsRaw as unknown as LeadRow[] | null) ?? []
 
       if (error) {
         console.error('❌ Erro ao carregar notificações:', error)
@@ -88,12 +95,13 @@ export function useNotifications(targetUserId?: string | null) {
       const proximosLeads: LeadNotification[] = []
 
       for (const lead of leads) {
+        if (!lead.clientes) continue
         const leadFormatada: LeadNotification = {
-          id: lead.id,
-          nome: lead.nome,
-          whatsappInstagram: lead.whatsapp_instagram,
+          id: lead.cliente_id,
+          nome: lead.clientes.nome,
+          whatsappInstagram: lead.clientes.whatsapp_instagram,
           dataLembrete: lead.data_lembrete_chamada,
-          resultado: lead.resultado as Cliente['resultado'],
+          resultado: lead.resultado,
         }
 
         if (lead.data_lembrete_chamada === hojeStr) {
