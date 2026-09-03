@@ -6,6 +6,7 @@ import { Loader2, LockKeyhole, Mail, Building2 } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
+import { Symbol } from '@/components/ui/symbol'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -92,7 +93,10 @@ export default function LoginForm() {
     <div className="flex min-h-screen items-center justify-center px-6 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center flex flex-col items-center gap-4">
-          <span className="font-display text-4xl font-medium text-foreground">Prizely</span>
+          <div className="flex items-center gap-3">
+            <Symbol className="h-10 w-10 shrink-0" />
+            <span className="font-display text-4xl font-medium text-foreground">Prizely</span>
+          </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
             Prizely CRM
           </span>

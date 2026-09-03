@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAdmin } from '@/contexts/AdminContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Symbol } from '@/components/ui/symbol'
 import NotificationsBell from '@/components/NotificationsBell'
 import {
   DropdownMenu,
@@ -168,7 +169,10 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col gap-8 px-6 py-8">
-      <span className="font-display text-2xl font-medium text-foreground">Prizely</span>
+      <div className="flex items-center gap-2">
+        <Symbol className="h-7 w-7 shrink-0" />
+        <span className="font-display text-2xl font-medium text-foreground">Prizely</span>
+      </div>
 
       <NavLinks onNavigate={onNavigate} />
 
@@ -249,7 +253,10 @@ export default function Sidebar() {
 
       {/* Barra superior + drawer — mobile */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3 md:hidden">
-        <span className="font-display text-xl font-medium text-foreground">Prizely</span>
+        <div className="flex items-center gap-2">
+          <Symbol className="h-6 w-6 shrink-0" />
+          <span className="font-display text-xl font-medium text-foreground">Prizely</span>
+        </div>
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" size="icon" aria-label="Abrir menu">

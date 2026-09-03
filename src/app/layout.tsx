@@ -22,7 +22,10 @@ export const metadata: Metadata = {
   title: "CRM Prizely - Sistema de Gestão de Clientes",
   description: "Sistema de CRM para gestão de clientes da Prizely",
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      { url: "/favicon.png", media: "(prefers-color-scheme: light)" },
+      { url: "/icon-dark.png", media: "(prefers-color-scheme: dark)" },
+    ],
   },
 };
 
