@@ -99,26 +99,42 @@ async function handleMessage(
   }
 
   const nome = payload._data?.notifyName?.trim() || whatsapp
+  const dataContato = formatDateFromTimestamp(payload.timestamp)
 
-  const { data, error } = await supabase.rpc('create_lead_dedup', {
-    p_user_id: userId,
-    p_data_contato: formatDateFromTimestamp(payload.timestamp),
-    p_nome: nome,
-    p_identificador: whatsapp,
-    p_origem: 'Anúncio',
-    p_created_by: userId,
-  })
+  const { data, error } = await supabase
+    .rpc('find_or_create_cliente', {
+      p_user_id: userId,
+      p_data_contato: dataContato,
+      p_nome: nome,
+      p_identificador: whatsapp,
+      p_origem: 'Anúncio',
+      p_created_by: userId,
+    })
+    .single()
 
-  if (error) {
-    console.error('Erro ao criar lead via webhook WAHA:', error)
+  if (error || !data) {
+    console.error('Erro ao criar/encontrar cliente via webhook WAHA:', error)
     return NextResponse.json({ error: 'Erro ao criar lead' }, { status: 500 })
   }
 
-  if (!data?.[0]?.created) {
-    return NextResponse.json({ ignored: true, reason: 'lead já existe' })
+  const { id: clienteId, created } = data as { id: string; created: boolean }
+
+  // Sempre registra uma negociação nova pro evento, mesmo quando o cliente já
+  // existia (created:false) — corrige o bug em que um lead recorrente não
+  // gerava nenhum registro do novo contato.
+  const { error: negociacaoError } = await supabase.from('negociacoes').insert({
+    cliente_id: clienteId,
+    data_contato: dataContato,
+    created_by: userId,
+    updated_by: userId,
+  })
+
+  if (negociacaoError) {
+    console.error('Erro ao criar negociação via webhook WAHA:', negociacaoError)
+    return NextResponse.json({ error: 'Erro ao criar negociação' }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, created })
 }
 
 async function handleLabelChange(
