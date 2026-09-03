@@ -101,7 +101,10 @@ export async function GET(request: NextRequest) {
       return errorResponse;
     }
 
-    // Fetch clientes — RLS filters by authenticated user
+    // Fetch clientes — RLS filters by authenticated user. Embed só a
+    // negociação mais recente por cliente (mesmo padrão de
+    // src/hooks/useClientes.ts's selectClientes()) — lista não precisa do
+    // histórico completo, só da "última negociação" pra exibir na tabela.
     const { data: clientes, error } = await supabase
       .from('clientes')
       .select(`
@@ -110,22 +113,20 @@ export async function GET(request: NextRequest) {
         nome,
         whatsapp_instagram,
         origem,
-        orcamento_enviado,
-        resultado,
-        qualidade_contato,
-        nao_respondeu,
-        valor_fechado,
         observacao,
         created_at,
-        updated_at,
-        pagou_sinal,
-        valor_sinal,
-        data_pagamento_sinal,
-        venda_paga,
-        data_pagamento_venda,
-        data_lembrete_chamada
+        categoria,
+        negociacoes(
+          id, cliente_id, data_contato, orcamento_enviado, resultado,
+          qualidade_contato, nao_respondeu, valor_fechado, observacao,
+          pagou_sinal, valor_sinal, data_pagamento_sinal, venda_paga,
+          data_pagamento_venda, data_lembrete_chamada, data_mes_venda,
+          created_at, created_by, updated_by
+        )
       `)
-      .order('data_contato', { ascending: false });
+      .order('data_contato', { ascending: false })
+      .order('data_contato', { ascending: false, foreignTable: 'negociacoes' })
+      .limit(1, { foreignTable: 'negociacoes' });
 
     if (error) {
       console.error('Erro ao buscar clientes:', error);
@@ -159,27 +160,46 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Transform to match existing interface
-    const transformedClientes: Cliente[] = (clientes || []).map(cliente => ({
-      id: cliente.id,
-      dataContato: cliente.data_contato,
-      nome: cliente.nome,
-      whatsappInstagram: cliente.whatsapp_instagram,
-      origem: cliente.origem as Cliente['origem'],
-      orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
-      resultado: cliente.resultado as Cliente['resultado'],
-      qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
-      naoRespondeu: cliente.nao_respondeu || false,
-      valorFechado: cliente.valor_fechado?.toString(),
-      observacao: cliente.observacao,
-      pagouSinal: cliente.pagou_sinal || false,
-      valorSinal: cliente.valor_sinal?.toString(),
-      dataPagamentoSinal: cliente.data_pagamento_sinal,
-      vendaPaga: cliente.venda_paga || false,
-      dataPagamentoVenda: cliente.data_pagamento_venda,
-      dataLembreteChamada: cliente.data_lembrete_chamada,
-      totalFollowUps: followUpsCounts[cliente.id] || 0,
-    }));
+    // Transform to match existing interface — negociação mais recente (se
+    // houver) vira `ultimaNegociacao`, mesma convenção de useClientes.ts.
+    const transformedClientes: Cliente[] = (clientes || []).map(cliente => {
+      const negociacaoRow = cliente.negociacoes?.[0];
+      const ultimaNegociacao: Negociacao | undefined = negociacaoRow
+        ? {
+            id: negociacaoRow.id,
+            clienteId: negociacaoRow.cliente_id,
+            dataContato: negociacaoRow.data_contato,
+            orcamentoEnviado: negociacaoRow.orcamento_enviado,
+            resultado: negociacaoRow.resultado as Negociacao['resultado'],
+            qualidadeContato: negociacaoRow.qualidade_contato as Negociacao['qualidadeContato'],
+            naoRespondeu: negociacaoRow.nao_respondeu || false,
+            valorFechado: negociacaoRow.valor_fechado?.toString(),
+            observacao: negociacaoRow.observacao,
+            pagouSinal: negociacaoRow.pagou_sinal || false,
+            valorSinal: negociacaoRow.valor_sinal?.toString(),
+            dataPagamentoSinal: negociacaoRow.data_pagamento_sinal,
+            vendaPaga: negociacaoRow.venda_paga || false,
+            dataPagamentoVenda: negociacaoRow.data_pagamento_venda,
+            dataLembreteChamada: negociacaoRow.data_lembrete_chamada,
+            dataMesVenda: negociacaoRow.data_mes_venda,
+            createdAt: negociacaoRow.created_at,
+            createdBy: negociacaoRow.created_by,
+            updatedBy: negociacaoRow.updated_by,
+          }
+        : undefined;
+
+      return {
+        id: cliente.id,
+        dataContato: cliente.data_contato,
+        nome: cliente.nome,
+        whatsappInstagram: cliente.whatsapp_instagram,
+        origem: cliente.origem as Cliente['origem'],
+        observacao: cliente.observacao,
+        categoria: cliente.categoria,
+        ultimaNegociacao,
+        totalFollowUps: followUpsCounts[cliente.id] || 0,
+      };
+    });
 
     const response = NextResponse.json(transformedClientes);
     // Adicionar headers CORS

@@ -1,6 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { Cliente } from '@/types/crm';
+import { Cliente, Negociacao } from '@/types/crm';
+
+// Campos que existem SÓ em Negociacao/NovaNegociacao (não em Cliente/NovoCliente).
+// PATCH rejeita qualquer um desses no payload em vez de descartar silenciosamente
+// (decisão Task 4.2: 400 é mais seguro que perder dado que o chamador achava
+// que ia salvar). `dataContato` e `observacao` existem nos dois tipos — não
+// são exclusivos de negociação, por isso ficam de fora dessa lista.
+const CAMPOS_SOMENTE_NEGOCIACAO = [
+  'clienteId',
+  'orcamentoEnviado',
+  'resultado',
+  'qualidadeContato',
+  'naoRespondeu',
+  'valorFechado',
+  'pagouSinal',
+  'valorSinal',
+  'dataPagamentoSinal',
+  'vendaPaga',
+  'dataPagamentoVenda',
+  'dataLembreteChamada',
+  'dataMesVenda',
+] as const;
+
+function negociacaoRowParaNegociacao(row: {
+  id: string;
+  cliente_id: string;
+  data_contato: string;
+  orcamento_enviado: boolean;
+  resultado: string;
+  qualidade_contato: string | null;
+  nao_respondeu: boolean | null;
+  valor_fechado: number | null;
+  observacao: string | null;
+  pagou_sinal: boolean | null;
+  valor_sinal: number | null;
+  data_pagamento_sinal: string | null;
+  venda_paga: boolean | null;
+  data_pagamento_venda: string | null;
+  data_lembrete_chamada: string | null;
+  data_mes_venda: string | null;
+  created_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+}): Negociacao {
+  return {
+    id: row.id,
+    clienteId: row.cliente_id,
+    dataContato: row.data_contato,
+    orcamentoEnviado: row.orcamento_enviado,
+    resultado: row.resultado as Negociacao['resultado'],
+    qualidadeContato: (row.qualidade_contato ?? undefined) as Negociacao['qualidadeContato'],
+    naoRespondeu: row.nao_respondeu || false,
+    valorFechado: row.valor_fechado?.toString(),
+    observacao: row.observacao ?? undefined,
+    pagouSinal: row.pagou_sinal || false,
+    valorSinal: row.valor_sinal?.toString(),
+    dataPagamentoSinal: row.data_pagamento_sinal ?? undefined,
+    vendaPaga: row.venda_paga || false,
+    dataPagamentoVenda: row.data_pagamento_venda ?? undefined,
+    dataLembreteChamada: row.data_lembrete_chamada ?? undefined,
+    dataMesVenda: row.data_mes_venda ?? undefined,
+    createdAt: row.created_at,
+    createdBy: row.created_by ?? undefined,
+    updatedBy: row.updated_by ?? undefined,
+  };
+}
 
 export async function GET(
   request: NextRequest,
@@ -17,11 +82,25 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch cliente - RLS will automatically filter by user_id
+    // Fetch cliente + TODAS as negociações (ordenadas mais recente primeiro)
+    // — detalhe de um único lead, ao contrário da listagem em
+    // GET /api/clientes que embeda só a última. Constrói o design pro futuro
+    // /leads/[id] (Task 6.3).
     const { data: cliente, error } = await supabase
       .from('clientes')
-      .select('*')
+      .select(`
+        id, data_contato, nome, whatsapp_instagram, origem, observacao,
+        created_at, categoria, user_id,
+        negociacoes(
+          id, cliente_id, data_contato, orcamento_enviado, resultado,
+          qualidade_contato, nao_respondeu, valor_fechado, observacao,
+          pagou_sinal, valor_sinal, data_pagamento_sinal, venda_paga,
+          data_pagamento_venda, data_lembrete_chamada, data_mes_venda,
+          created_at, created_by, updated_by
+        )
+      `)
       .eq('id', id)
+      .order('data_contato', { ascending: false, foreignTable: 'negociacoes' })
       .single();
 
     if (error || !cliente) {
@@ -31,25 +110,39 @@ export async function GET(
       );
     }
 
-    // Transform to match existing interface
+    // totalFollowUps: contagem exata via head:true (count-only, sem baixar linhas).
+    const { count: totalFollowUps } = await supabase
+      .from('follow_ups')
+      .select('id', { count: 'exact', head: true })
+      .eq('cliente_id', id);
+
+    const negociacoes = (cliente.negociacoes ?? []).map(negociacaoRowParaNegociacao);
+
+    // ltv: soma de valorFechado das negociações com resultado='Venda'. O tipo
+    // Cliente já tem o campo `ltv` pronto pra isso (agregado calculado na
+    // leitura, não coluna de clientes) e os dados já estão aqui — calcular
+    // agora é barato e evita repetir essa soma no futuro /leads/[id] ou em
+    // outro consumidor. Deixado de fora do endpoint de listagem (que só tem
+    // a última negociação, não o histórico completo necessário pro cálculo).
+    const ltv = negociacoes.reduce((soma, n) => {
+      if (n.resultado !== 'Venda') return soma;
+      const valor = n.valorFechado ? parseFloat(n.valorFechado) : 0;
+      return soma + (Number.isFinite(valor) ? valor : 0);
+    }, 0);
+
     const transformedCliente: Cliente = {
       id: cliente.id,
       dataContato: cliente.data_contato,
       nome: cliente.nome,
       whatsappInstagram: cliente.whatsapp_instagram,
       origem: cliente.origem as Cliente['origem'],
-      orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
-      resultado: cliente.resultado as Cliente['resultado'],
-      qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
-      naoRespondeu: cliente.nao_respondeu || false,
-      valorFechado: cliente.valor_fechado?.toString(),
-      observacao: cliente.observacao,
-      pagouSinal: cliente.pagou_sinal || false,
-      valorSinal: cliente.valor_sinal?.toString(),
-      dataPagamentoSinal: cliente.data_pagamento_sinal,
-      vendaPaga: cliente.venda_paga || false,
-      dataPagamentoVenda: cliente.data_pagamento_venda,
-      dataLembreteChamada: cliente.data_lembrete_chamada,
+      observacao: cliente.observacao ?? undefined,
+      categoria: cliente.categoria ?? undefined,
+      userId: cliente.user_id,
+      negociacoes,
+      ultimaNegociacao: negociacoes[0],
+      totalFollowUps: totalFollowUps ?? 0,
+      ltv,
     };
 
     return NextResponse.json(transformedCliente);
@@ -62,13 +155,13 @@ export async function GET(
   }
 }
 
-export async function PUT(
+export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const dadosAtualizados: Partial<Cliente> = await request.json();
+    const dadosAtualizados: Record<string, unknown> = await request.json();
     const supabase = await createClient();
 
     // Get the current user
@@ -78,33 +171,39 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Prepare update data
-    const updateData: Record<string, string | number | boolean | null> = {};
-    if (dadosAtualizados.dataContato) updateData.data_contato = dadosAtualizados.dataContato;
-    if (dadosAtualizados.nome) updateData.nome = dadosAtualizados.nome;
-    if (dadosAtualizados.whatsappInstagram) updateData.whatsapp_instagram = dadosAtualizados.whatsappInstagram;
-    if (dadosAtualizados.origem) updateData.origem = dadosAtualizados.origem;
-    if (dadosAtualizados.orcamentoEnviado) updateData.orcamento_enviado = dadosAtualizados.orcamentoEnviado === 'Sim';
-    if (dadosAtualizados.resultado) updateData.resultado = dadosAtualizados.resultado;
-    if (dadosAtualizados.qualidadeContato) updateData.qualidade_contato = dadosAtualizados.qualidadeContato;
-    if (dadosAtualizados.naoRespondeu !== undefined) updateData.nao_respondeu = dadosAtualizados.naoRespondeu;
-    if (dadosAtualizados.valorFechado) updateData.valor_fechado = parseFloat(dadosAtualizados.valorFechado);
-    if (dadosAtualizados.observacao !== undefined) updateData.observacao = dadosAtualizados.observacao;
-    // Novos campos de pagamento
-    if (dadosAtualizados.pagouSinal !== undefined) updateData.pagou_sinal = dadosAtualizados.pagouSinal;
-    if (dadosAtualizados.valorSinal) updateData.valor_sinal = parseFloat(dadosAtualizados.valorSinal);
-    if (dadosAtualizados.dataPagamentoSinal !== undefined) updateData.data_pagamento_sinal = dadosAtualizados.dataPagamentoSinal;
-    if (dadosAtualizados.vendaPaga !== undefined) updateData.venda_paga = dadosAtualizados.vendaPaga;
-    if (dadosAtualizados.dataPagamentoVenda !== undefined) updateData.data_pagamento_venda = dadosAtualizados.dataPagamentoVenda;
-    // Campo de notificação
-    if (dadosAtualizados.dataLembreteChamada !== undefined) updateData.data_lembrete_chamada = dadosAtualizados.dataLembreteChamada;
+    // Rejeita (400) qualquer campo que só existe em Negociacao — em vez de
+    // descartar silenciosamente, o que faria o chamador achar que salvou um
+    // dado de negociação (resultado, valor, pagamento etc.) que na verdade
+    // foi ignorado. Campos de negociação são editados via
+    // useNegociacoes.editarNegociacao, não por aqui.
+    const camposInvalidos = CAMPOS_SOMENTE_NEGOCIACAO.filter(
+      (campo) => campo in dadosAtualizados
+    );
+    if (camposInvalidos.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Campo(s) de negociação não podem ser atualizados via PATCH /api/clientes/[id]: ${camposInvalidos.join(', ')}. Use o endpoint de negociações.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Prepare update data — só campos de pessoa (Cliente/NovoCliente).
+    const updateData: Record<string, string | null> = {};
+    if (typeof dadosAtualizados.dataContato === 'string') updateData.data_contato = dadosAtualizados.dataContato;
+    if (typeof dadosAtualizados.nome === 'string') updateData.nome = dadosAtualizados.nome;
+    if (typeof dadosAtualizados.whatsappInstagram === 'string') updateData.whatsapp_instagram = dadosAtualizados.whatsappInstagram;
+    if (typeof dadosAtualizados.origem === 'string') updateData.origem = dadosAtualizados.origem;
+    if ('observacao' in dadosAtualizados) updateData.observacao = (dadosAtualizados.observacao as string | null) ?? null;
+    if ('categoria' in dadosAtualizados) updateData.categoria = (dadosAtualizados.categoria as string | null) ?? null;
+    updateData.updated_by = user.id;
 
     // Update cliente - RLS will automatically filter by user_id
     const { data: cliente, error } = await supabase
       .from('clientes')
       .update(updateData)
       .eq('id', id)
-      .select()
+      .select('id, data_contato, nome, whatsapp_instagram, origem, observacao, created_at, categoria, user_id')
       .single();
 
     if (error || !cliente) {
@@ -114,25 +213,15 @@ export async function PUT(
       );
     }
 
-    // Transform to match existing interface
     const transformedCliente: Cliente = {
       id: cliente.id,
       dataContato: cliente.data_contato,
       nome: cliente.nome,
       whatsappInstagram: cliente.whatsapp_instagram,
       origem: cliente.origem as Cliente['origem'],
-      orcamentoEnviado: cliente.orcamento_enviado ? 'Sim' : 'Não',
-      resultado: cliente.resultado as Cliente['resultado'],
-      qualidadeContato: cliente.qualidade_contato as Cliente['qualidadeContato'],
-      naoRespondeu: cliente.nao_respondeu || false,
-      valorFechado: cliente.valor_fechado?.toString(),
-      observacao: cliente.observacao,
-      pagouSinal: cliente.pagou_sinal || false,
-      valorSinal: cliente.valor_sinal?.toString(),
-      dataPagamentoSinal: cliente.data_pagamento_sinal,
-      vendaPaga: cliente.venda_paga || false,
-      dataPagamentoVenda: cliente.data_pagamento_venda,
-      dataLembreteChamada: cliente.data_lembrete_chamada,
+      observacao: cliente.observacao ?? undefined,
+      categoria: cliente.categoria ?? undefined,
+      userId: cliente.user_id,
     };
 
     return NextResponse.json(transformedCliente);
