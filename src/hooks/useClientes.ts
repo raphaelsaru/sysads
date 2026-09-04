@@ -37,11 +37,25 @@ export class ClienteDuplicadoError extends Error {
   }
 }
 
+/**
+ * Cliente foi criado/encontrado com sucesso, mas o insert da negociação
+ * inicial falhou. clienteId permite redirecionar pra página do lead pra
+ * lançar a negociação manualmente.
+ */
+export class NegociacaoFalhouError extends Error {
+  clienteId: string
+
+  constructor(message: string, clienteId: string) {
+    super(message)
+    this.name = 'NegociacaoFalhouError'
+    this.clienteId = clienteId
+  }
+}
+
 export interface AdicionarClienteOptions {
   // Dados da negociação inicial a criar junto (form de criação já unificado
   // pessoa+negociação). Se omitido, só a pessoa é criada/encontrada — nenhuma
-  // negociação é gerada (usado hoje, já que o form de criação manual ainda
-  // não envia esses campos — Fase 2/Task 6.x).
+  // negociação é gerada.
   negociacaoInicial?: Omit<NovaNegociacao, 'clienteId'>
   // Se true, segue e cria a negociação inicial mesmo quando find_or_create_cliente
   // encontrar um cliente já existente (created: false) — usado por fluxos que
@@ -696,7 +710,10 @@ export function useClientes(
 
         if (negociacaoError) {
           console.error('Erro ao criar negociação inicial:', negociacaoError)
-          throw new Error(`Cliente salvo, mas a negociação não foi criada: ${negociacaoError.message || 'Erro desconhecido'}`)
+          throw new NegociacaoFalhouError(
+            `Cliente salvo, mas a negociação não foi criada: ${negociacaoError.message || 'Erro desconhecido'}`,
+            clienteId
+          )
         }
       }
 

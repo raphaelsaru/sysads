@@ -9,10 +9,10 @@ import ClienteTable from '@/components/ClienteTable'
 import ClienteForm from '@/components/ClienteForm'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import ClienteFiltrosPanel, { filtrosIniciais, TODOS_MESES } from '@/components/ClienteFiltros'
-import { useClientes, ClienteDuplicadoError, type ClienteFiltrosInput } from '@/hooks/useClientes'
+import { useClientes, ClienteDuplicadoError, NegociacaoFalhouError, type ClienteFiltrosInput } from '@/hooks/useClientes'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAdmin } from '@/contexts/AdminContext'
-import { Cliente, NovoCliente } from '@/types/crm'
+import { Cliente, NovoCliente, NovaNegociacao } from '@/types/crm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -98,15 +98,25 @@ function HomePage() {
     }
   }, [searchParams, router])
 
-  const handleSubmitForm = async (dadosCliente: NovoCliente) => {
+  const handleSubmitForm = async (
+    dadosCliente: NovoCliente,
+    negociacaoInicial?: Omit<NovaNegociacao, 'clienteId'>
+  ) => {
     try {
-      await adicionarCliente(dadosCliente)
+      await adicionarCliente(dadosCliente, negociacaoInicial ? { negociacaoInicial } : undefined)
       setMostrarModal(false)
       window.dispatchEvent(new CustomEvent('cliente-atualizado'))
     } catch (error) {
       if (error instanceof ClienteDuplicadoError) {
         setMostrarModal(false)
         alert('Esse lead já está cadastrado. Você será direcionado para a página dele para lançar a negociação.')
+        router.push(`/leads/${error.clienteId}`)
+        return
+      }
+      if (error instanceof NegociacaoFalhouError) {
+        setMostrarModal(false)
+        window.dispatchEvent(new CustomEvent('cliente-atualizado'))
+        alert('Lead salvo, mas a negociação não foi criada. Lance manualmente na página do lead.')
         router.push(`/leads/${error.clienteId}`)
         return
       }
@@ -224,6 +234,7 @@ function HomePage() {
               onSubmit={handleSubmitForm}
               onCancel={() => setMostrarModal(false)}
               userId={effectiveUserId}
+              currency={currency}
             />
           </DialogContent>
         </Dialog>

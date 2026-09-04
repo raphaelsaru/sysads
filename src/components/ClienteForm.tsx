@@ -13,22 +13,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { NovoCliente, Cliente } from '@/types/crm'
+import { NovoCliente, Cliente, NovaNegociacao } from '@/types/crm'
 import { DatePicker } from '@/components/ui/date-picker'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
+import { formatDateISO } from '@/lib/dateUtils'
+import { FALLBACK_CURRENCY_VALUE, type SupportedCurrency } from '@/lib/currency'
+import { useNegociacaoFormState } from '@/hooks/useNegociacaoFormState'
+import NegociacaoFormFields from './NegociacaoFormFields'
+
+type NegociacaoInicial = Omit<NovaNegociacao, 'clienteId'>
 
 interface ClienteFormProps {
-  onSubmit: (cliente: NovoCliente) => void | Promise<void>
+  onSubmit: (cliente: NovoCliente, negociacaoInicial?: NegociacaoInicial) => void | Promise<void>
   onCancel?: () => void
   cliente?: Cliente
   isEditing?: boolean
   userId?: string | null
+  currency?: SupportedCurrency
 }
 
-export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = false, userId }: ClienteFormProps) {
+export default function ClienteForm({
+  onSubmit,
+  onCancel,
+  cliente,
+  isEditing = false,
+  userId,
+  currency = FALLBACK_CURRENCY_VALUE,
+}: ClienteFormProps) {
   const categorias = useMemo(() => getCategoriasParaUsuario(userId), [userId])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [mostrarNegociacao, setMostrarNegociacao] = useState(false)
+  const negociacaoFormState = useNegociacaoFormState('', undefined, currency)
 
   const getToday = () => {
     const today = new Date()
@@ -49,7 +66,27 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
     setIsSubmitting(true)
 
     try {
-      await onSubmit(formData)
+      if (mostrarNegociacao) {
+        const negForm = negociacaoFormState.formData
+        const negociacaoInicial: NegociacaoInicial = {
+          dataContato: formatDateISO(negForm.dataContato),
+          orcamentoEnviado: negForm.orcamentoEnviado,
+          resultado: negForm.resultado,
+          qualidadeContato: negForm.qualidadeContato,
+          naoRespondeu: negForm.naoRespondeu,
+          valorFechado: negForm.valorFechado,
+          observacao: negForm.observacao,
+          pagouSinal: negForm.pagouSinal,
+          valorSinal: negForm.valorSinal,
+          dataPagamentoSinal: negForm.dataPagamentoSinal,
+          vendaPaga: negForm.vendaPaga,
+          dataPagamentoVenda: negForm.dataPagamentoVenda,
+          dataLembreteChamada: negForm.dataLembreteChamada,
+        }
+        await onSubmit(formData, negociacaoInicial)
+      } else {
+        await onSubmit(formData)
+      }
     } catch (error) {
       console.error('Erro ao salvar cliente:', error)
       alert('Erro ao salvar cliente. Verifique sua conexão e tente novamente.')
@@ -163,6 +200,26 @@ export default function ClienteForm({ onSubmit, onCancel, cliente, isEditing = f
               placeholder="Observações sobre o cliente ou atendimento"
             />
           </div>
+
+          {!isEditing && (
+            <div className="space-y-4 border-t border-border/70 pt-4">
+              <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Já lançar a primeira negociação?</p>
+                  <p className="text-xs text-muted-foreground">
+                    Opcional. Preencha para não precisar entrar na página do lead depois.
+                  </p>
+                </div>
+                <Switch checked={mostrarNegociacao} onCheckedChange={setMostrarNegociacao} />
+              </div>
+
+              {mostrarNegociacao && (
+                <div className="space-y-6 rounded-lg border border-border/70 p-4">
+                  <NegociacaoFormFields {...negociacaoFormState} currency={currency} idPrefix="negociacao-" />
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             {onCancel && (
