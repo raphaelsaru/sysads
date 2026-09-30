@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -20,6 +21,37 @@ interface EmpresaOpcao {
   is_active: boolean
 }
 
+// Cache da lista na sessão (evita refetch a cada abertura do drawer mobile)
+let empresasCache: Promise<EmpresaOpcao[]> | null = null
+
+function carregarEmpresas(): Promise<EmpresaOpcao[]> {
+  if (!empresasCache) {
+    empresasCache = fetch('/api/admin/empresas')
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        return (data.empresas || []) as EmpresaOpcao[]
+      })
+      .catch((error) => {
+        console.error('Erro ao carregar empresas:', error)
+        empresasCache = null // permite nova tentativa
+        return []
+      })
+  }
+  return empresasCache
+}
+
+async function definirEmpresaAtiva(tenantId: string | null) {
+  const res = await fetch('/api/admin/empresa-ativa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tenant_id: tenantId }),
+  })
+  if (!res.ok) throw new Error('Falha ao trocar de empresa')
+  // Recarrega tudo para os hooks buscarem os dados da nova empresa
+  window.location.href = '/'
+}
+
 export default function EmpresaSwitcher() {
   const { userProfile, tenant } = useAuth()
   const superadmin = isSuperadmin(userProfile?.role)
@@ -29,42 +61,43 @@ export default function EmpresaSwitcher() {
   useEffect(() => {
     if (!superadmin) return
     let cancelado = false
-    const carregar = async () => {
-      try {
-        const res = await fetch('/api/admin/empresas')
-        if (!res.ok || cancelado) return
-        const data = await res.json()
-        if (!cancelado) setEmpresas((data.empresas || []) as EmpresaOpcao[])
-      } catch {}
-    }
-    carregar()
+    carregarEmpresas().then((lista) => {
+      if (!cancelado) setEmpresas(lista)
+    })
     return () => { cancelado = true }
   }, [superadmin])
 
-  if (!superadmin || !tenant || !userProfile) return null
+  const trocarPara = async (tenantId: string | null) => {
+    setTrocando(true)
+    try {
+      await definirEmpresaAtiva(tenantId)
+    } catch {
+      alert('Erro ao trocar de empresa')
+      setTrocando(false)
+    }
+  }
 
-  const visitando = tenant.id !== userProfile.tenant_id
+  if (!superadmin || !userProfile) return null
+
+  // Saída de emergência: visitando empresa que não carregou
+  if (!tenant) {
+    if (!userProfile.active_tenant_id) return null
+    return (
+      <Button variant="outline" size="sm" disabled={trocando} onClick={() => { void trocarPara(null) }}>
+        Voltar à minha empresa
+      </Button>
+    )
+  }
+
+  const visitando = !!userProfile.tenant_id && tenant.id !== userProfile.tenant_id
   // Garante que a empresa atual aparece mesmo se a lista falhar
   const opcoes = empresas.some((e) => e.id === tenant.id)
     ? empresas
     : [{ id: tenant.id, name: tenant.name, is_active: tenant.is_active }, ...empresas]
 
-  const trocar = async (id: string) => {
+  const trocar = (id: string) => {
     if (id === tenant.id) return
-    setTrocando(true)
-    try {
-      const res = await fetch('/api/admin/empresa-ativa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: id === userProfile.tenant_id ? null : id }),
-      })
-      if (!res.ok) throw new Error('Falha ao trocar de empresa')
-      // Recarrega tudo para os hooks buscarem os dados da nova empresa
-      window.location.href = '/'
-    } catch {
-      alert('Erro ao trocar de empresa')
-      setTrocando(false)
-    }
+    void trocarPara(id === userProfile.tenant_id ? null : id)
   }
 
   return (
