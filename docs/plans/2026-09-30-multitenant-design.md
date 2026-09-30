@@ -81,3 +81,14 @@ App:
 2. Auth: bloqueio, remover signup, convite.
 3. `/empresa` + tema.
 4. Painel superadmin + seletor.
+
+## Decisões na implementação (2026-09-30)
+- Enum `user_role` mantém `admin` = superadmin; só `owner` foi adicionado.
+- Tenant canônico Prizely = `00000000-0000-0000-0000-000000000001`; `8096819e-…` renomeado "Prizely (antigo)".
+- Dedup de lead por empresa (`find_or_create_cliente` + índices `(tenant_id, telefone/instagram)`).
+- `/settings/users` mantido (superadmin: lista global + assistente). Gestão de equipe em `/empresa`.
+- Convite reaproveita conta sem empresa; nunca move conta de outra empresa.
+- Troca de dono atômica via RPC `definir_dono`. FKs `tenant_id` com `ON DELETE RESTRICT`.
+- Moeda é por usuário ("Visualizar como" usa a moeda do usuário selecionado).
+- Assistente IA: impersonação só p/ superadmin; auditoria de tenant no serviço VPS adiada.
+- Funções legadas security definer revogadas p/ anon/authenticated; view `tenant_statistics` com `security_invoker`.

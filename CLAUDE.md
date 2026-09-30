@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-Prizely — CRM for customer management. Portuguese-language interface (lang="pt-BR"). Single-tenant (multi-tenant removed in Fase 1 refactor).
+Prizely — CRM for customer management. Portuguese-language interface (lang="pt-BR"). Multitenant por empresa (tabela `tenants`), isolamento via RLS — ver `docs/plans/2026-09-30-multitenant-design.md`.
 
 ## Commands
 - `pnpm dev` — dev server on localhost:3000
@@ -19,10 +19,12 @@ Prizely — CRM for customer management. Portuguese-language interface (lang="pt
 ## Architecture
 
 ### Auth
-- **Middleware** (`middleware.ts` at project root, NOT in `src/`): Supabase SSR auth, redirects unauthenticated users to `/auth/login`. Public paths: `/`, `/auth/*`.
+- **Middleware** (`middleware.ts` at project root, NOT in `src/`): Supabase SSR auth, redirects unauthenticated users to `/auth/login`. Public paths (exact or sub-path): `/auth/login`, `/auth/callback`, `/auth/definir-senha`, `/auth/desativado`, `/privacidade`, `/exclusao-de-dados`, `/brandbook`. Calls RPC `acesso_crm()`; inactive user/company → `/auth/desativado`. `/admin/**` and `/settings/users` superadmin only; `/empresa` owner/superadmin.
 - **Two Supabase clients**: `supabase-browser.ts` (client components), `supabase-server.ts` (server components/actions). Plus `supabase-admin.ts` (service role, server-only).
-- **Roles**: `admin`, `user` — defined in `src/types/crm.ts`.
-- **Context**: `AuthContext` (user/session/profile). `'use client'`.
+- **Roles**: `admin` (= superadmin da plataforma; nome mantido no enum), `owner` (dono da empresa), `user` — `src/types/crm.ts`, helpers em `src/lib/roles.ts` (`isSuperadmin`, `canManageTeam`, `roleLabel`).
+- **Multitenant**: `user_profiles.tenant_id` (empresa), `is_active`, `active_tenant_id` (empresa visitada pelo superadmin). SQL: `current_tenant_id()`, `is_tenant_owner()`, `is_superadmin()`, `acesso_crm()`, `definir_dono()`. `tenant_id` de clientes/negociacoes/follow_ups preenchido por trigger. Slots = usuários ativos ≤ `tenants.max_users` (trigger). Server: `getCaller()` em `src/lib/tenant-server.ts`. Visibilidade: user vê só os próprios leads; owner/superadmin veem a empresa inteira.
+- **Contas só por convite** (sem signup): `src/lib/convite.ts` + `/auth/definir-senha`. Env `NEXT_PUBLIC_SITE_URL` define o link do convite.
+- **Context**: `AuthContext` (user/session/profile/tenant, `refreshProfile()`), `AdminContext` ("Visualizar como"). `'use client'`.
 
 ### Data Model (all types in `src/types/crm.ts`)
 - `Cliente` — CRM contact with origem, resultado, pagamento fields, follow-ups.
@@ -30,15 +32,16 @@ Prizely — CRM for customer management. Portuguese-language interface (lang="pt
 - `UserProfile` — user profile with role.
 
 ### API Routes (`src/app/api/`)
-Endpoints: `admin/users`, `clientes/`, `followups/`, `ocr/vision`, `user/profile`. All use Supabase server client.
+Endpoints: `admin/users`, `admin/empresas`, `admin/empresa-ativa`, `empresa/`, `empresa/usuarios`, `clientes/`, `followups/`, `ocr/vision`, `user/profile`. Rotas de gestão autorizam via `getCaller()` e escrevem com service role sempre escopado ao tenant.
 
 ### Pages
 - `/` — leads management (main page with table + filters + modal)
 - `/clientes` — clients with closed sales (filtered view)
 - `/dashboard` — dashboard with charts and KPIs
-- `/admin` — admin panel (admin role only)
-- `/settings/users` — user management (admin role only)
-- `/auth/login`, `/auth/signup`, `/auth/callback`
+- `/empresa` — minha empresa: cor primária + usuários/convites (owner/superadmin)
+- `/admin`, `/admin/empresas` — painel superadmin (empresas, slots, dono)
+- `/settings/users` — usuários globais + assistente (superadmin)
+- `/auth/login`, `/auth/callback`, `/auth/definir-senha`, `/auth/desativado`
 
 ### Key Patterns
 - `'use client'` for all interactive components
@@ -54,10 +57,11 @@ Endpoints: `admin/users`, `clientes/`, `followups/`, `ocr/vision`, `user/profile
 ### Supabase (Primary)
 Env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 Migrations in `supabase/migrations/`. Backup scripts in `supabase/backup-db.sh`.
-Note: DB still has tenant_id columns and RLS policies from multi-tenant era — cleanup planned for Fase 2.
+Migrations em `supabase/migrations/` podem divergir do banco — conferir `pg_policies`. Teste de isolamento: `supabase/tests/multitenant_rls.sql`. FKs `tenant_id` são `ON DELETE RESTRICT`.
 
 ## Styling
-- Dark mode via `[data-pc-theme="dark"]` class selector
+- Dark mode via classe `.dark` no `<html>`
+- Cor primária por empresa: `TenantTheme` sobrescreve `--primary`/`--ring`/`--accent`/`--chart-1`
 - Typography: classes utilitárias do Tailwind (`text-sm`, `text-lg`…). Não há
   escala tipográfica customizada — este arquivo já documentou `f-h1`…`f-h6`, que
   nunca existiram no código.
@@ -65,4 +69,4 @@ Note: DB still has tenant_id columns and RLS policies from multi-tenant era — 
 - Custom spacing tokens: `sidebar-width`, `header-height`
 
 ## Refactoring
-See `REFACTOR-PLAN.md` for the 4-phase plan. Fase 1 (multi-tenant removal, dead code cleanup) is complete.
+See `REFACTOR-PLAN.md`. Remoção de multi-tenant foi revertida em 2026-09-30.

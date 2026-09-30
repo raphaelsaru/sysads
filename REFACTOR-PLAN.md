@@ -4,6 +4,8 @@
 
 ---
 
+> ⚠️ 2026-09-30: remoção do multi-tenant **revertida**. O CRM voltou a ser multitenant por empresa (RLS). Ver `docs/plans/2026-09-30-multitenant-design.md`. Itens de remoção de `tenant_id`/`tenants` abaixo estão cancelados.
+
 ## Fase 1 — Limpeza & Remoção Multi-Tenant *(1-2 sessões)*
 
 ### 1.1 Remover código multi-tenant
@@ -76,9 +78,9 @@
 - [ ] Frontend: infinite scroll ou pagination controls
 
 ### 2.4 Database
-- [ ] Criar migration removendo `tenant_id` de todas tabelas
-- [ ] Criar migration removendo tabela `tenants`
-- [ ] Simplificar RLS policies (sem tenant filter)
+- [~] ~~Criar migration removendo `tenant_id` de todas tabelas~~ (cancelado — multitenant reintroduzido)
+- [~] ~~Criar migration removendo tabela `tenants`~~ (cancelado — multitenant reintroduzido)
+- [~] ~~Simplificar RLS policies (sem tenant filter)~~ (cancelado — multitenant reintroduzido)
 - [ ] Adicionar indexes compostos: `(origem, created_at)`, `(resultado, created_at)`
 - [ ] Criar enums PostgreSQL para `origem` e `resultado`
 - [ ] Adicionar `updated_at` triggers automáticos
