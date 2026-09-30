@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface ImpersonatedUser {
   id: string
@@ -31,6 +32,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     setImpersonatedUserId(null)
     setImpersonatedUser(null)
   }, [])
+
+  // Trocou de empresa: encerra "visualizar como" (usuário pertence à empresa anterior).
+  const { tenant } = useAuth()
+  const tenantId = tenant?.id ?? null
+  const tenantAnteriorRef = useRef(tenantId)
+  useEffect(() => {
+    const anterior = tenantAnteriorRef.current
+    tenantAnteriorRef.current = tenantId
+    if (anterior !== null && anterior !== tenantId) stopImpersonation()
+  }, [tenantId, stopImpersonation])
 
   return (
     <AdminContext.Provider

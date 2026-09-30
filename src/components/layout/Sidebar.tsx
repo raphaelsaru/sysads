@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Moon, Sun, Eye, X, Menu } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
@@ -88,7 +88,7 @@ function AccountFooter() {
     const role = userProfile?.role
     if (!role) return null
     return (
-      <Badge variant={role === 'user' ? 'secondary' : 'default'} className="text-xs">
+      <Badge variant={role === 'admin' ? 'default' : role === 'owner' ? 'outline' : 'secondary'} className="text-xs">
         {roleLabel[role]}
       </Badge>
     )
@@ -135,7 +135,7 @@ function AccountFooter() {
 
 function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
   const { userProfile, tenant } = useAuth()
-  const { impersonatedUser, startImpersonation, stopImpersonation } = useAdmin()
+  const { impersonatedUser, startImpersonation } = useAdmin()
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [users, setUsers] = useState<UserOption[]>([])
 
@@ -150,16 +150,9 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
     setIsDarkMode(hasDark)
   }, [])
 
-  // Trocou de empresa: encerra "visualizar como" (usuário pertence à empresa anterior).
-  const tenantAnteriorRef = useRef(tenantId)
   useEffect(() => {
-    if (tenantAnteriorRef.current !== tenantId) {
-      if (tenantAnteriorRef.current !== null) stopImpersonation()
-      tenantAnteriorRef.current = tenantId
-    }
-  }, [tenantId, stopImpersonation])
-
-  useEffect(() => {
+    // Limpa já na troca de empresa, antes do novo fetch.
+    setUsers([])
     if (!podeVisualizarComo || !tenantId) return
     let cancelado = false
     const fetchUsers = async () => {

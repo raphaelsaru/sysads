@@ -29,7 +29,7 @@ function UsersPageContent() {
   const [assistantSaving, setAssistantSaving] = useState<string | null>(null)
 
   useEffect(() => {
-    if (userProfile && userProfile.role !== 'admin') {
+    if (userProfile && !isSuperadmin(userProfile.role)) {
       router.push('/dashboard')
     }
   }, [userProfile, router])
@@ -53,7 +53,7 @@ function UsersPageContent() {
       }
     }
 
-    if (userProfile?.role === 'admin') {
+    if (isSuperadmin(userProfile?.role)) {
       fetchUsers()
     }
   }, [userProfile])

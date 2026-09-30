@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react'
 import { AlertTriangle, Eye, Loader2, Send, Sparkles, Trash2, X } from 'lucide-react'
 
 import { useAdmin } from '@/contexts/AdminContext'
+import { useAuth } from '@/contexts/AuthContext'
+import { isSuperadmin } from '@/lib/roles'
 import { useAssistant, type ToolChamada } from '@/hooks/useAssistant'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -104,7 +106,9 @@ function Proveniencia({ tools }: { tools: ToolChamada[] }) {
 }
 
 export default function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { impersonatedUser } = useAdmin()
+  const { userProfile } = useAuth()
+  const { impersonatedUser: impersonado } = useAdmin()
+  const impersonatedUser = isSuperadmin(userProfile?.role) ? impersonado : null
   const { mensagens, enviando, erro, enviar, limpar } = useAssistant()
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fimRef = useRef<HTMLDivElement>(null)

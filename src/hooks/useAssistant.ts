@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAdmin } from '@/contexts/AdminContext'
+import { useAuth } from '@/contexts/AuthContext'
+import { isSuperadmin } from '@/lib/roles'
 
 export interface ToolChamada {
   tool: string
@@ -57,7 +59,10 @@ function fusoHorario() {
  * sugerir que existe memória entre perguntas.
  */
 export function useAssistant() {
-  const { impersonatedUserId } = useAdmin()
+  const { userProfile } = useAuth()
+  const { impersonatedUserId: impersonadoId } = useAdmin()
+  // VPS só honra impersonação p/ superadmin.
+  const impersonatedUserId = isSuperadmin(userProfile?.role) ? impersonadoId : null
   const [mensagens, setMensagens] = useState<Mensagem[]>([])
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)

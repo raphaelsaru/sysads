@@ -49,11 +49,13 @@ function HomePage() {
   const [nomesPorUsuario, setNomesPorUsuario] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    setNomesPorUsuario({})
     if (!mostrarColunaUsuario) return
+    let cancelado = false
     fetch('/api/empresa/usuarios')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!data?.usuarios) return
+        if (cancelado || !data?.usuarios) return
         const mapa: Record<string, string> = {}
         for (const u of data.usuarios as { id: string; full_name: string | null; email: string | null }[]) {
           mapa[u.id] = u.full_name ?? u.email ?? 'Sem nome'
@@ -61,6 +63,7 @@ function HomePage() {
         setNomesPorUsuario(mapa)
       })
       .catch(() => {})
+    return () => { cancelado = true }
   }, [mostrarColunaUsuario, tenant?.id])
 
   const [filtros, setFiltros] = useState(filtrosIniciais)
