@@ -25,6 +25,8 @@ Design: `docs/plans/2026-09-30-multitenant-design.md`.
 - **Middleware**: `'/'` em `publicPaths` com `startsWith` torna toda rota pública hoje. Corrigir.
 - **`/settings/users`** continua superadmin-only (lista global + toggle assistente); remove criação com senha. Owner usa `/empresa`.
 - **Painel superadmin, gestão de usuários de uma empresa**: botão "Gerenciar usuários" troca empresa ativa e abre `/empresa` (DRY, sem tela duplicada).
+- **App financeiro desativado**: signup público desligado no Supabase; convite p/ email já existente sem empresa reaproveita a conta.
+- **Assistente IA (VPS, service role)**: não respeita tenant. Auditoria adiada — só Prizely tem assistente liberado.
 - **Promover usuário existente a dono de nova empresa**: leads antigos dele ficam na empresa de origem.
 - Projeto sem framework de testes. Verificação = script SQL de RLS (Task 8) + `pnpm build` + checklist manual (Task 22).
 
@@ -36,8 +38,14 @@ Supabase project: `bjtjyzdbewxoypjaphqs`. Aplicar migrations com MCP `apply_migr
 
 ### Task 1: Backup
 
-**Step 1:** `cd /Users/charbellelopes/prizely/.worktrees/multitenant && bash supabase/backup-db.sh`
-Expected: arquivo novo em `supabase/backups/`. Se o script falhar (credenciais), parar e pedir ao usuário.
+**Step 1:** Dump completo com a `DATABASE_URL` do `.env.local` (não imprimir o valor):
+```bash
+cd /Users/charbellelopes/prizely
+set -a; source .env.local; set +a
+pg_dump "$DATABASE_URL" --no-owner --no-privileges -n public -n auth -f supabase/backups/pre_multitenant_$(date +%Y%m%d_%H%M%S).sql
+ls -la supabase/backups/
+```
+Expected: arquivo `.sql` com dezenas de MB. Se `pg_dump` reclamar de versão, usar `supabase db dump --db-url "$DATABASE_URL"`. Se falhar, parar e pedir ao usuário.
 
 **Step 2:** Snapshot das policies atuais:
 ```sql
@@ -897,6 +905,7 @@ export default function Page() {
 ```
 
 **Manual (usuário, dashboard Supabase → Authentication):**
+0. Sign In / Providers → desligar "Allow new users to sign up" (app financeiro desativado; convite continua funcionando).
 1. URL Configuration → Redirect URLs: adicionar `https://prizely.com.br/auth/definir-senha`, `https://www.prizely.com.br/auth/definir-senha`, `http://localhost:3000/auth/definir-senha`.
 2. Emails → Invite user. Assunto: `Convite para o CRM {{ .Data.company_name }}`. Corpo:
 ```html
@@ -1023,10 +1032,23 @@ export async function POST(request: NextRequest) {
   })
   if (inviteError || !convite.user) {
     const jaExiste = inviteError?.message?.toLowerCase().includes('already')
-    return NextResponse.json(
-      { error: jaExiste ? 'Email já cadastrado. Fale com o suporte Prizely.' : 'Erro ao enviar convite' },
-      { status: jaExiste ? 409 : 500 }
-    )
+    if (!jaExiste) return NextResponse.json({ error: 'Erro ao enviar convite' }, { status: 500 })
+
+    // Conta já existe (ex.: antigo app financeiro). Reaproveita se não tiver empresa.
+    const existente = await buscarUsuarioPorEmail(admin, email)
+    const { data: perfil } = existente
+      ? await admin.from('user_profiles').select('tenant_id').eq('id', existente.id).single()
+      : { data: null }
+    if (!existente || perfil?.tenant_id) {
+      return NextResponse.json({ error: 'Email já pertence a outra empresa' }, { status: 409 })
+    }
+    const { error } = await admin.from('user_profiles')
+      .upsert({ id: existente.id, tenant_id: caller.tenantId, role: 'user', full_name, is_active: true })
+    if (error) {
+      const r = mensagemErroDb(error.message)
+      return NextResponse.json({ error: r.error }, { status: r.status })
+    }
+    return NextResponse.json({ id: existente.id, reaproveitado: true }, { status: 201 })
   }
 
   // handle_new_user criou o perfil sem empresa; vincula agora.
@@ -1042,6 +1064,25 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ id: convite.user.id }, { status: 201 })
 }
 ```
+
+`buscarUsuarioPorEmail` (em `src/lib/convite.ts`, criado já aqui):
+```ts
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+// Admin API não tem busca por email; pagina listUsers (base pequena).
+export async function buscarUsuarioPorEmail(admin: SupabaseClient, email: string) {
+  const alvo = email.trim().toLowerCase()
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 })
+    if (error) return null
+    const achado = data.users.find(u => u.email?.toLowerCase() === alvo)
+    if (achado) return achado
+    if (data.users.length < 200) return null
+  }
+  return null
+}
+```
+Usuário reaproveitado entra com a senha que já tinha (sem email de convite); UI mostra "Usuário existente vinculado — ele entra com a senha atual".
 
 `src/app/api/empresa/usuarios/[id]/route.ts`:
 ```ts
@@ -1277,7 +1318,7 @@ return NextResponse.json({ empresas })
 4. Dono existente (`user_id`): `update user_profiles set tenant_id, role='owner', is_active=true` (se `role === 'admin'`, não muda role: superadmin continua admin e vira dono pela visita). Dono novo: mesmo fluxo de convite da Task 14 com `role: 'owner'`.
 5. Se passo 4 falhar: deletar tenant criado, retornar erro (`mensagemErroDb`).
 
-Extrair a lógica de convite da Task 14 para `src/lib/convite.ts` (`convidarUsuario({ admin, email, full_name, tenantId, role, origin })`) e usar nos dois lugares.
+Extrair a lógica de convite da Task 14 (incluindo reaproveitamento) para `src/lib/convite.ts` (`convidarUsuario({ admin, email, full_name, tenantId, role, origin })`) e usar nos dois lugares.
 
 `PATCH /api/admin/empresas/[id]` `{ name?, max_users?, is_active?, owner_id? }`:
 - `name`, `max_users`, `is_active` → `update tenants` (trigger valida slots → `mensagemErroDb`).
