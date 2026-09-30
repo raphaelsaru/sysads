@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Loader2, LockKeyhole, Mail, Building2 } from 'lucide-react'
+import { Loader2, LockKeyhole, Mail } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -11,56 +10,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import EmailConfirmation from './EmailConfirmation'
 
 export default function LoginForm() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [companyName, setCompanyName] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false)
-  const { signIn, signUp, user, loading: authLoading } = useAuth()
+  const { signIn, user, loading: authLoading } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    let result
-    if (isSignUp) {
-      if (!companyName.trim()) {
-        setError('Informe o nome da empresa para criar sua conta.')
-        setLoading(false)
-        return
-      }
-      result = await signUp(email, password, companyName)
-      
-      // Se o cadastro foi bem-sucedido, mostrar tela de confirmação
-      if (!result.error) {
-        setNeedsEmailConfirmation(true)
-        setLoading(false)
-        return
-      }
-    } else {
-      result = await signIn(email, password)
-      
-      // Se o login foi bem-sucedido, o useEffect vai cuidar do redirecionamento
-      // quando o user for atualizado no contexto
-      if (result.error) {
-        setError(result.error.message)
-        setLoading(false)
-        return
-      }
-      
-      // Aguardar que o user seja atualizado no contexto
-      // O useEffect vai fazer o redirecionamento
-      setLoading(false)
-      return
-    }
+    const result = await signIn(email, password)
 
+    // Se o login foi bem-sucedido, o useEffect cuida do redirecionamento
+    // quando o user for atualizado no contexto
     if (result.error) {
       setError(result.error.message)
     }
@@ -70,24 +36,11 @@ export default function LoginForm() {
 
   // Redirecionar automaticamente quando o usuário estiver autenticado
   useEffect(() => {
-    if (!authLoading && user && !needsEmailConfirmation) {
+    if (!authLoading && user) {
       // Usar window.location para garantir um reload completo e que o middleware seja executado
       window.location.href = '/dashboard'
     }
-  }, [user, authLoading, needsEmailConfirmation])
-
-  const handleBackToLogin = () => {
-    setNeedsEmailConfirmation(false)
-    setEmail('')
-    setPassword('')
-    setCompanyName('')
-    setError(null)
-  }
-
-  // Se precisa de confirmação de email, mostrar o componente de confirmação
-  if (needsEmailConfirmation) {
-    return <EmailConfirmation email={email} onBack={handleBackToLogin} />
-  }
+  }, [user, authLoading])
 
   return (
     <div className="flex min-h-screen items-center justify-center px-6 py-10">
@@ -105,12 +58,10 @@ export default function LoginForm() {
  <Card>
           <CardHeader className="space-y-2 text-center">
             <CardTitle className="text-2xl font-semibold text-foreground">
-              {isSignUp ? 'Crie sua conta exclusiva' : 'Boas-vindas de volta'}
+              Boas-vindas de volta
             </CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
-              {isSignUp
-                ? 'Monte seu ambiente de relacionamento em poucos cliques.'
-                : 'Acesse o painel e continue nutrindo seus relacionamentos.'}
+              Acesse o painel e continue nutrindo seus relacionamentos.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -132,25 +83,6 @@ export default function LoginForm() {
                   />
                 </div>
               </div>
-
-              {isSignUp && (
-                <div className="space-y-2">
-                  <Label htmlFor="companyName">Nome da empresa</Label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="companyName"
-                      name="companyName"
-                      type="text"
-                      required
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      className="pl-10"
-                      placeholder="Como seus clientes conhecem você"
-                    />
-                  </div>
-                </div>
-              )}
 
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
@@ -185,27 +117,17 @@ export default function LoginForm() {
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    {isSignUp ? 'Criando ambiente...' : 'Entrando...'}
+                    Entrando...
                   </span>
                 ) : (
-                  isSignUp ? 'Criar conta' : 'Entrar'
+                  'Entrar'
                 )}
               </Button>
             </form>
 
-            <div className="mt-6 flex flex-col items-center gap-2 text-sm text-muted-foreground">
-              <span>
-                {isSignUp ? 'Já tem uma conta?' : 'Ainda não possui acesso?'}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                className="text-primary hover:text-primary"
-                onClick={() => setIsSignUp((prev) => !prev)}
-              >
-                {isSignUp ? 'Faça login' : 'Crie sua conta agora'}
-              </Button>
-            </div>
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              Acesso somente por convite.
+            </p>
           </CardContent>
         </Card>
       </div>

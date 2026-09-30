@@ -36,7 +36,6 @@ interface AuthContextType {
   loading: boolean
   showConnectionFallback: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signUp: (email: string, password: string, companyName: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>
   refreshProfile: () => Promise<void>
@@ -228,26 +227,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const signUp = async (email: string, password: string, companyName: string) => {
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: companyName,
-            company_name: companyName,
-          },
-        },
-      })
-      
-      return { error: error ? new Error(error.message) : null }
-    } catch (error) {
-      console.error('Sign up error:', error)
-      return { error: error instanceof Error ? error : new Error('Erro inesperado no cadastro') }
-    }
-  }
-
   const signOut = async () => {
     try {
       console.log('🚪 Fazendo logout...')
@@ -323,7 +302,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         showConnectionFallback,
         signIn,
-        signUp,
         signOut,
         updateProfile,
         refreshProfile,
