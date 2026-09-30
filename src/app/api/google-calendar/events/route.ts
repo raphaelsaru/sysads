@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { getCaller, usuarioNaEmpresa } from '@/lib/tenant-server'
 import { getValidAccessToken, listEvents, GoogleCalendarNotConnectedError } from '@/lib/google-calendar'
 
 export async function GET(request: NextRequest) {
@@ -27,6 +28,15 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createAdminClient()
+
+  // Superadmin só consulta usuários da empresa atual.
+  if (targetUserId !== user.id) {
+    const caller = await getCaller()
+    if (!caller?.tenantId || !(await usuarioNaEmpresa(admin, targetUserId, caller.tenantId))) {
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
+    }
+  }
+
   const { data: mapping } = await admin
     .from('google_calendar_mappings')
     .select('calendar_id')

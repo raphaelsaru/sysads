@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server'
+import type { createAdminClient } from '@/lib/supabase-admin'
 import type { UserRole } from '@/types/crm'
 
 export type Caller = {
@@ -32,4 +33,13 @@ export function mensagemErroDb(message?: string): { status: number; error: strin
   if (message?.includes('limite de usuarios')) return { status: 409, error: 'Limite de usuários da empresa atingido' }
   if (message?.includes('slots menor')) return { status: 409, error: 'Slots menor que o número de usuários ativos' }
   return { status: 500, error: 'Erro ao salvar' }
+}
+
+// Usuário pertence à empresa informada? (checagem com admin client, sem RLS)
+export async function usuarioNaEmpresa(
+  admin: ReturnType<typeof createAdminClient>, userId: string, tenantId: string,
+): Promise<boolean> {
+  const { data } = await admin.from('user_profiles')
+    .select('id').eq('id', userId).eq('tenant_id', tenantId).maybeSingle()
+  return !!data
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { getCaller, usuarioNaEmpresa } from '@/lib/tenant-server'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -20,11 +21,16 @@ export async function GET() {
   const admin = await requireAdmin()
   if (!admin) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
 
+  // Só usuários da empresa atual (visitada, p/ superadmin).
+  const caller = await getCaller()
+  if (!caller?.tenantId) return NextResponse.json({ mappings: [] })
+
   const supabaseAdmin = createAdminClient()
 
   const { data: profiles, error: profilesError } = await supabaseAdmin
     .from('user_profiles')
     .select('id, full_name, role')
+    .eq('tenant_id', caller.tenantId)
     .order('full_name', { ascending: true })
 
   if (profilesError) {
@@ -34,6 +40,7 @@ export async function GET() {
   const { data: mappings } = await supabaseAdmin
     .from('google_calendar_mappings')
     .select('user_id, calendar_id, calendar_name')
+    .in('user_id', (profiles ?? []).map((p) => p.id))
 
   const mappingByUser = new Map((mappings ?? []).map((m) => [m.user_id, m]))
 
@@ -61,7 +68,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'userId e calendarId são obrigatórios' }, { status: 400 })
   }
 
+  const caller = await getCaller()
   const supabaseAdmin = createAdminClient()
+  if (!caller?.tenantId || !(await usuarioNaEmpresa(supabaseAdmin, userId, caller.tenantId))) {
+    return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
+  }
+
   const { error } = await supabaseAdmin
     .from('google_calendar_mappings')
     .upsert(
