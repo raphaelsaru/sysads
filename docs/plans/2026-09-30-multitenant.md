@@ -128,8 +128,11 @@ select name, max_users, branding from tenants where id='00000000-0000-0000-0000-
 ```sql
 -- Contexto confiável: service role (JWT role) ou conexão direta sem JWT (migration/psql).
 create or replace function public.is_trusted_context()
-returns boolean language sql stable as $$
-  select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', 'service_role') = 'service_role';
+returns boolean language sql stable set search_path = public as $$
+  select case
+    when nullif(current_setting('request.jwt.claims', true), '') is null then true
+    else coalesce(current_setting('request.jwt.claims', true)::jsonb ->> 'role', '') = 'service_role'
+  end;
 $$;
 
 -- Empresa efetiva de um usuário. Superadmin: empresa visitada (fallback própria).
@@ -186,8 +189,9 @@ returns text language sql stable security definer set search_path = public as $$
   left join tenants t on t.id = up.tenant_id;
 $$;
 
-revoke execute on function public.effective_tenant_id(uuid) from public, anon;
-grant execute on function public.current_tenant_id(), public.is_superadmin(), public.is_tenant_owner(), public.acesso_crm() to authenticated;
+revoke execute on function public.effective_tenant_id(uuid), public.is_trusted_context() from public, anon, authenticated;
+-- Funções usadas em policies ficam executáveis por anon (retornam null/false sem JWT).
+grant execute on function public.current_tenant_id(), public.is_superadmin(), public.is_tenant_owner(), public.acesso_crm(), public.is_admin() to authenticated;
 ```
 
 **Step 1:** Aplicar.
