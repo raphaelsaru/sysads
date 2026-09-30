@@ -1,5 +1,6 @@
 import { UserRole } from '@/types/crm'
 import { createClient } from '@/lib/supabase-server'
+import { isSuperadmin } from '@/lib/roles'
 
 export async function checkIsAdmin(): Promise<boolean> {
   try {
@@ -14,7 +15,7 @@ export async function checkIsAdmin(): Promise<boolean> {
       .eq('id', user.id)
       .single()
 
-    return profile?.role === 'admin'
+    return isSuperadmin(profile?.role)
   } catch {
     return false
   }

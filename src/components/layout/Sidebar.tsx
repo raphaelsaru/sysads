@@ -10,6 +10,7 @@ import { useAdmin } from '@/contexts/AdminContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Symbol } from '@/components/ui/symbol'
+import { roleLabel } from '@/lib/roles'
 import NotificationsBell from '@/components/NotificationsBell'
 import {
   DropdownMenu,
@@ -76,14 +77,13 @@ function AccountFooter() {
   const companyName = impersonatedUser?.company_name || userProfile?.company_name || userProfile?.full_name || 'Prizely'
 
   const getRoleBadge = () => {
-    switch (userProfile?.role) {
-      case 'admin':
-        return <Badge variant="default" className="text-xs">Admin</Badge>
-      case 'user':
-        return <Badge variant="secondary" className="text-xs">Usuário</Badge>
-      default:
-        return null
-    }
+    const role = userProfile?.role
+    if (!role) return null
+    return (
+      <Badge variant={role === 'user' ? 'secondary' : 'default'} className="text-xs">
+        {roleLabel[role]}
+      </Badge>
+    )
   }
 
   return (

@@ -2,11 +2,23 @@
 // TIPOS DE USUÁRIO E ROLES
 // =====================================================
 
-export type UserRole = 'admin' | 'user'
+// 'admin' = superadmin da plataforma (nome mantido no enum do banco).
+export type UserRole = 'admin' | 'owner' | 'user'
+
+export interface Tenant {
+  id: string
+  name: string
+  max_users: number | null
+  is_active: boolean
+  branding: { primaryColor?: string | null } | null
+}
 
 export interface UserProfile {
   id: string
   role: UserRole
+  tenant_id?: string | null
+  is_active?: boolean
+  active_tenant_id?: string | null
   full_name: string | null
   company_name?: string | null
   currency?: 'BRL' | 'USD' | 'EUR' | null
