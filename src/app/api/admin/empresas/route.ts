@@ -14,8 +14,9 @@ function slugify(s: string) {
 }
 
 // Rollback: só apaga a empresa recém-criada se nada a referencia.
-// FKs de user_profiles/clientes/negociacoes/follow_ups são ON DELETE CASCADE:
-// apagar empresa com membros apagaria os perfis. Na dúvida, não apaga.
+// FKs de user_profiles/clientes/negociacoes/follow_ups são ON DELETE RESTRICT
+// (antes CASCADE); checagem mantida como defesa. Na dúvida, não apaga.
+// Erro no delete (ex.: FK) = não dá p/ desfazer: só loga; chamador devolve o erro original.
 async function removerEmpresaVazia(admin: AdminClient, tenantId: string) {
   for (const tabela of ['user_profiles', 'clientes', 'negociacoes', 'follow_ups'] as const) {
     const { count, error } = await admin.from(tabela)
