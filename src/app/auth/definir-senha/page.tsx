@@ -28,10 +28,7 @@ function DefinirSenha() {
 
     const verificar = async () => {
       const { error } = await supabase.auth.verifyOtp({ token_hash, type: 'invite' })
-      if (!error) { setStatus('pronto'); return }
-      // Recarregou a página após verificar: token já consumido, mas sessão existe
-      const { data } = await supabase.auth.getUser()
-      setStatus(data.user ? 'pronto' : 'erro')
+      setStatus(error ? 'erro' : 'pronto')
     }
     void verificar()
   }, [tokenHash])
