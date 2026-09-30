@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Loader2, LockKeyhole, Mail } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { createClient } from '@/lib/supabase-browser'
 import { Button } from '@/components/ui/button'
 import { Symbol } from '@/components/ui/symbol'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,7 +17,28 @@ export default function LoginForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [modo, setModo] = useState<'login' | 'recuperar'>('login')
+  const [recuperacaoEnviada, setRecuperacaoEnviada] = useState(false)
   const { signIn, user, loading: authLoading } = useAuth()
+
+  const handleRecuperar = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    // Resposta sempre igual: não revela se o email existe.
+    const { error: resetError } = await createClient().auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/auth/definir-senha`,
+    })
+    if (resetError) console.error('Erro ao solicitar redefinição de senha:', resetError)
+    setRecuperacaoEnviada(true)
+    setLoading(false)
+  }
+
+  const alternarModo = (novo: 'login' | 'recuperar') => {
+    setModo(novo)
+    setError(null)
+    setRecuperacaoEnviada(false)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,13 +80,67 @@ export default function LoginForm() {
  <Card>
           <CardHeader className="space-y-2 text-center">
             <CardTitle className="text-2xl font-semibold text-foreground">
-              Boas-vindas de volta
+              {modo === 'recuperar' ? 'Redefinir senha' : 'Boas-vindas de volta'}
             </CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
-              Acesse o painel e continue nutrindo seus relacionamentos.
+              {modo === 'recuperar'
+                ? 'Informe seu email para receber um link de redefinição.'
+                : 'Acesse o painel e continue nutrindo seus relacionamentos.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {modo === 'recuperar' ? (
+              <form onSubmit={handleRecuperar} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="email-recuperar">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="email-recuperar"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                      placeholder="voce@empresa.com"
+                    />
+                  </div>
+                </div>
+
+                {recuperacaoEnviada && (
+                  <Alert>
+                    <AlertDescription>
+                      Se o email existir, você receberá um link para redefinir a senha.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-2 w-full h-12 rounded-full bg-primary text-primary-foreground shadow-brand hover:bg-primary/90"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Enviando...
+                    </span>
+                  ) : (
+                    'Enviar link de redefinição'
+                  )}
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => alternarModo('login')}
+                  className="w-full text-center text-sm text-primary hover:underline"
+                >
+                  Voltar ao login
+                </button>
+              </form>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -123,7 +199,16 @@ export default function LoginForm() {
                   'Entrar'
                 )}
               </Button>
+
+              <button
+                type="button"
+                onClick={() => alternarModo('recuperar')}
+                className="w-full text-center text-sm text-primary hover:underline"
+              >
+                Esqueci minha senha
+              </button>
             </form>
+            )}
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Acesso somente por convite.

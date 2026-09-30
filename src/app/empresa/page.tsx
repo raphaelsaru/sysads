@@ -213,7 +213,11 @@ function EmpresaPageContent() {
       setReenviando(usuario.id)
       const response = await fetch(`/api/empresa/usuarios/${usuario.id}/reenviar`, { method: 'POST' })
       if (!response.ok) throw await erroDa(response, 'Erro ao reenviar convite')
-      alert(`Convite reenviado para ${usuario.email ?? usuario.full_name ?? 'o usuário'}`)
+      const { tipo } = await response.json().catch(() => ({})) as { tipo?: string }
+      const destino = usuario.email ?? usuario.full_name ?? 'o usuário'
+      alert(tipo === 'recuperacao'
+        ? `Link de redefinição de senha enviado para ${destino}`
+        : `Convite reenviado para ${destino}`)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao reenviar convite')
     } finally {

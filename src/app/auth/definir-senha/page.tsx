@@ -12,8 +12,12 @@ const supabase = createClient()
 
 function DefinirSenha() {
   const router = useRouter()
-  const tokenHash = useSearchParams().get('token_hash')
-  const [status, setStatus] = useState<'verificando' | 'pronto' | 'erro'>(tokenHash ? 'verificando' : 'erro')
+  const params = useSearchParams()
+  const tokenHash = params.get('token_hash')
+  const tipoParam = params.get('type') ?? 'invite'
+  const tipo = tipoParam === 'invite' || tipoParam === 'recovery' ? tipoParam : null
+  const recuperacao = tipo === 'recovery'
+  const [status, setStatus] = useState<'verificando' | 'pronto' | 'erro'>(tokenHash && tipo ? 'verificando' : 'erro')
   const [senha, setSenha] = useState('')
   const [confirmacao, setConfirmacao] = useState('')
   const [erro, setErro] = useState<string | null>(null)
@@ -22,16 +26,17 @@ function DefinirSenha() {
   const verificou = useRef(false)
 
   useEffect(() => {
-    if (!tokenHash || verificou.current) return
+    if (!tokenHash || !tipo || verificou.current) return
     verificou.current = true
     const token_hash = tokenHash
+    const type = tipo
 
     const verificar = async () => {
-      const { error } = await supabase.auth.verifyOtp({ token_hash, type: 'invite' })
+      const { error } = await supabase.auth.verifyOtp({ token_hash, type })
       setStatus(error ? 'erro' : 'pronto')
     }
     void verificar()
-  }, [tokenHash])
+  }, [tokenHash, tipo])
 
   const salvar = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,7 +53,9 @@ function DefinirSenha() {
         || error.message.includes('Password should')
       return setErro(fraca
         ? 'Senha fraca. Use pelo menos 8 caracteres com letras e números.'
-        : 'Não foi possível salvar a senha. Tente outra senha ou peça um novo convite.')
+        : recuperacao
+          ? 'Não foi possível salvar a senha. Tente outra senha ou peça um novo link.'
+          : 'Não foi possível salvar a senha. Tente outra senha ou peça um novo convite.')
     }
     router.replace('/')
   }
@@ -57,10 +64,12 @@ function DefinirSenha() {
     <div className="flex min-h-screen items-center justify-center px-6">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-3 text-center">
-          <CardTitle>Crie sua senha</CardTitle>
+          <CardTitle>{recuperacao ? 'Redefinir senha' : 'Crie sua senha'}</CardTitle>
           <CardDescription>
-            {status === 'verificando' && 'Validando convite...'}
-            {status === 'erro' && 'Convite inválido ou expirado. Peça um novo convite ao administrador.'}
+            {status === 'verificando' && (recuperacao ? 'Validando link...' : 'Validando convite...')}
+            {status === 'erro' && (recuperacao
+              ? 'Link inválido ou expirado. Solicite uma nova redefinição de senha na tela de login.'
+              : 'Convite inválido ou expirado. Peça um novo convite ao administrador.')}
             {status === 'pronto' && 'Defina a senha para acessar o CRM.'}
           </CardDescription>
           {status === 'erro' && (
