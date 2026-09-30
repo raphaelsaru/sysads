@@ -6,7 +6,7 @@ import type { UserRole } from '@/types/crm'
 type AdminClient = ReturnType<typeof createAdminClient>
 
 export type ResultadoConvite =
-  | { id: string; reaproveitado: boolean }
+  | { id: string; reaproveitado: boolean; convite_enviado?: boolean }
   | { status: number; error: string }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -38,7 +38,29 @@ export async function buscarUsuarioPorEmail(admin: AdminClient, email: string): 
     if (achado) return achado
     if (data.users.length < 200) return null
   }
-  return null
+  // Limite de páginas esgotado: pode existir e não foi achado.
+  throw new Error('Base de usuários maior que o limite de busca')
+}
+
+type Perfil = { tenant_id: string; role: Exclude<UserRole, 'admin'>; full_name: string; is_active: boolean }
+
+// Vincula perfil à empresa só se ainda estiver sem empresa (ou não existir).
+async function vincularPerfil(admin: AdminClient, id: string, perfil: Perfil)
+  : Promise<'ok' | 'indisponivel' | { message: string }> {
+  const { data: atualizados, error } = await admin.from('user_profiles')
+    .update(perfil).eq('id', id).is('tenant_id', null).select('id')
+  if (error) return error
+  if (atualizados?.length) return 'ok'
+
+  const { data: existe, error: buscaErro } = await admin.from('user_profiles')
+    .select('id').eq('id', id).maybeSingle()
+  if (buscaErro) return buscaErro
+  if (existe) return 'indisponivel' // já tem empresa
+
+  const { data: inseridos, error: insertErro } = await admin.from('user_profiles')
+    .upsert({ id, ...perfil }, { onConflict: 'id', ignoreDuplicates: true }).select('id')
+  if (insertErro) return insertErro
+  return inseridos?.length ? 'ok' : 'indisponivel'
 }
 
 // Convida email novo ou vincula conta existente SEM empresa à empresa informada.
@@ -80,38 +102,44 @@ export async function convidarUsuario({ admin, email, full_name, tenantId, role,
     return { status: 409, error: 'Limite de usuários da empresa atingido' }
   }
 
+  const perfil: Perfil = { tenant_id: tenantId, role, full_name, is_active: true }
+  const convite = { redirectTo: urlConvite(origin), data: { full_name, company_name: tenant.name } }
+
   if (existente) {
     // Conta sem empresa (ex.: antigo app financeiro): vincula; entra com a senha atual.
-    const { error } = await admin.from('user_profiles')
-      .upsert({ id: existente.id, tenant_id: tenantId, role, full_name, is_active: true })
-    if (error) return mensagemErroDb(error.message)
+    const r = await vincularPerfil(admin, existente.id, perfil)
+    if (r === 'indisponivel') return INDISPONIVEL
+    if (r !== 'ok') return mensagemErroDb(r.message)
+
+    // Nunca confirmou email: manda convite p/ definir senha.
+    if (!existente.email_confirmed_at) {
+      const { error } = await admin.auth.admin.inviteUserByEmail(email, convite)
+      if (!error) return { id: existente.id, reaproveitado: true, convite_enviado: true }
+      if (error.code !== 'email_exists') console.error('[convite] reenvio p/ conta reaproveitada falhou:', error.message)
+    }
     return { id: existente.id, reaproveitado: true }
   }
 
-  const { data: convite, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: urlConvite(origin),
-    data: { full_name, company_name: tenant.name },
-  })
-  if (inviteError || !convite.user) {
+  const inicio = Date.now()
+  const { data: convidado, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, convite)
+  if (inviteError || !convidado.user) {
     // Corrida: conta criada entre a busca e o convite.
     if (inviteError?.code === 'email_exists') return INDISPONIVEL
     console.error('[convite] inviteUserByEmail falhou:', inviteError?.message)
     return { status: 500, error: 'Erro ao enviar convite' }
   }
-  const novoId = convite.user.id
+  const novoId = convidado.user.id
 
   // handle_new_user criou o perfil sem empresa; vincula (só se ainda sem empresa).
-  const perfil = { tenant_id: tenantId, role, full_name, is_active: true }
-  let { data: vinculados, error: perfilError } = await admin.from('user_profiles')
-    .update(perfil).eq('id', novoId).is('tenant_id', null).select('id')
-  if (!perfilError && !vinculados?.length) {
-    ;({ data: vinculados, error: perfilError } = await admin.from('user_profiles')
-      .upsert({ id: novoId, ...perfil }).select('id'))
-  }
-  if (perfilError || !vinculados?.length) {
-    // Seguro: conta criada agora por este convite.
-    await admin.auth.admin.deleteUser(novoId)
-    return mensagemErroDb(perfilError?.message)
+  const r = await vincularPerfil(admin, novoId, perfil)
+  if (r === 'indisponivel') return INDISPONIVEL
+  if (r !== 'ok') {
+    // Só apaga se a conta foi criada por este convite (não uma pendente pré-existente).
+    const criadoEm = Date.parse(convidado.user.created_at)
+    if (Number.isFinite(criadoEm) && criadoEm >= inicio - 5000) {
+      await admin.auth.admin.deleteUser(novoId)
+    }
+    return mensagemErroDb(r.message)
   }
 
   return { id: novoId, reaproveitado: false }
