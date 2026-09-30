@@ -57,13 +57,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const publicPaths = ['/', '/auth/login', '/auth/callback', '/auth/signup', '/privacidade', '/exclusao-de-dados']
-  const isPublicPath = publicPaths.some(path => pathname === path || pathname.startsWith(path))
+  const publicPaths = [
+    '/auth/login',
+    '/auth/callback',
+    '/auth/definir-senha',
+    '/auth/desativado',
+    '/privacidade',
+    '/exclusao-de-dados',
+    '/brandbook',
+  ]
+  const isPublicPath = publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'))
   if (isPublicPath) {
     return NextResponse.next()
   }
 
   let supabaseResponse = NextResponse.next({ request })
+
+  // Redirect que preserva cookies de sessão renovados pelo Supabase
+  const redirectTo = (path: string, search = '') => {
+    const url = request.nextUrl.clone()
+    url.pathname = path
+    url.search = search
+    const response = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach(cookie => response.cookies.set(cookie))
+    return response
+  }
 
   try {
     const supabase = createServerClient(
@@ -88,10 +106,13 @@ export async function middleware(request: NextRequest) {
     const { data, error } = await supabase.auth.getUser()
 
     if (error || !data.user) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/auth/login'
-      url.searchParams.set('redirect', pathname)
-      return NextResponse.redirect(url)
+      return redirectTo('/auth/login', `?redirect=${encodeURIComponent(pathname)}`)
+    }
+
+    // Bloqueia usuário/empresa inativos ou sem vínculo
+    const { data: acesso } = await supabase.rpc('acesso_crm')
+    if (acesso !== 'ok') {
+      return redirectTo('/auth/desativado', `?motivo=${acesso ?? 'sem_perfil'}`)
     }
 
     const { data: profile } = await supabase
@@ -99,23 +120,14 @@ export async function middleware(request: NextRequest) {
       .select('role')
       .eq('id', data.user.id)
       .single()
+    const role = profile?.role
 
-    if (!profile) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/auth/login'
-      return NextResponse.redirect(url)
+    if ((pathname.startsWith('/admin') || pathname.startsWith('/settings/users')) && role !== 'admin') {
+      return redirectTo('/dashboard')
     }
 
-    if (pathname.startsWith('/admin') && profile.role !== 'admin') {
-      const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
-      return NextResponse.redirect(url)
-    }
-
-    if (pathname.startsWith('/settings/users') && profile.role !== 'admin') {
-      const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
-      return NextResponse.redirect(url)
+    if (pathname.startsWith('/empresa') && role !== 'admin' && role !== 'owner') {
+      return redirectTo('/dashboard')
     }
 
     return supabaseResponse
