@@ -82,7 +82,10 @@ function EmpresaPageContent() {
     const setCarregando = silencioso ? setRecarregando : setLoading
     try {
       setCarregando(true)
-      if (!silencioso) setError(null)
+      if (!silencioso) {
+        setRecarregando(false)
+        setError(null)
+      }
       const response = await fetch('/api/empresa/usuarios')
       if (!response.ok) throw await erroDa(response, 'Erro ao carregar usuários')
       const data = await response.json()
@@ -100,11 +103,22 @@ function EmpresaPageContent() {
   }, [])
 
   useEffect(() => {
-    if (!podeGerenciar || !tenantId) return
+    if (!podeGerenciar) return
+    if (!tenantId) {
+      cargaAtual.current++
+      setUsuarios([])
+      setSlots({ usados: 0, total: null })
+      setLoading(false)
+      setError('Nenhuma empresa selecionada.')
+      return
+    }
     carregarUsuarios()
-    // Contador (não nó do DOM): invalidar respostas pendentes é exatamente o objetivo.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    return () => { cargaAtual.current++ }
+    return () => {
+      // Contador (não nó do DOM): invalidar respostas pendentes é exatamente o objetivo.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      cargaAtual.current++
+      setRecarregando(false)
+    }
   }, [podeGerenciar, tenantId, carregarUsuarios])
 
   const salvarCor = async (primaryColor: string | null) => {
@@ -166,9 +180,11 @@ function EmpresaPageContent() {
 
   const handleToggleAtivo = async (id: string, ativo: boolean) => {
     const delta = ativo ? 1 : -1
+    // Se a lista for recarregada no meio, os slots já vêm do servidor: não reverter.
+    const carga = cargaAtual.current
     const aplicar = (valor: boolean, d: number) => {
       setUsuarios(prev => prev.map(u => (u.id === id ? { ...u, is_active: valor } : u)))
-      setSlots(prev => ({ ...prev, usados: prev.usados + d }))
+      if (carga === cargaAtual.current) setSlots(prev => ({ ...prev, usados: prev.usados + d }))
     }
     setSalvandoAtivo(prev => new Set(prev).add(id))
     aplicar(ativo, delta)
