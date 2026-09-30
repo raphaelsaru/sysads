@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Symbol } from '@/components/ui/symbol'
 import { canManageTeam, isSuperadmin, roleLabel } from '@/lib/roles'
 import NotificationsBell from '@/components/NotificationsBell'
+import EmpresaSwitcher from '@/components/layout/EmpresaSwitcher'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -194,6 +195,8 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
         <Symbol className="h-7 w-7 shrink-0" />
         <span className="font-display text-2xl font-medium text-foreground">Prizely</span>
       </div>
+
+      <EmpresaSwitcher />
 
       <NavLinks onNavigate={onNavigate} />
 

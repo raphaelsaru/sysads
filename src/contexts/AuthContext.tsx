@@ -149,6 +149,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (tenantError) {
           console.error('❌ Erro ao buscar empresa:', tenantError)
+          // Só mantém a anterior se for a mesma empresa (evita branding antigo após troca)
+          if (previousTenant?.id !== tenantId) tenantData = null
         } else {
           tenantData = tenantRaw as Tenant | null
         }
