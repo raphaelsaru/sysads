@@ -42,10 +42,6 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const { userProfile } = useAuth()
   const superadmin = isSuperadmin(userProfile?.role)
-  const visitandoOutraEmpresa = superadmin
-    && !!userProfile?.active_tenant_id
-    && userProfile.active_tenant_id !== userProfile.tenant_id
-  const acessoGlobalSuperadmin = superadmin && !visitandoOutraEmpresa
 
   const navItems: { href: string; label: string }[] = [
     { href: '/', label: 'Leads' },
@@ -54,7 +50,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     { href: '/calendario', label: 'Agenda' },
     { href: '/settings/integrations', label: 'Integrações' },
     ...(canManageTeam(userProfile?.role) ? [{ href: '/empresa', label: 'Minha empresa' }] : []),
-    ...(acessoGlobalSuperadmin ? [
+    ...(superadmin ? [
       { href: '/admin/empresas', label: 'Empresas' },
       { href: '/admin', label: 'Administração' },
       { href: '/settings/users', label: 'Usuários (global)' },
