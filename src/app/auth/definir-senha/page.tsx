@@ -14,10 +14,10 @@ function DefinirSenha() {
   const router = useRouter()
   const params = useSearchParams()
   const tokenHash = params.get('token_hash')
-  const tipoParam = params.get('type') ?? 'invite'
+  const tipoParam = params.get('type')
   const tipo = tipoParam === 'invite' || tipoParam === 'recovery' ? tipoParam : null
-  const recuperacao = tipo === 'recovery'
-  const [status, setStatus] = useState<'verificando' | 'pronto' | 'erro'>(tokenHash && tipo ? 'verificando' : 'erro')
+  const [recuperacao, setRecuperacao] = useState(tipo === 'recovery')
+  const [status, setStatus] = useState<'verificando' | 'pronto' | 'erro'>('verificando')
   const [senha, setSenha] = useState('')
   const [confirmacao, setConfirmacao] = useState('')
   const [erro, setErro] = useState<string | null>(null)
@@ -26,17 +26,32 @@ function DefinirSenha() {
   const verificou = useRef(false)
 
   useEffect(() => {
-    if (!tokenHash || !tipo || verificou.current) return
+    if (verificou.current) return
     verificou.current = true
-    const token_hash = tokenHash
-    const type = tipo
 
     const verificar = async () => {
-      const { error } = await supabase.auth.verifyOtp({ token_hash, type })
-      setStatus(error ? 'erro' : 'pronto')
+      if (tokenHash && tipo) {
+        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: tipo })
+        setStatus(error ? 'erro' : 'pronto')
+        return
+      }
+
+      // O template padrão do Supabase pode estabelecer a sessão pelo callback
+      // (PKCE/fragmento) em vez de enviar token_hash diretamente para esta página.
+      // getSession aguarda a inicialização do client e cobre esse formato também.
+      if (!tokenHash && !tipoParam) {
+        const { data, error } = await supabase.auth.getSession()
+        if (!error && data.session) {
+          setRecuperacao(true)
+          setStatus('pronto')
+          return
+        }
+      }
+
+      setStatus('erro')
     }
     void verificar()
-  }, [tokenHash, tipo])
+  }, [tokenHash, tipo, tipoParam])
 
   const salvar = async (e: React.FormEvent) => {
     e.preventDefault()

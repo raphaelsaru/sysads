@@ -924,6 +924,15 @@ export default function Page() {
 <p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite">Aceitar convite</a></p>
 <p>Se você não esperava este convite, ignore este email.</p>
 ```
+3. Emails → Reset password. O link precisa usar o mesmo formato baseado em
+`token_hash`, pois o reenvio administrativo acontece no servidor e não compartilha
+o verificador PKCE do navegador:
+```html
+<h2>Redefinição de senha do Prizely CRM</h2>
+<p>Clique no botão abaixo para escolher uma nova senha.</p>
+<p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">Redefinir senha</a></p>
+<p>Se você não solicitou a redefinição, ignore este email.</p>
+```
 
 **Step:** build. Commit `feat: pagina de definir senha para convites`.
 

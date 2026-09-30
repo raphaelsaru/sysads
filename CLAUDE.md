@@ -23,7 +23,7 @@ Prizely — CRM for customer management. Portuguese-language interface (lang="pt
 - **Two Supabase clients**: `supabase-browser.ts` (client components), `supabase-server.ts` (server components/actions). Plus `supabase-admin.ts` (service role, server-only).
 - **Roles**: `admin` (= superadmin da plataforma; nome mantido no enum), `owner` (dono da empresa), `user` — `src/types/crm.ts`, helpers em `src/lib/roles.ts` (`isSuperadmin`, `canManageTeam`, `roleLabel`).
 - **Multitenant**: `user_profiles.tenant_id` (empresa), `is_active`, `active_tenant_id` (empresa visitada pelo superadmin). SQL: `current_tenant_id()`, `is_tenant_owner()`, `is_superadmin()`, `acesso_crm()`, `definir_dono()`. `tenant_id` de clientes/negociacoes/follow_ups preenchido por trigger. Slots = usuários ativos ≤ `tenants.max_users` (trigger). Server: `getCaller()` em `src/lib/tenant-server.ts`. Visibilidade: user vê só os próprios leads; owner/superadmin veem a empresa inteira.
-- **Contas só por convite** (sem signup): `src/lib/convite.ts` + `/auth/definir-senha`. Env `NEXT_PUBLIC_SITE_URL` define o link do convite.
+- **Contas só por convite** (sem signup): `src/lib/convite.ts` + `/auth/definir-senha`. Env `NEXT_PUBLIC_SITE_URL` define o link. Os templates Supabase de convite e recuperação usam `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite|recovery`.
 - **Context**: `AuthContext` (user/session/profile/tenant, `refreshProfile()`), `AdminContext` ("Visualizar como"). `'use client'`.
 
 ### Data Model (all types in `src/types/crm.ts`)
