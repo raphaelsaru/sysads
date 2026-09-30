@@ -110,8 +110,11 @@ export async function middleware(request: NextRequest) {
     }
 
     // Bloqueia usuário/empresa inativos ou sem vínculo
-    const { data: acesso } = await supabase.rpc('acesso_crm')
-    if (acesso !== 'ok') {
+    // Erro transitório na RPC não desloga — RLS continua protegendo os dados
+    const { data: acesso, error: acessoError } = await supabase.rpc('acesso_crm')
+    if (acessoError) {
+      console.error('Erro ao verificar acesso_crm:', acessoError)
+    } else if (acesso !== 'ok') {
       return redirectTo('/auth/desativado', `?motivo=${acesso ?? 'sem_perfil'}`)
     }
 
