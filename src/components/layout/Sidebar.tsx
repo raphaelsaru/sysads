@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Symbol } from '@/components/ui/symbol'
 import { canManageTeam, isSuperadmin, roleLabel } from '@/lib/roles'
-import { FALLBACK_CURRENCY_VALUE } from '@/lib/currency'
 import NotificationsBell from '@/components/NotificationsBell'
 import {
   DropdownMenu,
@@ -35,6 +34,7 @@ interface UsuarioEmpresa {
   id: string
   full_name: string | null
   email: string | null
+  currency: string
 }
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -141,7 +141,6 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
 
   const podeVisualizarComo = canManageTeam(userProfile?.role)
   const tenantId = tenant?.id ?? null
-  const moedaPadrao = userProfile?.currency ?? FALLBACK_CURRENCY_VALUE
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -167,14 +166,14 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
             id: u.id,
             email: u.email ?? '',
             company_name: u.full_name ?? u.email ?? 'Sem nome',
-            currency: moedaPadrao,
+            currency: u.currency,
           }))
         setUsers(lista)
       } catch {}
     }
     fetchUsers()
     return () => { cancelado = true }
-  }, [podeVisualizarComo, tenantId, userProfile?.id, moedaPadrao])
+  }, [podeVisualizarComo, tenantId, userProfile?.id])
 
   const toggleTheme = () => {
     const next = !isDarkMode

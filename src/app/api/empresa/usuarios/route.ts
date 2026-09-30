@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     let query = supabase
       .from('user_profiles')
-      .select('id, role, full_name, is_active, created_at')
+      .select('id, role, full_name, is_active, created_at, preferences')
       .eq('tenant_id', caller.tenantId)
       .order('full_name')
     if (request.nextUrl.searchParams.get('ativos') === '1') query = query.eq('is_active', true)
@@ -29,11 +29,13 @@ export async function GET(request: NextRequest) {
 
     // Emails e status de convite vêm do auth (service role). Equipes pequenas: paralelo.
     const admin = createAdminClient()
-    const usuarios = await Promise.all((perfis ?? []).map(async (p) => {
+    const usuarios = await Promise.all((perfis ?? []).map(async ({ preferences, ...p }) => {
       const { data } = await admin.auth.admin.getUserById(p.id)
+      const prefs = (preferences as Record<string, unknown>) || {}
       return {
         ...p,
         email: data.user?.email ?? null,
+        currency: (prefs.currency as string) ?? (data.user?.user_metadata?.currency as string) ?? 'BRL',
         convite_pendente: !data.user?.last_sign_in_at,
       }
     }))
