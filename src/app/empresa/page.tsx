@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Users, UserPlus, Palette, Loader2, Mail } from 'lucide-react'
 
@@ -54,8 +54,9 @@ function EmpresaPageContent() {
   const [usuarios, setUsuarios] = useState<UsuarioEmpresa[]>([])
   const [slots, setSlots] = useState<Slots>({ usados: 0, total: null })
   const [loading, setLoading] = useState(true)
+  const [recarregando, setRecarregando] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [salvandoAtivo, setSalvandoAtivo] = useState<string | null>(null)
+  const [salvandoAtivo, setSalvandoAtivo] = useState<Set<string>>(new Set())
   const [reenviando, setReenviando] = useState<string | null>(null)
 
   const [conviteOpen, setConviteOpen] = useState(false)
@@ -72,25 +73,39 @@ function EmpresaPageContent() {
     setCor(tenant?.branding?.primaryColor || COR_PADRAO)
   }, [tenant?.branding?.primaryColor])
 
-  const carregarUsuarios = useCallback(async () => {
+  // Incrementado a cada carga (e na troca de empresa): respostas antigas são ignoradas.
+  const cargaAtual = useRef(0)
+  const tenantId = tenant?.id ?? null
+
+  const carregarUsuarios = useCallback(async (silencioso = false) => {
+    const carga = ++cargaAtual.current
+    const setCarregando = silencioso ? setRecarregando : setLoading
     try {
-      setLoading(true)
-      setError(null)
+      setCarregando(true)
+      if (!silencioso) setError(null)
       const response = await fetch('/api/empresa/usuarios')
       if (!response.ok) throw await erroDa(response, 'Erro ao carregar usuários')
       const data = await response.json()
+      if (carga !== cargaAtual.current) return
       setUsuarios(data.usuarios || [])
       setSlots(data.slots || { usados: 0, total: null })
+      setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido')
+      if (carga !== cargaAtual.current) return
+      if (silencioso) alert(err instanceof Error ? err.message : 'Erro ao recarregar usuários')
+      else setError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
-      setLoading(false)
+      if (carga === cargaAtual.current) setCarregando(false)
     }
   }, [])
 
   useEffect(() => {
-    if (podeGerenciar) carregarUsuarios()
-  }, [podeGerenciar, carregarUsuarios])
+    if (!podeGerenciar || !tenantId) return
+    carregarUsuarios()
+    // Contador (não nó do DOM): invalidar respostas pendentes é exatamente o objetivo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { cargaAtual.current++ }
+  }, [podeGerenciar, tenantId, carregarUsuarios])
 
   const salvarCor = async (primaryColor: string | null) => {
     if (primaryColor !== null && !HEX_COLOR_RE.test(primaryColor)) {
@@ -113,7 +128,14 @@ function EmpresaPageContent() {
     }
   }
 
-  const handleConvidar = async () => {
+  const fecharConvite = (open: boolean) => {
+    if (open || convidando) return
+    setConviteOpen(false)
+    setConvite({ full_name: '', email: '' })
+  }
+
+  const handleConvidar = async (e: React.FormEvent) => {
+    e.preventDefault()
     const email = convite.email.trim()
     const full_name = convite.full_name.trim()
     if (!email || !full_name) {
@@ -131,7 +153,7 @@ function EmpresaPageContent() {
       const data = await response.json()
       setConviteOpen(false)
       setConvite({ full_name: '', email: '' })
-      await carregarUsuarios()
+      await carregarUsuarios(true)
       alert(data.reaproveitado
         ? 'Usuário existente vinculado — ele entra com a senha atual.'
         : `Convite enviado para ${email}`)
@@ -143,11 +165,13 @@ function EmpresaPageContent() {
   }
 
   const handleToggleAtivo = async (id: string, ativo: boolean) => {
-    const anteriores = usuarios
-    const slotsAnteriores = slots
-    setSalvandoAtivo(id)
-    setUsuarios(usuarios.map(u => (u.id === id ? { ...u, is_active: ativo } : u)))
-    setSlots({ ...slots, usados: slots.usados + (ativo ? 1 : -1) })
+    const delta = ativo ? 1 : -1
+    const aplicar = (valor: boolean, d: number) => {
+      setUsuarios(prev => prev.map(u => (u.id === id ? { ...u, is_active: valor } : u)))
+      setSlots(prev => ({ ...prev, usados: prev.usados + d }))
+    }
+    setSalvandoAtivo(prev => new Set(prev).add(id))
+    aplicar(ativo, delta)
 
     try {
       const response = await fetch(`/api/empresa/usuarios/${id}`, {
@@ -157,11 +181,14 @@ function EmpresaPageContent() {
       })
       if (!response.ok) throw await erroDa(response, 'Erro ao atualizar usuário')
     } catch (err) {
-      setUsuarios(anteriores)
-      setSlots(slotsAnteriores)
+      aplicar(!ativo, -delta)
       alert(err instanceof Error ? err.message : 'Erro ao atualizar usuário')
     } finally {
-      setSalvandoAtivo(null)
+      setSalvandoAtivo(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     }
   }
 
@@ -179,7 +206,7 @@ function EmpresaPageContent() {
   }
 
   const switchDesabilitado = (u: UsuarioEmpresa) =>
-    salvandoAtivo === u.id ||
+    salvandoAtivo.has(u.id) ||
     u.id === userProfile?.id ||
     u.role === 'admin' ||
     (u.role === 'owner' && !isSuperadmin(userProfile?.role))
@@ -193,6 +220,18 @@ function EmpresaPageContent() {
 
   const slotsCheios = slots.total !== null && slots.usados >= slots.total
   const corValida = HEX_COLOR_RE.test(cor)
+  const corSalva = tenant?.branding?.primaryColor || COR_PADRAO
+  const corInalterada = cor.toUpperCase() === corSalva.toUpperCase()
+
+  if (!userProfile) {
+    return (
+      <MainLayout>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </MainLayout>
+    )
+  }
 
   if (!podeGerenciar) {
     return (
@@ -249,13 +288,15 @@ function EmpresaPageContent() {
                   maxLength={7}
                   className="mt-1 w-32 font-mono"
                   aria-invalid={!corValida}
+                  aria-describedby={corValida ? undefined : 'cor-hex-erro'}
                 />
               </div>
               <div>
-                <Label>Prévia</Label>
+                <span className="text-sm font-medium leading-none">Prévia</span>
                 <Button
                   type="button"
-                  className="mt-1 block"
+                  aria-hidden
+                  className="mt-1 block pointer-events-none"
                   style={corValida
                     ? { backgroundColor: cor, borderColor: cor, color: `hsl(${foregroundFor(hexToHslTriplet(cor))})` }
                     : undefined}
@@ -266,10 +307,10 @@ function EmpresaPageContent() {
               </div>
             </div>
             {!corValida && (
-              <p className="text-sm text-destructive">Use o formato #RRGGBB.</p>
+              <p id="cor-hex-erro" className="text-sm text-destructive">Use o formato #RRGGBB.</p>
             )}
             <div className="flex gap-2">
-              <Button onClick={() => salvarCor(cor)} disabled={salvandoCor || !corValida}>
+              <Button onClick={() => salvarCor(cor)} disabled={salvandoCor || !corValida || corInalterada}>
                 {salvandoCor && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Salvar
               </Button>
@@ -290,13 +331,14 @@ function EmpresaPageContent() {
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 Usuários
+                {recarregando && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                 <Badge variant="secondary">
                   {slots.total === null ? `${slots.usados}/ilimitado` : `${slots.usados}/${slots.total}`} slots
                 </Badge>
               </CardTitle>
               <CardDescription>Pessoas com acesso ao CRM da sua empresa</CardDescription>
             </div>
-            <Button onClick={() => setConviteOpen(true)} disabled={slotsCheios}>
+            <Button onClick={() => setConviteOpen(true)} disabled={loading || slotsCheios}>
               <UserPlus className="h-4 w-4 mr-2" />
               Convidar usuário
             </Button>
@@ -376,7 +418,7 @@ function EmpresaPageContent() {
         </Card>
       </div>
 
-      <Dialog open={conviteOpen} onOpenChange={setConviteOpen}>
+      <Dialog open={conviteOpen} onOpenChange={fecharConvite}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Convidar usuário</DialogTitle>
@@ -384,7 +426,7 @@ function EmpresaPageContent() {
               Enviaremos um email para a pessoa definir a senha e acessar o CRM.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={handleConvidar} className="space-y-4">
             <div>
               <Label htmlFor="convite-nome">Nome *</Label>
               <Input id="convite-nome" value={convite.full_name}
@@ -397,15 +439,17 @@ function EmpresaPageContent() {
                 onChange={(e) => setConvite({ ...convite, email: e.target.value })}
                 placeholder="usuario@exemplo.com" />
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConviteOpen(false)}>Cancelar</Button>
-            <Button onClick={handleConvidar} disabled={convidando}>
-              {convidando
-                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</>
-                : <><UserPlus className="h-4 w-4 mr-2" />Convidar</>}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => fecharConvite(false)} disabled={convidando}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={convidando}>
+                {convidando
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</>
+                  : <><UserPlus className="h-4 w-4 mr-2" />Convidar</>}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </MainLayout>
