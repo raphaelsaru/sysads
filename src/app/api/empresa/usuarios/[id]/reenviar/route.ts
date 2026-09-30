@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller } from '@/lib/tenant-server'
 import { canManageTeam } from '@/lib/roles'
+import { urlConvite } from '@/lib/convite'
 
 // POST — reenvia convite p/ usuário da empresa atual que ainda não entrou.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -31,13 +32,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { data: tenant } = await admin.from('tenants').select('name').eq('id', caller.tenantId).single()
     // GoTrue reenvia convite enquanto o usuário não confirmou o email.
     const { error } = await admin.auth.admin.inviteUserByEmail(auth.user.email, {
-      redirectTo: `${request.nextUrl.origin}/auth/definir-senha`,
+      redirectTo: urlConvite(request.nextUrl.origin),
       data: { full_name: alvo.full_name, company_name: tenant?.name },
     })
     if (error) {
-      const jaConfirmado = error.code === 'email_exists' || error.status === 422
-        || error.message?.toLowerCase().includes('already')
-      return jaConfirmado
+      return error.code === 'email_exists'
         ? NextResponse.json({ error: 'Usuário já aceitou o convite' }, { status: 409 })
         : NextResponse.json({ error: 'Erro ao reenviar convite' }, { status: 500 })
     }
