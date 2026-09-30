@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient()
   let hasGenuineFailure = false
+  let ignoradoInativo = false
 
   for (const entry of body.entry ?? []) {
     for (const event of entry.messaging ?? []) {
@@ -70,6 +71,13 @@ export async function POST(request: NextRequest) {
           p_created_by: account.user_id,
         })
         .single()
+
+      // Usuário/empresa desativados: ignora (sem 500) p/ a Meta parar de reentregar.
+      if (error?.message?.includes('usuario sem empresa ativa')) {
+        console.warn('Webhook Instagram ignorado: usuário sem empresa ativa', account.user_id)
+        ignoradoInativo = true
+        continue
+      }
 
       if (error || !data) {
         console.error('Erro ao criar/encontrar cliente via webhook Instagram:', error)
@@ -112,6 +120,10 @@ export async function POST(request: NextRequest) {
 
   if (hasGenuineFailure) {
     return NextResponse.json({ error: 'Erro ao processar webhook Instagram' }, { status: 500 })
+  }
+
+  if (ignoradoInativo) {
+    return NextResponse.json({ ok: true, ignored: true, reason: 'usuario_inativo' })
   }
 
   return NextResponse.json({ ok: true })

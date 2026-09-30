@@ -120,6 +120,12 @@ async function handleMessage(
     })
     .single()
 
+  // Usuário/empresa desativados: 200 p/ o provedor parar de reentregar.
+  if (error?.message?.includes('usuario sem empresa ativa')) {
+    console.warn('Webhook WAHA ignorado: usuário sem empresa ativa', userId)
+    return NextResponse.json({ ignored: true, reason: 'usuario_inativo' })
+  }
+
   if (error || !data) {
     console.error('Erro ao criar/encontrar cliente via webhook WAHA:', error)
     return NextResponse.json({ error: 'Erro ao criar lead' }, { status: 500 })
