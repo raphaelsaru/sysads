@@ -82,6 +82,14 @@ begin
   select count(*) into n from clientes; if n <> 2 then raise exception 'FALHA superadmin em A viu %', n; end if;
   execute 'reset role';
 
+  -- FK RESTRICT: apagar empresa com membros falha
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    delete from tenants where id = 'aaaaaaaa-1111-0000-0000-000000000000';
+    raise exception 'FALHA: delete com membros deveria falhar';
+  exception when foreign_key_violation then null;
+  end;
+
   raise notice 'OK: todos os checks passaram';
 end $$;
 
