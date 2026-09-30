@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import ConnectionStatus from "@/components/auth/ConnectionStatus";
 import AssistantFab from "@/components/assistant/AssistantFab";
+import TenantTheme from "@/components/layout/TenantTheme";
 import { Analytics } from '@vercel/analytics/react';
 
 const instrumentSans = Instrument_Sans({
@@ -43,6 +44,7 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={`${instrumentSans.variable} ${fraunces.variable} antialiased`}>
         <AuthProvider>
+          <TenantTheme />
           <AdminProvider>
             {children}
             <AssistantFab />
