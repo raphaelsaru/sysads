@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase-browser'
 import ConnectionFallback from '@/components/auth/ConnectionFallback'
@@ -51,6 +51,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [loading, setLoading] = useState(true)
   const [showConnectionFallback, setShowConnectionFallback] = useState(false)
+
+  // Refs para descartar fetches obsoletos de perfil (concorrência / troca de usuário)
+  const userRef = useRef<User | null>(null)
+  const fetchCounterRef = useRef(0)
+  // Última empresa carregada com sucesso e de qual usuário ela é
+  const loadedTenantRef = useRef<{ userId: string; tenant: Tenant | null } | null>(null)
+
+  const setCurrentUser = useCallback((nextUser: User | null) => {
+    userRef.current = nextUser
+    setUser(nextUser)
+  }, [])
   
   // Hook para monitorar saúde da conexão
   const connectionHealth = useConnectionHealth()
@@ -64,6 +75,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [connectionHealth.isHealthy, showConnectionFallback])
 
   const fetchUserProfile = useCallback(async (supabaseUser: User) => {
+    const requestId = ++fetchCounterRef.current
+    const isStale = () =>
+      requestId !== fetchCounterRef.current || userRef.current?.id !== supabaseUser.id
+
     try {
       console.log('👤 Buscando perfil do usuário:', supabaseUser.id)
 
@@ -86,6 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', supabaseUser.id)
         .single()
       
+      if (isStale()) return
+
       const profileData = profileDataRaw as ProfileRow | null
 
       if (profileError || !profileData) {
@@ -105,19 +122,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         setUserProfile(basicProfile)
         setTenant(null)
+        loadedTenantRef.current = null
         return
       }
 
       // Empresa efetiva (superadmin: a empresa que está visitando)
-      const { data: tenantId } = await supabase.rpc('current_tenant_id')
-      const { data: tenantRaw } = tenantId
-        ? await supabase
-            .from('tenants')
-            .select('id, name, max_users, is_active, branding')
-            .eq('id', tenantId as string)
-            .single()
-        : { data: null }
-      const tenantData = tenantRaw as Tenant | null
+      // Em caso de erro, mantém a empresa já carregada (se for do mesmo usuário)
+      const previous = loadedTenantRef.current
+      const previousTenant = previous?.userId === supabaseUser.id ? previous.tenant : null
+      let tenantData: Tenant | null = previousTenant
+
+      const { data: tenantId, error: rpcError } = await supabase.rpc('current_tenant_id')
+      if (isStale()) return
+
+      if (rpcError) {
+        console.error('❌ Erro ao obter empresa atual:', rpcError)
+      } else if (!tenantId) {
+        tenantData = null
+      } else {
+        const { data: tenantRaw, error: tenantError } = await supabase
+          .from('tenants')
+          .select('id, name, max_users, is_active, branding')
+          .eq('id', tenantId as string)
+          .single()
+        if (isStale()) return
+
+        if (tenantError) {
+          console.error('❌ Erro ao buscar empresa:', tenantError)
+        } else {
+          tenantData = tenantRaw as Tenant | null
+        }
+      }
 
       const preferences = profileData.preferences || {}
       const company_name = (preferences as Record<string, unknown>)?.company_name as string | null | undefined
@@ -141,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         last_seen_at: profileData.last_seen_at,
       }
 
+      loadedTenantRef.current = { userId: supabaseUser.id, tenant: tenantData }
       setTenant(tenantData)
       setUserProfile(fullProfile)
       
@@ -161,12 +197,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (mounted) {
           if (data.session?.user) {
             console.log('✅ Sessão encontrada')
-            setUser(data.session.user)
+            setCurrentUser(data.session.user)
             setLoading(false)
             void fetchUserProfile(data.session.user)
           } else {
             console.log('ℹ️ Nenhuma sessão encontrada')
-            setUser(null)
+            setCurrentUser(null)
             setUserProfile(null)
             setTenant(null)
             setLoading(false)
@@ -175,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error('❌ Erro ao obter sessão:', error)
         if (mounted) {
-          setUser(null)
+          setCurrentUser(null)
           setUserProfile(null)
           setTenant(null)
           setLoading(false)
@@ -192,7 +228,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         console.log('Auth event:', event)
         
-        setUser(session?.user ?? null)
+        setCurrentUser(session?.user ?? null)
 
         if (session?.user) {
           setLoading(false)
@@ -209,7 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [fetchUserProfile])
+  }, [fetchUserProfile, setCurrentUser])
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -231,12 +267,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('🚪 Fazendo logout...')
       await supabase.auth.signOut()
-      setUser(null)
+      setCurrentUser(null)
       setUserProfile(null)
       setTenant(null)
     } catch (error) {
       console.error('Erro no logout:', error)
-      setUser(null)
+      setCurrentUser(null)
       setUserProfile(null)
       setTenant(null)
     }
@@ -249,6 +285,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const safeUpdates: Partial<UserProfile> = { ...updates }
       delete safeUpdates.email
       delete safeUpdates.role
+      delete safeUpdates.tenant_id
+      delete safeUpdates.is_active
+      delete safeUpdates.active_tenant_id
+      delete safeUpdates.company_name
 
       const updatesPayload = safeUpdates as Partial<ProfileRow>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -269,9 +309,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Recarrega perfil + empresa (ex.: após trocar de empresa ou mudar a cor)
+  // Identidade estável: lê o usuário via ref
   const refreshProfile = useCallback(async () => {
-    if (user) await fetchUserProfile(user)
-  }, [user, fetchUserProfile])
+    if (userRef.current) await fetchUserProfile(userRef.current)
+  }, [fetchUserProfile])
 
   const retryConnection = () => {
     setShowConnectionFallback(false)
