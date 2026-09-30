@@ -23,6 +23,11 @@ function isOriginAllowed(origin: string): boolean {
   }
 }
 
+// Rota exata ou sub-rota (evita que '/empresa' case com '/empresas')
+function matches(pathname: string, base: string): boolean {
+  return pathname === base || pathname.startsWith(base + '/')
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const origin = request.headers.get('origin')
@@ -66,7 +71,7 @@ export async function middleware(request: NextRequest) {
     '/exclusao-de-dados',
     '/brandbook',
   ]
-  const isPublicPath = publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'))
+  const isPublicPath = publicPaths.some(path => matches(pathname, path))
   if (isPublicPath) {
     return NextResponse.next()
   }
@@ -115,7 +120,7 @@ export async function middleware(request: NextRequest) {
     if (acessoError) {
       console.error('Erro ao verificar acesso_crm:', acessoError)
     } else if (acesso !== 'ok') {
-      return redirectTo('/auth/desativado', `?motivo=${acesso ?? 'sem_perfil'}`)
+      return redirectTo('/auth/desativado', `?motivo=${encodeURIComponent(String(acesso ?? 'sem_perfil'))}`)
     }
 
     const { data: profile } = await supabase
@@ -125,19 +130,17 @@ export async function middleware(request: NextRequest) {
       .single()
     const role = profile?.role
 
-    if ((pathname.startsWith('/admin') || pathname.startsWith('/settings/users')) && role !== 'admin') {
+    if ((matches(pathname, '/admin') || matches(pathname, '/settings/users')) && role !== 'admin') {
       return redirectTo('/dashboard')
     }
 
-    if (pathname.startsWith('/empresa') && role !== 'admin' && role !== 'owner') {
+    if (matches(pathname, '/empresa') && role !== 'admin' && role !== 'owner') {
       return redirectTo('/dashboard')
     }
 
     return supabaseResponse
   } catch {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    return NextResponse.redirect(url)
+    return redirectTo('/auth/login')
   }
 }
 

@@ -17,7 +17,7 @@ function DesativadoConteudo() {
   const motivo = useSearchParams().get('motivo') ?? 'sem_perfil'
 
   useEffect(() => {
-    void createClient().auth.signOut()
+    void createClient().auth.signOut({ scope: 'local' })
   }, [])
 
   return (
