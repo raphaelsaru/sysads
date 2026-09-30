@@ -48,7 +48,7 @@ type Perfil = { tenant_id: string; role: Exclude<UserRole, 'admin'>; full_name: 
 async function vincularPerfil(admin: AdminClient, id: string, perfil: Perfil)
   : Promise<'ok' | 'indisponivel' | { message: string }> {
   const { data: atualizados, error } = await admin.from('user_profiles')
-    .update(perfil).eq('id', id).is('tenant_id', null).select('id')
+    .update(perfil).eq('id', id).is('tenant_id', null).neq('role', 'admin').select('id')
   if (error) return error
   if (atualizados?.length) return 'ok'
 
@@ -120,6 +120,8 @@ export async function convidarUsuario({ admin, email, full_name, tenantId, role,
     return { id: existente.id, reaproveitado: true }
   }
 
+  // GoTrue pode devolver um usuário pendente já existente (corrida pós-busca): o email sai
+  // com o nome desta empresa, mas vincularPerfil não move ninguém que já tenha empresa.
   const inicio = Date.now()
   const { data: convidado, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, convite)
   if (inviteError || !convidado.user) {
