@@ -8,7 +8,7 @@ import { useConnectionHealth } from '@/hooks/useConnectionHealth'
 
 const supabase = createClient()
 
-import { UserProfile as UserProfileType, UserRole } from '@/types/crm'
+import { Tenant, UserProfile as UserProfileType, UserRole } from '@/types/crm'
 
 export interface UserProfile extends UserProfileType {
   email: string
@@ -17,6 +17,9 @@ export interface UserProfile extends UserProfileType {
 type ProfileRow = {
   id: string
   role: UserRole
+  tenant_id: string | null
+  is_active: boolean
+  active_tenant_id: string | null
   full_name: string | null
   avatar_url: string | null
   phone: string | null
@@ -29,12 +32,14 @@ type ProfileRow = {
 interface AuthContextType {
   user: User | null
   userProfile: UserProfile | null
+  tenant: Tenant | null
   loading: boolean
   showConnectionFallback: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signUp: (email: string, password: string, companyName: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>
+  refreshProfile: () => Promise<void>
   retryConnection: () => void
   skipConnectionCheck: () => void
 }
@@ -44,6 +49,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [tenant, setTenant] = useState<Tenant | null>(null)
   const [loading, setLoading] = useState(true)
   const [showConnectionFallback, setShowConnectionFallback] = useState(false)
   
@@ -67,6 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select(`
           id,
           role,
+          tenant_id,
+          is_active,
+          active_tenant_id,
           full_name,
           avatar_url,
           phone,
@@ -96,8 +105,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           updated_at: supabaseUser.created_at,
         }
         setUserProfile(basicProfile)
+        setTenant(null)
         return
       }
+
+      // Empresa efetiva (superadmin: a empresa que está visitando)
+      const { data: tenantId } = await supabase.rpc('current_tenant_id')
+      const { data: tenantRaw } = tenantId
+        ? await supabase
+            .from('tenants')
+            .select('id, name, max_users, is_active, branding')
+            .eq('id', tenantId as string)
+            .single()
+        : { data: null }
+      const tenantData = tenantRaw as Tenant | null
 
       const preferences = profileData.preferences || {}
       const company_name = (preferences as Record<string, unknown>)?.company_name as string | null | undefined
@@ -107,8 +128,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: profileData.id,
         email: supabaseUser.email || '',
         role: profileData.role as UserRole,
+        tenant_id: profileData.tenant_id,
+        is_active: profileData.is_active,
+        active_tenant_id: profileData.active_tenant_id,
         full_name: profileData.full_name,
-        company_name: company_name ?? supabaseUser.user_metadata?.company_name ?? null,
+        company_name: tenantData?.name ?? company_name ?? supabaseUser.user_metadata?.company_name ?? null,
         currency: currency ?? (supabaseUser.user_metadata?.currency as 'BRL' | 'USD' | 'EUR' | null | undefined) ?? null,
         avatar_url: profileData.avatar_url,
         phone: profileData.phone,
@@ -118,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         last_seen_at: profileData.last_seen_at,
       }
 
+      setTenant(tenantData)
       setUserProfile(fullProfile)
       
     } catch (error) {
@@ -144,6 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('ℹ️ Nenhuma sessão encontrada')
             setUser(null)
             setUserProfile(null)
+            setTenant(null)
             setLoading(false)
           }
         }
@@ -152,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (mounted) {
           setUser(null)
           setUserProfile(null)
+          setTenant(null)
           setLoading(false)
         }
       }
@@ -173,6 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           void fetchUserProfile(session.user)
         } else {
           setUserProfile(null)
+          setTenant(null)
           setLoading(false)
         }
       }
@@ -226,10 +254,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut()
       setUser(null)
       setUserProfile(null)
+      setTenant(null)
     } catch (error) {
       console.error('Erro no logout:', error)
       setUser(null)
       setUserProfile(null)
+      setTenant(null)
     }
   }
 
@@ -259,6 +289,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Recarrega perfil + empresa (ex.: após trocar de empresa ou mudar a cor)
+  const refreshProfile = useCallback(async () => {
+    if (user) await fetchUserProfile(user)
+  }, [user, fetchUserProfile])
+
   const retryConnection = () => {
     setShowConnectionFallback(false)
     setLoading(true)
@@ -284,12 +319,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         userProfile,
+        tenant,
         loading,
         showConnectionFallback,
         signIn,
         signUp,
         signOut,
         updateProfile,
+        refreshProfile,
         retryConnection,
         skipConnectionCheck,
       }}
