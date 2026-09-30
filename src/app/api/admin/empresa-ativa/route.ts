@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller } from '@/lib/tenant-server'
 import { isSuperadmin } from '@/lib/roles'
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isUuid } from '@/lib/validacao'
 
 // POST /api/admin/empresa-ativa { tenant_id: string | null } — superadmin troca empresa visitada.
 // null (ou a própria empresa) = voltar à própria.
@@ -16,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}))
     const tenantId: unknown = body?.tenant_id
-    if (tenantId !== null && (typeof tenantId !== 'string' || !UUID.test(tenantId))) {
+    if (tenantId !== null && !isUuid(tenantId)) {
       return NextResponse.json({ error: 'Empresa inválida' }, { status: 400 })
     }
 

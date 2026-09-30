@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller, mensagemErroDb } from '@/lib/tenant-server'
 import { isSuperadmin } from '@/lib/roles'
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isMaxUsersValido, isUuid, MAX_USERS_LIMITE, NOME_EMPRESA_MAX } from '@/lib/validacao'
 
 // PATCH /api/admin/empresas/[id] { name?, max_users?, is_active?, owner_id? } — superadmin.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,22 +12,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!caller || !isSuperadmin(caller.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
-    if (!UUID.test(id)) return NextResponse.json({ error: 'Empresa inválida' }, { status: 400 })
+    if (!isUuid(id)) return NextResponse.json({ error: 'Empresa inválida' }, { status: 400 })
 
     const body = await request.json().catch(() => ({}))
     const campos: { name?: string; max_users?: number; is_active?: boolean } = {}
 
     if (body?.name !== undefined) {
       const name = typeof body.name === 'string' ? body.name.trim() : ''
-      if (!name) return NextResponse.json({ error: 'Nome inválido' }, { status: 400 })
+      if (!name || name.length > NOME_EMPRESA_MAX) {
+        return NextResponse.json({ error: `Nome deve ter de 1 a ${NOME_EMPRESA_MAX} caracteres` }, { status: 400 })
+      }
       campos.name = name
     }
     if (body?.max_users !== undefined) {
-      const m: unknown = body.max_users
-      if (typeof m !== 'number' || !Number.isInteger(m) || m < 1) {
-        return NextResponse.json({ error: 'Slots deve ser um inteiro ≥ 1' }, { status: 400 })
+      if (!isMaxUsersValido(body.max_users)) {
+        return NextResponse.json({ error: `Slots deve ser um inteiro entre 1 e ${MAX_USERS_LIMITE}` }, { status: 400 })
       }
-      campos.max_users = m
+      campos.max_users = body.max_users
     }
     if (body?.is_active !== undefined) {
       if (typeof body.is_active !== 'boolean') {
@@ -41,9 +41,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
     let ownerId: string | null = null
     if (body?.owner_id !== undefined) {
-      if (typeof body.owner_id !== 'string' || !UUID.test(body.owner_id)) {
-        return NextResponse.json({ error: 'Dono inválido' }, { status: 400 })
-      }
+      if (!isUuid(body.owner_id)) return NextResponse.json({ error: 'Dono inválido' }, { status: 400 })
       ownerId = body.owner_id
     }
     if (!Object.keys(campos).length && !ownerId) {
@@ -56,16 +54,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (buscaErro) return NextResponse.json({ error: 'Erro ao buscar empresa' }, { status: 500 })
     if (!tenant) return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 404 })
 
-    // Valida o novo dono antes de qualquer escrita.
+    // Troca de dono primeiro, atômica no banco (promove + rebaixa demais owners; nunca o superadmin).
+    // Estado parcial restante: dono trocado mas update de campos falha (ex.: slots < ativos) —
+    // a resposta é o erro dos campos; a troca de dono permanece aplicada.
     if (ownerId) {
-      const { data: alvo, error } = await admin.from('user_profiles')
-        .select('tenant_id, role, is_active').eq('id', ownerId).maybeSingle()
-      if (error) return NextResponse.json({ error: 'Erro ao buscar usuário' }, { status: 500 })
-      if (!alvo || alvo.tenant_id !== id || alvo.role === 'admin') {
-        return NextResponse.json({ error: 'Usuário não pertence à empresa' }, { status: 400 })
-      }
-      if (!alvo.is_active) {
-        return NextResponse.json({ error: 'Usuário inativo não pode ser dono' }, { status: 400 })
+      const { error } = await admin.rpc('definir_dono', { p_tenant: id, p_user: ownerId })
+      if (error) {
+        if (error.message?.includes('dono invalido')) {
+          return NextResponse.json({ error: 'Dono deve ser usuário ativo da empresa' }, { status: 400 })
+        }
+        if (error.message?.includes('empresa inexistente')) {
+          return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 404 })
+        }
+        console.error('[admin/empresas] definir_dono falhou:', error.message)
+        return NextResponse.json({ error: 'Erro ao definir dono' }, { status: 500 })
       }
     }
 
@@ -77,27 +79,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    if (ownerId) {
-      // Promove primeiro: se falhar, os donos atuais continuam (empresa nunca fica sem dono).
-      const { data: promovidos, error: promoverErro } = await admin.from('user_profiles')
-        .update({ role: 'owner' })
-        .eq('id', ownerId).eq('tenant_id', id).neq('role', 'admin').select('id')
-      if (promoverErro || !promovidos?.length) {
-        console.error('[admin/empresas] promover dono falhou:', promoverErro?.message)
-        return NextResponse.json({ error: 'Erro ao definir dono' }, { status: 500 })
-      }
-      // Rebaixa os demais donos (nunca o superadmin).
-      const { error: rebaixarErro } = await admin.from('user_profiles')
-        .update({ role: 'user' })
-        .eq('tenant_id', id).eq('role', 'owner').neq('id', ownerId)
-      if (rebaixarErro) {
-        console.error('[admin/empresas] rebaixar donos falhou:', rebaixarErro.message)
-        return NextResponse.json({ error: 'Novo dono definido, mas falhou ao rebaixar os anteriores' }, { status: 500 })
-      }
-    }
-
-    const { data: empresa } = await admin.from('tenants')
+    const { data: empresa, error: lerErro } = await admin.from('tenants')
       .select('id, name, slug, max_users, is_active, created_at').eq('id', id).single()
+    if (lerErro || !empresa) return NextResponse.json({ error: 'Erro ao buscar empresa' }, { status: 500 })
     return NextResponse.json({ empresa, owner_id: ownerId ?? undefined })
   } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })

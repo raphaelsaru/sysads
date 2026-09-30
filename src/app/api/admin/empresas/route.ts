@@ -3,10 +3,9 @@ import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller, mensagemErroDb } from '@/lib/tenant-server'
 import { isSuperadmin } from '@/lib/roles'
 import { convidarUsuario, normalizarEmail } from '@/lib/convite'
+import { isMaxUsersValido, isUuid, MAX_USERS_LIMITE, NOME_EMPRESA_MAX } from '@/lib/validacao'
 
 type AdminClient = ReturnType<typeof createAdminClient>
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function slugify(s: string) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -39,11 +38,16 @@ export async function GET() {
     }
 
     const admin = createAdminClient()
-    const [{ data: tenants, error: tErro }, { data: perfis, error: pErro }] = await Promise.all([
-      admin.from('tenants').select('id, name, slug, max_users, is_active, created_at').order('name'),
-      admin.from('user_profiles').select('id, full_name, role, tenant_id, is_active'),
-    ])
-    if (tErro || pErro) return NextResponse.json({ error: 'Erro ao buscar empresas' }, { status: 500 })
+    const { data: tenants, error: tErro } = await admin
+      .from('tenants').select('id, name, slug, max_users, is_active, created_at').order('name')
+    if (tErro) return NextResponse.json({ error: 'Erro ao buscar empresas' }, { status: 500 })
+
+    const tenantIds = (tenants ?? []).map(t => t.id)
+    const { data: perfis, error: pErro } = tenantIds.length
+      ? await admin.from('user_profiles')
+        .select('tenant_id, id, full_name, role, is_active').in('tenant_id', tenantIds)
+      : { data: [], error: null }
+    if (pErro) return NextResponse.json({ error: 'Erro ao buscar empresas' }, { status: 500 })
 
     const empresas = (tenants ?? []).map(t => {
       const membros = (perfis ?? []).filter(p => p.tenant_id === t.id)
@@ -73,9 +77,11 @@ export async function POST(request: NextRequest) {
     const name = typeof body?.name === 'string' ? body.name.trim() : ''
     const max_users: unknown = body?.max_users
     const dono = body?.dono
-    if (!name) return NextResponse.json({ error: 'Nome é obrigatório' }, { status: 400 })
-    if (typeof max_users !== 'number' || !Number.isInteger(max_users) || max_users < 1) {
-      return NextResponse.json({ error: 'Slots deve ser um inteiro ≥ 1' }, { status: 400 })
+    if (!name || name.length > NOME_EMPRESA_MAX) {
+      return NextResponse.json({ error: `Nome deve ter de 1 a ${NOME_EMPRESA_MAX} caracteres` }, { status: 400 })
+    }
+    if (!isMaxUsersValido(max_users)) {
+      return NextResponse.json({ error: `Slots deve ser um inteiro entre 1 e ${MAX_USERS_LIMITE}` }, { status: 400 })
     }
     if (!dono || typeof dono !== 'object') {
       return NextResponse.json({ error: 'Dono é obrigatório' }, { status: 400 })
@@ -84,16 +90,28 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
 
     // Valida o dono ANTES de criar a empresa (evita rollback).
-    let existente: { id: string; role: string; full_name: string | null } | null = null
+    let existente: { id: string; role: string; full_name: string | null; tenant_id: string | null } | null = null
     let novo: { email: string; full_name: string } | null = null
     if (dono.user_id !== undefined) {
-      if (typeof dono.user_id !== 'string' || !UUID.test(dono.user_id)) {
+      if (!isUuid(dono.user_id)) {
         return NextResponse.json({ error: 'Usuário inválido' }, { status: 400 })
       }
       const { data: perfil, error } = await admin.from('user_profiles')
-        .select('id, role, full_name').eq('id', dono.user_id).maybeSingle()
+        .select('id, role, full_name, tenant_id').eq('id', dono.user_id).maybeSingle()
       if (error) return NextResponse.json({ error: 'Erro ao buscar usuário' }, { status: 500 })
       if (!perfil) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+      // Não deixa a empresa atual sem dono ativo.
+      if (perfil.role === 'owner' && perfil.tenant_id) {
+        const { count, error: donosErro } = await admin.from('user_profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', perfil.tenant_id).eq('role', 'owner').eq('is_active', true)
+          .neq('id', perfil.id)
+        if (donosErro) return NextResponse.json({ error: 'Erro ao buscar usuário' }, { status: 500 })
+        if (!count) {
+          return NextResponse.json(
+            { error: 'Usuário é o único dono da empresa atual. Defina outro dono antes.' }, { status: 409 })
+        }
+      }
       existente = perfil
     } else {
       const email = normalizarEmail(dono.email)
