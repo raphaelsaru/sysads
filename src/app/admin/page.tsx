@@ -10,6 +10,8 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import MainLayout from '@/components/layout/MainLayout'
 import { useAuth } from '@/contexts/AuthContext'
 import { Badge } from '@/components/ui/badge'
+import { roleLabel } from '@/lib/roles'
+import type { UserRole } from '@/types/crm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -20,7 +22,7 @@ interface User {
   email: string
   company_name: string
   currency: string
-  role: string
+  role: UserRole
   created_at: string
 }
 
@@ -104,7 +106,7 @@ function AdminContent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {users.filter(u => u.role === 'user').length}
+                {users.filter(u => u.role !== 'admin').length}
               </div>
             </CardContent>
           </Card>
@@ -137,8 +139,8 @@ function AdminContent() {
                       <TableCell className="font-medium">{user.email}</TableCell>
                       <TableCell>{user.company_name}</TableCell>
                       <TableCell>
-                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                          {user.role === 'admin' ? 'Admin' : 'Usuário'}
+                        <Badge variant={user.role === 'admin' ? 'default' : user.role === 'owner' ? 'outline' : 'secondary'}>
+                          {roleLabel[user.role] ?? user.role}
                         </Badge>
                       </TableCell>
                       <TableCell>{user.currency}</TableCell>

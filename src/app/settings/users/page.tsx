@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Users, Plus, Trash2, Edit, Loader2 } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -10,18 +10,13 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import MainLayout from '@/components/layout/MainLayout'
 import { useAuth } from '@/contexts/AuthContext'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { UserProfile } from '@/types/crm'
+import { UserProfile, UserRole } from '@/types/crm'
+import { isSuperadmin, roleLabel } from '@/lib/roles'
 
 type UsuarioListado = UserProfile & { assistant_enabled?: boolean }
 
@@ -31,15 +26,7 @@ function UsersPageContent() {
   const [users, setUsers] = useState<UsuarioListado[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [creating, setCreating] = useState(false)
   const [assistantSaving, setAssistantSaving] = useState<string | null>(null)
-  const [newUser, setNewUser] = useState({
-    email: '',
-    password: '',
-    full_name: '',
-    phone: '',
-  })
 
   useEffect(() => {
     if (userProfile && userProfile.role !== 'admin') {
@@ -71,51 +58,6 @@ function UsersPageContent() {
     }
   }, [userProfile])
 
-  const handleCreateUser = async () => {
-    if (!newUser.email || !newUser.password || !newUser.full_name) {
-      alert('Email, senha e nome são obrigatórios')
-      return
-    }
-
-    try {
-      setCreating(true)
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro ao criar usuário')
-      }
-
-      const data = await response.json()
-      setUsers([data.user, ...users])
-      setCreateDialogOpen(false)
-      setNewUser({ email: '', password: '', full_name: '', phone: '' })
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao criar usuário')
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Tem certeza que deseja remover este usuário?')) return
-
-    try {
-      const response = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro ao remover usuário')
-      }
-      setUsers(users.filter(u => u.id !== userId))
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao remover usuário')
-    }
-  }
-
   const handleToggleAssistant = async (userId: string, enabled: boolean) => {
     const anterior = users
     setAssistantSaving(userId)
@@ -140,18 +82,12 @@ function UsersPageContent() {
     }
   }
 
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return <Badge variant="default">Admin</Badge>
-      case 'user':
-        return <Badge variant="secondary">Usuário</Badge>
-      default:
-        return <Badge variant="outline">{role}</Badge>
-    }
+  const getRoleBadge = (role: UserRole) => {
+    const variant = role === 'admin' ? 'default' : role === 'owner' ? 'outline' : 'secondary'
+    return <Badge variant={variant}>{roleLabel[role] ?? role}</Badge>
   }
 
-  const isAdmin = userProfile?.role === 'admin'
+  const isAdmin = isSuperadmin(userProfile?.role)
 
   if (!isAdmin) {
     return (
@@ -177,13 +113,9 @@ function UsersPageContent() {
           <div>
             <h1 className="text-3xl font-bold">Gerenciar Usuários</h1>
             <p className="text-muted-foreground mt-1">
-              Gerencie os usuários da sua empresa
+              Todos os usuários do sistema. Novas contas entram por convite da empresa.
             </p>
           </div>
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Adicionar Usuário
-          </Button>
         </div>
 
         <Card>
@@ -227,7 +159,6 @@ function UsersPageContent() {
                     <TableHead>Telefone</TableHead>
                     {isAdmin && <TableHead>Assistente</TableHead>}
                     <TableHead>Criado em</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -253,21 +184,6 @@ function UsersPageContent() {
                       <TableCell>
                         {format(new Date(user.created_at), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" disabled>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteUser(user.id)}
-                            disabled={user.id === userProfile?.id}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -277,48 +193,6 @@ function UsersPageContent() {
         </Card>
       </div>
 
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Criar Novo Usuário</DialogTitle>
-            <DialogDescription>
-              Adicione um novo usuário. Ele poderá fazer login imediatamente.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email *</Label>
-              <Input id="email" type="email" value={newUser.email}
-                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                placeholder="usuario@exemplo.com" />
-            </div>
-            <div>
-              <Label htmlFor="password">Senha *</Label>
-              <Input id="password" type="password" value={newUser.password}
-                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                placeholder="Mínimo 6 caracteres" />
-            </div>
-            <div>
-              <Label htmlFor="full_name">Nome Completo *</Label>
-              <Input id="full_name" value={newUser.full_name}
-                onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
-                placeholder="João Silva" />
-            </div>
-            <div>
-              <Label htmlFor="phone">Telefone</Label>
-              <Input id="phone" type="tel" value={newUser.phone}
-                onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                placeholder="(11) 99999-9999" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateUser} disabled={creating}>
-              {creating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando...</> : <><Plus className="h-4 w-4 mr-2" />Criar Usuário</>}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </MainLayout>
   )
 }

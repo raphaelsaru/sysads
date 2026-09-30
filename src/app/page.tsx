@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge'
 import { FALLBACK_CURRENCY_VALUE } from '@/lib/currency'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
+import { canManageTeam } from '@/lib/roles'
 
 export default function Home() {
   return (
@@ -35,7 +36,7 @@ export default function Home() {
 }
 
 function HomePage() {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, tenant } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -44,24 +45,23 @@ function HomePage() {
   const effectiveUserId = impersonatedUserId ?? user?.id
   const categorias = getCategoriasParaUsuario(effectiveUserId)
 
-  const isAdmin = userProfile?.role === 'admin'
-  const mostrarColunaUsuario = isAdmin && !impersonatedUserId
+  const mostrarColunaUsuario = canManageTeam(userProfile?.role) && !impersonatedUserId
   const [nomesPorUsuario, setNomesPorUsuario] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!mostrarColunaUsuario) return
-    fetch('/api/admin/users')
+    fetch('/api/empresa/usuarios')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!data?.users) return
+        if (!data?.usuarios) return
         const mapa: Record<string, string> = {}
-        for (const u of data.users as { id: string; company_name: string }[]) {
-          mapa[u.id] = u.company_name
+        for (const u of data.usuarios as { id: string; full_name: string | null; email: string | null }[]) {
+          mapa[u.id] = u.full_name ?? u.email ?? 'Sem nome'
         }
         setNomesPorUsuario(mapa)
       })
       .catch(() => {})
-  }, [mostrarColunaUsuario])
+  }, [mostrarColunaUsuario, tenant?.id])
 
   const [filtros, setFiltros] = useState(filtrosIniciais)
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Moon, Sun, Eye, X, Menu } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
@@ -10,7 +10,8 @@ import { useAdmin } from '@/contexts/AdminContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Symbol } from '@/components/ui/symbol'
-import { roleLabel } from '@/lib/roles'
+import { canManageTeam, isSuperadmin, roleLabel } from '@/lib/roles'
+import { FALLBACK_CURRENCY_VALUE } from '@/lib/currency'
 import NotificationsBell from '@/components/NotificationsBell'
 import {
   DropdownMenu,
@@ -28,13 +29,18 @@ interface UserOption {
   email: string
   company_name: string
   currency: string
-  role: string
+}
+
+interface UsuarioEmpresa {
+  id: string
+  full_name: string | null
+  email: string | null
 }
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const { userProfile } = useAuth()
-  const isAdmin = userProfile?.role === 'admin'
+  const superadmin = isSuperadmin(userProfile?.role)
 
   const navItems: { href: string; label: string }[] = [
     { href: '/', label: 'Leads' },
@@ -42,9 +48,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     { href: '/dashboard', label: 'Painel' },
     { href: '/calendario', label: 'Agenda' },
     { href: '/settings/integrations', label: 'Integrações' },
-    ...(isAdmin ? [
+    ...(canManageTeam(userProfile?.role) ? [{ href: '/empresa', label: 'Minha empresa' }] : []),
+    ...(superadmin ? [
+      { href: '/admin/empresas', label: 'Empresas' },
       { href: '/admin', label: 'Administração' },
-      { href: '/settings/users', label: 'Usuários' },
+      { href: '/settings/users', label: 'Usuários (global)' },
       { href: '/admin/google-calendar', label: 'Google Calendar' },
     ] : []),
   ]
@@ -71,10 +79,10 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function AccountFooter() {
-  const { userProfile, signOut } = useAuth()
+  const { userProfile, tenant, signOut } = useAuth()
   const { impersonatedUser } = useAdmin()
 
-  const companyName = impersonatedUser?.company_name || userProfile?.company_name || userProfile?.full_name || 'Prizely'
+  const companyName = impersonatedUser?.company_name || tenant?.name || userProfile?.company_name || userProfile?.full_name || 'Prizely'
 
   const getRoleBadge = () => {
     const role = userProfile?.role
@@ -126,12 +134,14 @@ function AccountFooter() {
 }
 
 function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
-  const { userProfile } = useAuth()
-  const { impersonatedUser, startImpersonation } = useAdmin()
+  const { userProfile, tenant } = useAuth()
+  const { impersonatedUser, startImpersonation, stopImpersonation } = useAdmin()
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [users, setUsers] = useState<UserOption[]>([])
 
-  const isAdmin = userProfile?.role === 'admin'
+  const podeVisualizarComo = canManageTeam(userProfile?.role)
+  const tenantId = tenant?.id ?? null
+  const moedaPadrao = userProfile?.currency ?? FALLBACK_CURRENCY_VALUE
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -140,19 +150,38 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
     setIsDarkMode(hasDark)
   }, [])
 
+  // Trocou de empresa: encerra "visualizar como" (usuário pertence à empresa anterior).
+  const tenantAnteriorRef = useRef(tenantId)
   useEffect(() => {
-    if (!isAdmin) return
+    if (tenantAnteriorRef.current !== tenantId) {
+      if (tenantAnteriorRef.current !== null) stopImpersonation()
+      tenantAnteriorRef.current = tenantId
+    }
+  }, [tenantId, stopImpersonation])
+
+  useEffect(() => {
+    if (!podeVisualizarComo || !tenantId) return
+    let cancelado = false
     const fetchUsers = async () => {
       try {
-        const res = await fetch('/api/admin/users')
-        if (res.ok) {
-          const data = await res.json()
-          setUsers((data.users || []).filter((u: UserOption) => u.id !== userProfile?.id))
-        }
+        const res = await fetch('/api/empresa/usuarios?ativos=1')
+        if (!res.ok || cancelado) return
+        const data = await res.json()
+        if (cancelado) return
+        const lista = ((data.usuarios || []) as UsuarioEmpresa[])
+          .filter((u) => u.id !== userProfile?.id)
+          .map((u) => ({
+            id: u.id,
+            email: u.email ?? '',
+            company_name: u.full_name ?? u.email ?? 'Sem nome',
+            currency: moedaPadrao,
+          }))
+        setUsers(lista)
       } catch {}
     }
     fetchUsers()
-  }, [isAdmin, userProfile?.id])
+    return () => { cancelado = true }
+  }, [podeVisualizarComo, tenantId, userProfile?.id, moedaPadrao])
 
   const toggleTheme = () => {
     const next = !isDarkMode
@@ -178,7 +207,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="mt-auto flex flex-col gap-4">
         <div className="flex items-center gap-2">
-          {isAdmin && users.length > 0 && !impersonatedUser && (
+          {podeVisualizarComo && users.length > 0 && !impersonatedUser && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" aria-label="Visualizar como outro usuário">
