@@ -20,5 +20,21 @@ export function hexToHslTriplet(hex: string): Hsl {
 
 export const fmtHsl = ({ h, s, l }: Hsl) => `${h} ${s}% ${l}%`
 
-// Texto sobre a cor: escuro se a cor for clara.
-export const foregroundFor = (l: number) => (l > 60 ? '40 20% 9%' : '38 40% 97%')
+// { h, s, l } -> [r, g, b] em 0..1
+export function hslToRgb({ h, s, l }: Hsl): [number, number, number] {
+  const S = s / 100, L = l / 100
+  const k = (n: number) => (n + h / 30) % 12
+  const a = S * Math.min(L, 1 - L)
+  const f = (n: number) => L - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))
+  return [f(0), f(8), f(4)]
+}
+
+// Luminância relativa WCAG (sRGB linearizado)
+export function relativeLuminance([r, g, b]: [number, number, number]): number {
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+// Texto sobre a cor: escuro se a cor for clara (luminância > 0.4).
+export const foregroundFor = (hsl: Hsl) =>
+  relativeLuminance(hslToRgb(hsl)) > 0.4 ? '40 20% 9%' : '38 40% 97%'
