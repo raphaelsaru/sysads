@@ -33,8 +33,15 @@ export async function GET() {
     let authUsers: { users: Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }> } | null = null
     try {
       const adminClient = createAdminClient()
-      const { data, error: adminError } = await adminClient.auth.admin.listUsers()
-      if (!adminError) authUsers = data
+      // listUsers pagina (padrão 50); percorre todas as páginas.
+      const todos: Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }> = []
+      for (let page = 1; ; page++) {
+        const { data, error: adminError } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 })
+        if (adminError) break
+        todos.push(...data.users)
+        if (data.users.length < 1000) break
+      }
+      authUsers = { users: todos }
     } catch {
       // continue without emails
     }

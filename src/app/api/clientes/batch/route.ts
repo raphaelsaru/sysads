@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Cria (ou encontra) cada pessoa via find_or_create_cliente — mesma RPC
-    // de dedup GLOBAL (contra instagram_normalizado no banco inteiro, não só
+    // de dedup por empresa (contra instagram_normalizado de toda a empresa, não só
     // os clientes do usuário atual) usada em POST /api/clientes (Task 3.2/4.1).
     // Chamado sequencialmente (lote de OCR costuma ser pequeno — poucos
     // contatos por print de tela): mantém simples e limita a concorrência de
