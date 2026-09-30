@@ -386,13 +386,18 @@ declare
   v_tel text := public.normalizar_telefone(p_identificador);
   v_insta text := public.normalizar_instagram(p_identificador);
 begin
-  if not public.is_trusted_context() and p_user_id is distinct from auth.uid() then
-    raise exception 'p_user_id invalido';
-  end if;
-
   v_tenant := public.effective_tenant_id(p_user_id);
   if v_tenant is null then
     raise exception 'usuario sem empresa ativa';
+  end if;
+
+  -- Fora de service role: só p/ si mesmo, ou owner/superadmin p/ alguém da empresa atual.
+  if not public.is_trusted_context() then
+    if p_user_id is distinct from auth.uid()
+       and not (public.is_tenant_owner() and v_tenant = public.current_tenant_id()) then
+      raise exception 'p_user_id invalido';
+    end if;
+    p_created_by := auth.uid();
   end if;
 
   perform pg_advisory_xact_lock(hashtextextended(v_tenant::text || ':' || coalesce(v_tel, v_insta, p_identificador), 0));

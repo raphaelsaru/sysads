@@ -6,7 +6,7 @@ import { normalizarInstagram } from '@/lib/normalizacao'
 /**
  * POST /api/clientes/batch
  * Cria múltiplos clientes de uma vez (importação em lote, via OCR do Instagram)
- * Dedup global por `instagram_normalizado` (mesmo contrato de find_or_create_cliente,
+ * Dedup por empresa por `instagram_normalizado` (mesmo contrato de find_or_create_cliente,
  * usado em POST /api/clientes — Task 3.2/4.1), tanto contra o banco quanto
  * dentro do próprio lote (duas fotos do mesmo direct podem repetir o mesmo
  * @, em variação de case/@).
