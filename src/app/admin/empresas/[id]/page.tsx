@@ -20,6 +20,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { isSuperadmin, roleLabel } from '@/lib/roles'
+import { invalidarCacheEmpresas } from '@/components/layout/EmpresaSwitcher'
 import type { UserRole } from '@/types/crm'
 
 type Empresa = {
@@ -70,9 +71,10 @@ function EmpresaDetalheContent() {
     if (userProfile && !isSuperadmin(userProfile.role)) router.push('/dashboard')
   }, [userProfile, router])
 
-  const carregar = useCallback(async () => {
+  // recarga: após ação bem-sucedida — se falhar, avisa e mantém os dados atuais.
+  const carregar = useCallback(async (recarga = false) => {
     try {
-      setError(null)
+      if (!recarga) setError(null)
       const [rEmpresas, rUsuarios] = await Promise.all([
         fetch('/api/admin/empresas'),
         fetch('/api/admin/users'),
@@ -86,9 +88,12 @@ function EmpresaDetalheContent() {
       setEmpresa(encontrada)
       setMembros(doTenant)
       setForm({ name: encontrada.name, max_users: String(encontrada.max_users) })
-      setDonoId(doTenant.find(u => u.role === 'owner')?.id ?? '')
+      const dono = doTenant.find(u => u.role === 'owner')
+      setDonoId(dono && dono.is_active ? dono.id : '')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido')
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+      if (recarga) alert(`Alteração salva, mas falhou ao recarregar: ${msg}`)
+      else setError(msg)
     } finally {
       setLoading(false)
     }
@@ -123,7 +128,8 @@ function EmpresaDetalheContent() {
     try {
       setSalvando(true)
       await patch({ name, max_users }, 'Erro ao salvar empresa')
-      await carregar()
+      invalidarCacheEmpresas()
+      await carregar(true)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao salvar empresa')
     } finally {
@@ -137,6 +143,7 @@ function EmpresaDetalheContent() {
       setSalvandoAtivo(true)
       setEmpresa({ ...empresa, is_active: ativo })
       await patch({ is_active: ativo }, 'Erro ao atualizar empresa')
+      invalidarCacheEmpresas()
     } catch (err) {
       setEmpresa(prev => (prev ? { ...prev, is_active: !ativo } : prev))
       alert(err instanceof Error ? err.message : 'Erro ao atualizar empresa')
@@ -150,7 +157,7 @@ function EmpresaDetalheContent() {
     try {
       setDefinindoDono(true)
       await patch({ owner_id: donoId }, 'Erro ao definir dono')
-      await carregar()
+      await carregar(true)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao definir dono')
     } finally {
@@ -177,7 +184,7 @@ function EmpresaDetalheContent() {
 
   const propria = userProfile?.tenant_id === id
   const candidatosDono = membros.filter(m => m.is_active && m.role !== 'admin')
-  const donoAtual = membros.find(m => m.role === 'owner')?.id ?? ''
+  const donoAtual = candidatosDono.find(m => m.role === 'owner')?.id ?? ''
 
   if (!userProfile) {
     return (
@@ -275,7 +282,7 @@ function EmpresaDetalheContent() {
                     <Label>Dono</Label>
                     <Select value={donoId} onValueChange={setDonoId}>
                       <SelectTrigger className="mt-1 w-72" aria-label="Dono">
-                        <SelectValue placeholder={candidatosDono.length ? 'Selecione' : 'Nenhum membro ativo'} />
+                        <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
                         {candidatosDono.map(m => (

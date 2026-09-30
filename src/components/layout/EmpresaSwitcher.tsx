@@ -24,9 +24,14 @@ interface EmpresaOpcao {
 // Cache da lista na sessão (evita refetch a cada abertura do drawer mobile)
 let empresasCache: Promise<EmpresaOpcao[]> | null = null
 
+// Chamar após criar/renomear/ativar empresa: próxima montagem busca de novo.
+export function invalidarCacheEmpresas() {
+  empresasCache = null
+}
+
 function carregarEmpresas(): Promise<EmpresaOpcao[]> {
   if (!empresasCache) {
-    empresasCache = fetch('/api/admin/empresas')
+    const atual: Promise<EmpresaOpcao[]> = fetch('/api/admin/empresas')
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
@@ -34,9 +39,10 @@ function carregarEmpresas(): Promise<EmpresaOpcao[]> {
       })
       .catch((error) => {
         console.error('Erro ao carregar empresas:', error)
-        empresasCache = null // permite nova tentativa
+        if (empresasCache === atual) empresasCache = null // permite nova tentativa
         return []
       })
+    empresasCache = atual
   }
   return empresasCache
 }

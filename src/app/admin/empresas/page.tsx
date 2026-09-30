@@ -22,7 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { isSuperadmin } from '@/lib/roles'
+import { isSuperadmin, roleLabel } from '@/lib/roles'
+import { invalidarCacheEmpresas } from '@/components/layout/EmpresaSwitcher'
 import type { UserRole } from '@/types/crm'
 
 type Empresa = {
@@ -99,6 +100,19 @@ function EmpresasContent() {
   const nomeEmpresa = (tenantId: string | null) =>
     empresas.find(e => e.id === tenantId)?.name ?? 'sem empresa'
 
+  const rotuloUsuario = (u: Usuario) => {
+    const nome = u.full_name || 'Sem nome'
+    if (u.role === 'admin') {
+      return u.id === userProfile?.id
+        ? `${nome} (você — dono via acesso de superadmin)`
+        : `${nome} (superadmin — dono via acesso de superadmin)`
+    }
+    const inativo = u.is_active ? '' : ' (inativo)'
+    return `${nome} — ${u.email} · ${roleLabel[u.role] ?? u.role} · ${nomeEmpresa(u.tenant_id)}${inativo}`
+  }
+
+  const selecionado = usuarios.find(u => u.id === form.user_id)
+
   const fecharNova = (open: boolean) => {
     if (open || criando) return
     setNovaOpen(false)
@@ -144,6 +158,7 @@ function EmpresasContent() {
       })
       if (!response.ok) throw await erroDa(response, 'Erro ao criar empresa')
       const data = await response.json()
+      invalidarCacheEmpresas()
       setNovaOpen(false)
       setForm(FORM_VAZIO)
       setModo('existente')
@@ -236,7 +251,7 @@ function EmpresasContent() {
                       <TableCell>
                         {e.donos.length
                           ? e.donos.map(d => d.full_name || 'Sem nome').join(', ')
-                          : '—'}
+                          : <span className="text-muted-foreground">Superadmin</span>}
                       </TableCell>
                       <TableCell>{e.ativos}/{e.max_users}</TableCell>
                       <TableCell>
@@ -292,14 +307,16 @@ function EmpresasContent() {
                     <SelectContent>
                       {usuarios.map(u => (
                         <SelectItem key={u.id} value={u.id}>
-                          {u.full_name || 'Sem nome'} — {u.email} ({nomeEmpresa(u.tenant_id)})
+                          {rotuloUsuario(u)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
-                    O usuário será MOVIDO para a nova empresa. Os leads dele continuam na empresa anterior.
-                  </p>
+                  {selecionado && selecionado.role !== 'admin' && (
+                    <p className="text-xs text-muted-foreground">
+                      O usuário será MOVIDO para a nova empresa. Os leads dele continuam na empresa anterior.
+                    </p>
+                  )}
                 </TabsContent>
                 <TabsContent value="novo" className="space-y-3">
                   <div>
