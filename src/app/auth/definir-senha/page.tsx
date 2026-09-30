@@ -40,8 +40,16 @@ function DefinirSenha() {
     if (senha !== confirmacao) return setErro('As senhas não conferem.')
     setSalvando(true)
     const { error } = await supabase.auth.updateUser({ password: senha })
-    setSalvando(false)
-    if (error) return setErro(error.message)
+    if (error) {
+      console.error('Erro ao definir senha:', error)
+      setSalvando(false)
+      const fraca = error.code === 'weak_password'
+        || error.message.includes('weak')
+        || error.message.includes('Password should')
+      return setErro(fraca
+        ? 'Senha fraca. Use pelo menos 8 caracteres com letras e números.'
+        : 'Não foi possível salvar a senha. Tente outra senha ou peça um novo convite.')
+    }
     router.replace('/')
   }
 
