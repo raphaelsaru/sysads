@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller } from '@/lib/tenant-server'
-import { canManageTeam } from '@/lib/roles'
+import { canManageTeam, isRoleConvidavel } from '@/lib/roles'
 import { pode } from '@/lib/permissions'
 import { convidarUsuario, normalizarEmail } from '@/lib/convite'
 
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/empresa/usuarios { email, full_name } — convida p/ empresa atual.
+// POST /api/empresa/usuarios { email, full_name, role? } — convida p/ empresa atual.
 export async function POST(request: NextRequest) {
   try {
     const caller = await getCaller()
@@ -65,13 +65,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nome e email são obrigatórios' }, { status: 400 })
     }
     if (!email) return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
+    const role: unknown = body?.role ?? 'user'
+    if (!isRoleConvidavel(role)) return NextResponse.json({ error: 'Papel inválido' }, { status: 400 })
 
     const r = await convidarUsuario({
       admin: createAdminClient(),
       email,
       full_name,
       tenantId: caller.tenantId,
-      role: 'user',
+      role,
       origin: request.nextUrl.origin,
     })
     if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.status })

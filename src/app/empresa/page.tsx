@@ -18,9 +18,14 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { HEX_COLOR_RE, foregroundFor, hexToHslTriplet } from '@/lib/color'
-import { canManageTeam, isSuperadmin, roleLabel } from '@/lib/roles'
+import {
+  ROLES_CONVIDAVEIS, canManageTeam, isRoleConvidavel, isSuperadmin, roleLabel, type RoleConvidavel,
+} from '@/lib/roles'
 import type { UserRole } from '@/types/crm'
 
 // Aproximação em hex do --primary padrão (globals.css: 32 46% 45%)
@@ -37,6 +42,8 @@ type UsuarioEmpresa = {
 }
 
 type Slots = { usados: number; total: number | null }
+
+const CONVITE_VAZIO = { full_name: '', email: '', role: 'user' as RoleConvidavel }
 
 async function erroDa(response: Response, fallback: string) {
   const data = await response.json().catch(() => ({}))
@@ -57,11 +64,12 @@ function EmpresaPageContent() {
   const [recarregando, setRecarregando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [salvandoAtivo, setSalvandoAtivo] = useState<Set<string>>(new Set())
+  const [salvandoPapel, setSalvandoPapel] = useState<Set<string>>(new Set())
   const [reenviando, setReenviando] = useState<string | null>(null)
 
   const [conviteOpen, setConviteOpen] = useState(false)
   const [convidando, setConvidando] = useState(false)
-  const [convite, setConvite] = useState({ full_name: '', email: '' })
+  const [convite, setConvite] = useState<{ full_name: string; email: string; role: RoleConvidavel }>(CONVITE_VAZIO)
 
   useEffect(() => {
     if (userProfile && !canManageTeam(userProfile.role)) {
@@ -145,7 +153,7 @@ function EmpresaPageContent() {
   const fecharConvite = (open: boolean) => {
     if (open || convidando) return
     setConviteOpen(false)
-    setConvite({ full_name: '', email: '' })
+    setConvite(CONVITE_VAZIO)
   }
 
   const handleConvidar = async (e: React.FormEvent) => {
@@ -161,12 +169,12 @@ function EmpresaPageContent() {
       const response = await fetch('/api/empresa/usuarios', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, full_name }),
+        body: JSON.stringify({ email, full_name, role: convite.role }),
       })
       if (!response.ok) throw await erroDa(response, 'Erro ao convidar usuário')
       const data = await response.json()
       setConviteOpen(false)
-      setConvite({ full_name: '', email: '' })
+      setConvite(CONVITE_VAZIO)
       await carregarUsuarios(true)
       alert(data.reaproveitado
         ? 'Usuário existente vinculado — ele entra com a senha atual.'
@@ -201,6 +209,32 @@ function EmpresaPageContent() {
       alert(err instanceof Error ? err.message : 'Erro ao atualizar usuário')
     } finally {
       setSalvandoAtivo(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
+  const handleTrocarPapel = async (id: string, anterior: RoleConvidavel, role: RoleConvidavel) => {
+    if (role === anterior) return
+    const aplicar = (valor: UserRole) =>
+      setUsuarios(prev => prev.map(u => (u.id === id ? { ...u, role: valor } : u)))
+    setSalvandoPapel(prev => new Set(prev).add(id))
+    aplicar(role)
+
+    try {
+      const response = await fetch(`/api/empresa/usuarios/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      })
+      if (!response.ok) throw await erroDa(response, 'Erro ao alterar papel')
+    } catch (err) {
+      aplicar(anterior)
+      alert(err instanceof Error ? err.message : 'Erro ao alterar papel')
+    } finally {
+      setSalvandoPapel(prev => {
         const next = new Set(prev)
         next.delete(id)
         return next
@@ -404,7 +438,26 @@ function EmpresaPageContent() {
                     <TableRow key={u.id}>
                       <TableCell className="font-medium">{u.full_name || 'Sem nome'}</TableCell>
                       <TableCell>{u.email || '-'}</TableCell>
-                      <TableCell>{roleLabel[u.role] ?? u.role}</TableCell>
+                      <TableCell>
+                        {isRoleConvidavel(u.role) && u.id !== userProfile?.id ? (
+                          <Select
+                            value={u.role}
+                            disabled={salvandoPapel.has(u.id)}
+                            onValueChange={(v) => {
+                              if (isRoleConvidavel(v) && isRoleConvidavel(u.role)) handleTrocarPapel(u.id, u.role, v)
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-[130px]" aria-label={`Papel de ${u.full_name || 'usuário'}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLES_CONVIDAVEIS.map(r => (
+                                <SelectItem key={r} value={r}>{roleLabel[r]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (roleLabel[u.role] ?? u.role)}
+                      </TableCell>
                       <TableCell>{getStatusBadge(u)}</TableCell>
                       <TableCell>
                         <Switch
@@ -458,6 +511,20 @@ function EmpresaPageContent() {
               <Input id="convite-email" type="email" value={convite.email}
                 onChange={(e) => setConvite({ ...convite, email: e.target.value })}
                 placeholder="usuario@exemplo.com" />
+            </div>
+            <div>
+              <Label htmlFor="convite-papel">Papel *</Label>
+              <Select value={convite.role}
+                onValueChange={(v) => { if (isRoleConvidavel(v)) setConvite({ ...convite, role: v }) }}>
+                <SelectTrigger id="convite-papel">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES_CONVIDAVEIS.map(r => (
+                    <SelectItem key={r} value={r}>{roleLabel[r]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => fecharConvite(false)} disabled={convidando}>
