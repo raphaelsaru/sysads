@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Building2, Loader2, Users } from 'lucide-react'
+import { ArrowLeft, Building2, Crown, Loader2, Trash2, Users } from 'lucide-react'
 
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import MainLayout from '@/components/layout/MainLayout'
@@ -32,6 +32,12 @@ type Empresa = {
   created_at: string
   ativos: number
   donos: { id: string; full_name: string | null }[]
+}
+
+type DonoAdicional = {
+  user_id: string
+  full_name: string | null
+  email: string | null
 }
 
 type Membro = {
@@ -66,6 +72,11 @@ function EmpresaDetalheContent() {
   const [donoId, setDonoId] = useState('')
   const [definindoDono, setDefinindoDono] = useState(false)
   const [abrindo, setAbrindo] = useState(false)
+  const [donosAdicionais, setDonosAdicionais] = useState<DonoAdicional[]>([])
+  const [erroDonos, setErroDonos] = useState<string | null>(null)
+  const [emailDono, setEmailDono] = useState('')
+  const [vinculando, setVinculando] = useState(false)
+  const [removendoDono, setRemovendoDono] = useState<string | null>(null)
 
   useEffect(() => {
     if (userProfile && !isSuperadmin(userProfile.role)) router.push('/dashboard')
@@ -102,6 +113,60 @@ function EmpresaDetalheContent() {
   useEffect(() => {
     if (superadmin && id) carregar()
   }, [superadmin, id, carregar])
+
+  const carregarDonos = useCallback(async () => {
+    try {
+      setErroDonos(null)
+      const response = await fetch(`/api/admin/empresas/${id}/donos`)
+      if (!response.ok) throw await erroDa(response, 'Erro ao carregar donos adicionais')
+      const data = await response.json()
+      setDonosAdicionais((data.donos || []) as DonoAdicional[])
+    } catch (err) {
+      setErroDonos(err instanceof Error ? err.message : 'Erro ao carregar donos adicionais')
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (superadmin && id) carregarDonos()
+  }, [superadmin, id, carregarDonos])
+
+  const handleVincularDono = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const email = emailDono.trim()
+    if (!email) return
+    try {
+      setVinculando(true)
+      const response = await fetch(`/api/admin/empresas/${id}/donos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!response.ok) throw await erroDa(response, 'Erro ao vincular dono')
+      setEmailDono('')
+      await carregarDonos()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao vincular dono')
+    } finally {
+      setVinculando(false)
+    }
+  }
+
+  const handleRemoverDono = async (dono: DonoAdicional) => {
+    if (!confirm(`Remover o acesso de ${dono.full_name || dono.email || 'este dono'} a esta empresa?`)) return
+    try {
+      setRemovendoDono(dono.user_id)
+      const response = await fetch(
+        `/api/admin/empresas/${id}/donos?user_id=${encodeURIComponent(dono.user_id)}`,
+        { method: 'DELETE' },
+      )
+      if (!response.ok) throw await erroDa(response, 'Erro ao remover dono')
+      await carregarDonos()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao remover dono')
+    } finally {
+      setRemovendoDono(null)
+    }
+  }
 
   const patch = async (body: Record<string, unknown>, fallback: string) => {
     const response = await fetch(`/api/admin/empresas/${id}`, {
@@ -302,6 +367,67 @@ function EmpresaDetalheContent() {
                     Definir dono
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Crown className="h-5 w-5" />
+                  Donos adicionais
+                  <Badge variant="secondary">{donosAdicionais.length}</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Donos de outras empresas com acesso a esta. Não ocupam slot; trocam pelo seletor de empresa.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <form onSubmit={handleVincularDono} className="flex flex-wrap items-end gap-4">
+                  <div>
+                    <Label htmlFor="dono-email">Email do dono</Label>
+                    <Input id="dono-email" type="email" className="mt-1 w-72" placeholder="dono@empresa.com"
+                      value={emailDono} onChange={(e) => setEmailDono(e.target.value)} />
+                  </div>
+                  <Button type="submit" variant="outline" disabled={vinculando || !emailDono.trim()}>
+                    {vinculando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Vincular
+                  </Button>
+                </form>
+
+                {erroDonos ? (
+                  <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-center">
+                    <p className="text-sm text-destructive">{erroDonos}</p>
+                  </div>
+                ) : donosAdicionais.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-muted-foreground">Nenhum dono adicional</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead className="w-12" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {donosAdicionais.map(d => (
+                        <TableRow key={d.user_id}>
+                          <TableCell className="font-medium">{d.full_name || 'Sem nome'}</TableCell>
+                          <TableCell>{d.email || '-'}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" aria-label="Remover dono adicional"
+                              disabled={removendoDono === d.user_id}
+                              onClick={() => { void handleRemoverDono(d) }}>
+                              {removendoDono === d.user_id
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
 

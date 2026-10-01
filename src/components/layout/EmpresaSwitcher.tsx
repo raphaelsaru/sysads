@@ -1,5 +1,5 @@
 'use client'
-// Seletor de empresa (só superadmin). Troca active_tenant_id e recarrega.
+// Seletor de empresa (superadmin ou dono com várias empresas). Troca active_tenant_id e recarrega.
 
 import { useEffect, useState } from 'react'
 
@@ -21,30 +21,37 @@ interface EmpresaOpcao {
   is_active: boolean
 }
 
-// Cache da lista na sessão (evita refetch a cada abertura do drawer mobile)
-let empresasCache: Promise<EmpresaOpcao[]> | null = null
+type Fonte = 'admin' | 'dono'
+const URL_FONTE: Record<Fonte, string> = {
+  admin: '/api/admin/empresas', // superadmin: todas
+  dono: '/api/empresa/minhas',  // owner: primária + vinculadas
+}
+
+// Cache da lista na sessão, por fonte (evita refetch a cada abertura do drawer mobile)
+const empresasCache: Record<Fonte, Promise<EmpresaOpcao[]> | null> = { admin: null, dono: null }
 
 // Chamar após criar/renomear/ativar empresa: próxima montagem busca de novo.
 export function invalidarCacheEmpresas() {
-  empresasCache = null
+  empresasCache.admin = null
+  empresasCache.dono = null
 }
 
-function carregarEmpresas(): Promise<EmpresaOpcao[]> {
-  if (!empresasCache) {
-    const atual: Promise<EmpresaOpcao[]> = fetch('/api/admin/empresas')
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        return (data.empresas || []) as EmpresaOpcao[]
-      })
-      .catch((error) => {
-        console.error('Erro ao carregar empresas:', error)
-        if (empresasCache === atual) empresasCache = null // permite nova tentativa
-        return []
-      })
-    empresasCache = atual
-  }
-  return empresasCache
+function carregarEmpresas(fonte: Fonte): Promise<EmpresaOpcao[]> {
+  const cache = empresasCache[fonte]
+  if (cache) return cache
+  const atual: Promise<EmpresaOpcao[]> = fetch(URL_FONTE[fonte])
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      return (data.empresas || []) as EmpresaOpcao[]
+    })
+    .catch((error) => {
+      console.error('Erro ao carregar empresas:', error)
+      if (empresasCache[fonte] === atual) empresasCache[fonte] = null // permite nova tentativa
+      return []
+    })
+  empresasCache[fonte] = atual
+  return atual
 }
 
 async function definirEmpresaAtiva(tenantId: string | null) {
@@ -61,17 +68,22 @@ async function definirEmpresaAtiva(tenantId: string | null) {
 export default function EmpresaSwitcher() {
   const { userProfile, tenant } = useAuth()
   const superadmin = isSuperadmin(userProfile?.role)
+  const owner = userProfile?.role === 'owner'
+  const fonte: Fonte | null = superadmin ? 'admin' : owner ? 'dono' : null
   const [empresas, setEmpresas] = useState<EmpresaOpcao[]>([])
+  const [carregado, setCarregado] = useState(false)
   const [trocando, setTrocando] = useState(false)
 
   useEffect(() => {
-    if (!superadmin) return
+    if (!fonte) return
     let cancelado = false
-    carregarEmpresas().then((lista) => {
-      if (!cancelado) setEmpresas(lista)
+    carregarEmpresas(fonte).then((lista) => {
+      if (cancelado) return
+      setEmpresas(lista)
+      setCarregado(true)
     })
     return () => { cancelado = true }
-  }, [superadmin])
+  }, [fonte])
 
   const trocarPara = async (tenantId: string | null) => {
     setTrocando(true)
@@ -83,19 +95,24 @@ export default function EmpresaSwitcher() {
     }
   }
 
-  if (!superadmin || !userProfile) return null
+  if (!fonte || !userProfile) return null
+
+  const voltar = (
+    <Button variant="outline" size="sm" disabled={trocando} onClick={() => { void trocarPara(null) }}>
+      Voltar à minha empresa
+    </Button>
+  )
 
   // Saída de emergência: visitando empresa que não carregou
-  if (!tenant) {
-    if (!userProfile.active_tenant_id) return null
-    return (
-      <Button variant="outline" size="sm" disabled={trocando} onClick={() => { void trocarPara(null) }}>
-        Voltar à minha empresa
-      </Button>
-    )
+  if (!tenant) return userProfile.active_tenant_id ? voltar : null
+
+  // Dono com uma só empresa: nada a trocar (lista falhou fora da primária: só o "voltar")
+  if (owner && empresas.length <= 1) {
+    if (!carregado || tenant.id === userProfile.tenant_id) return null
+    return voltar
   }
 
-  const visitando = !!userProfile.tenant_id && tenant.id !== userProfile.tenant_id
+  const visitando = superadmin && !!userProfile.tenant_id && tenant.id !== userProfile.tenant_id
   // Garante que a empresa atual aparece mesmo se a lista falhar
   const opcoes = empresas.some((e) => e.id === tenant.id)
     ? empresas

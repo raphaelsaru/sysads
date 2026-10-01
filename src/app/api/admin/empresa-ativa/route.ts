@@ -4,12 +4,14 @@ import { getCaller } from '@/lib/tenant-server'
 import { isSuperadmin } from '@/lib/roles'
 import { isUuid } from '@/lib/validacao'
 
-// POST /api/admin/empresa-ativa { tenant_id: string | null } — superadmin troca empresa visitada.
+// POST /api/admin/empresa-ativa { tenant_id: string | null } — troca a empresa ativa.
+// Superadmin: qualquer empresa (visita). Owner: só a própria ou vinculadas em tenant_owners.
 // null (ou a própria empresa) = voltar à própria.
 export async function POST(request: NextRequest) {
   try {
     const caller = await getCaller()
-    if (!caller || !isSuperadmin(caller.role)) {
+    const superadmin = !!caller && isSuperadmin(caller.role)
+    if (!caller || (!superadmin && caller.role !== 'owner')) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
@@ -20,6 +22,12 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createAdminClient()
+    if (!superadmin && tenantId !== null && tenantId !== caller.ownTenantId) {
+      const { data: vinculo, error } = await admin.from('tenant_owners').select('tenant_id')
+        .eq('user_id', caller.userId).eq('tenant_id', tenantId).maybeSingle()
+      if (error) return NextResponse.json({ error: 'Erro ao verificar acesso' }, { status: 500 })
+      if (!vinculo) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
+    }
     if (tenantId !== null) {
       const { data: tenant, error } = await admin
         .from('tenants').select('id').eq('id', tenantId).maybeSingle()
