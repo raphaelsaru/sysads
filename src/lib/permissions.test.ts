@@ -40,7 +40,7 @@ describe('pode', () => {
 describe('homePath', () => {
   it('por perfil', () => {
     expect(homePath('admin')).toBe('/admin/empresas')
-    expect(homePath('owner')).toBe('/clientes')
+    expect(homePath('owner')).toBe('/equipe')
     expect(homePath('gestor')).toBe('/leads')
     expect(homePath('vendedor')).toBe('/leads')
     expect(homePath('user')).toBe('/clientes')
@@ -64,6 +64,7 @@ describe('areaDaRota', () => {
     expect(areaDaRota('/leads/123')).toBe('leads')
     expect(areaDaRota('/clientes')).toBe('clientes')
     expect(areaDaRota('/calendario')).toBe('agenda')
+    expect(areaDaRota('/equipe')).toBe('equipe')
     expect(areaDaRota('/settings/integrations')).toBeNull()
   })
 })

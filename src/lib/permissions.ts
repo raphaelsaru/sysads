@@ -35,7 +35,7 @@ export function pode(role: UserRole | null | undefined, area: Area): boolean {
 
 const HOME: Record<UserRole, string> = {
   admin: '/admin/empresas',
-  owner: '/clientes',
+  owner: '/equipe',
   gestor: '/leads',
   vendedor: '/leads',
   user: '/clientes',
@@ -50,6 +50,7 @@ const ROTAS: [string, Area][] = [
   ['/admin', 'admin'],
   ['/settings/users', 'admin'],
   ['/empresa', 'empresa'],
+  ['/equipe', 'equipe'],
   ['/dashboard', 'painel'],
   ['/leads', 'leads'],
   ['/clientes', 'clientes'],

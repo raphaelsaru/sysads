@@ -36,7 +36,8 @@ Prizely — CRM for customer management. Portuguese-language interface (lang="pt
 Endpoints: `admin/users`, `admin/empresas`, `admin/empresa-ativa`, `empresa/`, `empresa/usuarios`, `clientes/`, `followups/`, `ocr/vision`, `user/profile`, `empresa/meta`, `cron/meta-events`. Rotas de gestão autorizam via `getCaller()` e escrevem com service role sempre escopado ao tenant.
 
 ### Pages
-- `/` — redireciona p/ home do perfil (owner/artista → `/clientes`, gestor/vendedor → `/leads`, superadmin → `/admin/empresas`)
+- `/` — redireciona p/ home do perfil (owner → `/equipe`, artista → `/clientes`, gestor/vendedor → `/leads`, superadmin → `/admin/empresas`)
+- `/equipe` — home do dono: cards dos artistas ativos c/ métricas do mês (RPC `dashboard_equipe`); clique = "Visualizar como" + `/dashboard`
 - `/leads` — leads (tabela + filtros + modal); `/leads/[id]` detalhe (somente leitura p/ gestor em lead alheio)
 - `/clientes` — clientes com venda em cards; clique abre `/leads/[id]`
 - `/settings/integrations` — todos (WhatsApp/Instagram pessoais; menu "Minhas conexões" p/ vendedor/artista) + card Meta (gestor/superadmin)

@@ -26,7 +26,7 @@ Fonte única p/ Sidebar, middleware e APIs: `pode(role, area)` e `homePath(role)
 | admin global | ✓ | – | – | – | – |
 | ver dados | empresa | empresa | empresa | próprios | próprios |
 | criar/editar/excluir dados | empresa | empresa | só próprios (não cria p/ outro) | próprios | próprios |
-| home | /admin/empresas | /clientes | /leads | /leads | /clientes |
+| home | /admin/empresas | /equipe | /leads | /leads | /clientes |
 
 Superadmin visitando outra empresa continua vendo menus de owner (regra atual).
 
@@ -53,3 +53,8 @@ Superadmin visitando outra empresa continua vendo menus de owner (regra atual).
 ## Testes
 - Vitest: matriz `permissions.ts` (`pode`, `homePath`).
 - `supabase/tests/multitenant_rls.sql`: gestor vê empresa mas não edita lead alheio; vendedor/artista só próprios; dono em 2 empresas troca e não vaza; dono extra não ocupa slot.
+
+## Ajuste 2026-10-01: home do dono = equipe
+- `/equipe` (área `equipe`): um card por artista ativo (role `user`) com leads, vendas, valor vendido e conversão (vendas/leads) do mês vigente — RPC `dashboard_equipe(p_inicio, p_fim)` (security invoker, mesmo critério do `dashboard_resumo`).
+- Clique no card: "Visualizar como" o artista + abre `/dashboard`.
+- `/clientes` continua no menu.

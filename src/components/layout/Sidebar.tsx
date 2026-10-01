@@ -48,6 +48,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const role = visitandoOutraEmpresa ? 'owner' : userProfile?.role
 
   const navItems = ([
+    { href: '/equipe', label: 'Equipe', area: 'equipe' },
     { href: '/clientes', label: 'Clientes', area: 'clientes' },
     { href: '/leads', label: 'Leads', area: 'leads' },
     { href: '/dashboard', label: 'Painel', area: 'painel' },
