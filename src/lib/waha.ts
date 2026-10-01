@@ -96,12 +96,3 @@ export async function logoutSession(sessionName: string): Promise<void> {
   const res = await wahaFetch(`/api/sessions/${sessionName}/logout`, { method: 'POST' })
   if (!res.ok && res.status !== 404) throw new Error(`Falha ao desconectar sessão WAHA: ${res.status}`)
 }
-
-// Dados do contato (formato varia por engine). null se o WAHA não conhecer o contato.
-export async function getContact(sessionName: string, contactId: string): Promise<Record<string, unknown> | null> {
-  const params = new URLSearchParams({ session: sessionName, contactId })
-  const res = await wahaFetch(`/api/contacts?${params.toString()}`)
-  if (!res.ok) return null
-  const data = await res.json().catch(() => null)
-  return data && typeof data === 'object' ? (data as Record<string, unknown>) : null
-}
