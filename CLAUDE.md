@@ -9,6 +9,7 @@ Prizely — CRM for customer management. Portuguese-language interface (lang="pt
 - `pnpm dev` — dev server on localhost:3000
 - `pnpm build` — production build (strict TS checking enabled)
 - `pnpm lint` — ESLint
+- `pnpm test` — Vitest (funções puras, `src/**/*.test.ts`)
 
 ## Stack
 - Next.js 16 (App Router), React 19, TypeScript (strict)
@@ -32,7 +33,7 @@ Prizely — CRM for customer management. Portuguese-language interface (lang="pt
 - `UserProfile` — user profile with role.
 
 ### API Routes (`src/app/api/`)
-Endpoints: `admin/users`, `admin/empresas`, `admin/empresa-ativa`, `empresa/`, `empresa/usuarios`, `clientes/`, `followups/`, `ocr/vision`, `user/profile`. Rotas de gestão autorizam via `getCaller()` e escrevem com service role sempre escopado ao tenant.
+Endpoints: `admin/users`, `admin/empresas`, `admin/empresa-ativa`, `empresa/`, `empresa/usuarios`, `clientes/`, `followups/`, `ocr/vision`, `user/profile`, `empresa/meta`, `cron/meta-events`. Rotas de gestão autorizam via `getCaller()` e escrevem com service role sempre escopado ao tenant.
 
 ### Pages
 - `/` — leads management (main page with table + filters + modal)
@@ -48,6 +49,12 @@ Endpoints: `admin/users`, `admin/empresas`, `admin/empresa-ativa`, `empresa/`, `
 - Custom hooks in `src/hooks/` wrap API calls (useClientes, useFollowUps, useNotifications, etc.)
 - `lib/api.ts` — shared fetch helpers for API routes
 - shadcn/ui components in `src/components/ui/`
+
+### Meta CAPI
+- Trigger `meta_enfileirar_negociacao` em `negociacoes` grava Contact/Lead/Purchase em `meta_event_outbox` (só leads de anúncio: origem `Anúncio*` ou `meta_ad_id`; idempotente por `event_id`).
+- pg_cron (5 min) + pg_net chamam `/api/cron/meta-events` (`CRON_SECRET`; URL/segredo no Vault: `meta_cron_url`, `cron_secret`). Envio em `src/lib/meta-outbox.ts` / `src/lib/meta-capi.ts`.
+- Config por tenant em `meta_integrations`; token no Vault (`meta_salvar_token`/`meta_ler_token`, só service role). Card em `/empresa`, só superadmin.
+- Teste: `supabase/tests/meta_outbox.sql`. Design: `docs/plans/2026-10-01-meta-capi-design.md`.
 
 ## Path Aliases
 `@/*` → `./src/*`
