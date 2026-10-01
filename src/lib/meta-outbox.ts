@@ -46,15 +46,17 @@ export async function carregarConfigMeta(
   const integ = (integs as { id: string; dataset_id: string; test_event_code: string | null }[] | null)?.[0]
   if (!integ) return null
 
-  const [{ data: token }, { data: perfis }] = await Promise.all([
+  const [{ data: token }, { data: perfis, error: perfisError }] = await Promise.all([
     admin.rpc('meta_ler_token', { p_integracao: integ.id }),
-    admin.from('user_profiles').select('id, role, currency').eq('tenant_id', tenantId)
+    // moeda mora em preferences.currency (mesma fonte do AuthContext)
+    admin.from('user_profiles').select('id, role, preferences').eq('tenant_id', tenantId)
       .or(userId ? `id.eq.${userId},role.eq.owner` : 'role.eq.owner'),
   ])
+  if (perfisError) throw new Error(`user_profiles: ${perfisError.message}`)
   if (!token) return null
-  const lista = (perfis ?? []) as { id: string; role: string; currency: string | null }[]
-  const currency = lista.find((p) => p.id === userId)?.currency
-    ?? lista.find((p) => p.role === 'owner')?.currency
+  const lista = (perfis ?? []) as { id: string; role: string; preferences: { currency?: string } | null }[]
+  const currency = lista.find((p) => p.id === userId)?.preferences?.currency
+    ?? lista.find((p) => p.role === 'owner')?.preferences?.currency
     ?? 'BRL'
 
   return { datasetId: integ.dataset_id, token: token as string, testEventCode: integ.test_event_code, currency }
