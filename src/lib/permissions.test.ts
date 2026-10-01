@@ -1,0 +1,69 @@
+import { describe, expect, it } from 'vitest'
+import { areaDaRota, homePath, pode } from './permissions'
+import type { UserRole } from '@/types/crm'
+
+const ROLES: UserRole[] = ['admin', 'owner', 'gestor', 'vendedor', 'user']
+
+describe('pode', () => {
+  it('todos veem leads, clientes e agenda', () => {
+    for (const r of ROLES) for (const a of ['leads', 'clientes', 'agenda'] as const) expect(pode(r, a)).toBe(true)
+  })
+  it('painel: todos menos vendedor', () => {
+    expect(ROLES.filter(r => pode(r, 'painel'))).toEqual(['admin', 'owner', 'gestor', 'user'])
+  })
+  it('integracoes: admin, owner, gestor', () => {
+    expect(ROLES.filter(r => pode(r, 'integracoes'))).toEqual(['admin', 'owner', 'gestor'])
+  })
+  it('meta: so admin e gestor', () => {
+    expect(ROLES.filter(r => pode(r, 'meta'))).toEqual(['admin', 'gestor'])
+  })
+  it('empresa e equipe: admin e owner', () => {
+    expect(ROLES.filter(r => pode(r, 'empresa'))).toEqual(['admin', 'owner'])
+    expect(ROLES.filter(r => pode(r, 'equipe'))).toEqual(['admin', 'owner'])
+  })
+  it('ver_empresa e visualizar_como: admin, owner, gestor', () => {
+    expect(ROLES.filter(r => pode(r, 'ver_empresa'))).toEqual(['admin', 'owner', 'gestor'])
+    expect(ROLES.filter(r => pode(r, 'visualizar_como'))).toEqual(['admin', 'owner', 'gestor'])
+  })
+  it('editar_empresa: admin e owner', () => {
+    expect(ROLES.filter(r => pode(r, 'editar_empresa'))).toEqual(['admin', 'owner'])
+  })
+  it('admin global: so admin', () => {
+    expect(ROLES.filter(r => pode(r, 'admin'))).toEqual(['admin'])
+  })
+  it('sem role: nada', () => {
+    expect(pode(null, 'leads')).toBe(false)
+    expect(pode(undefined, 'leads')).toBe(false)
+  })
+})
+
+describe('homePath', () => {
+  it('por perfil', () => {
+    expect(homePath('admin')).toBe('/admin/empresas')
+    expect(homePath('owner')).toBe('/clientes')
+    expect(homePath('gestor')).toBe('/leads')
+    expect(homePath('vendedor')).toBe('/leads')
+    expect(homePath('user')).toBe('/clientes')
+  })
+  it('home sempre permitida (evita loop de redirect)', () => {
+    for (const r of ROLES) {
+      const area = areaDaRota(homePath(r))
+      expect(area && pode(r, area)).toBe(true)
+    }
+  })
+})
+
+describe('areaDaRota', () => {
+  it('mapeia prefixos', () => {
+    expect(areaDaRota('/admin')).toBe('admin')
+    expect(areaDaRota('/admin/empresas/x')).toBe('admin')
+    expect(areaDaRota('/settings/users')).toBe('admin')
+    expect(areaDaRota('/empresa')).toBe('empresa')
+    expect(areaDaRota('/empresas')).toBeNull()
+    expect(areaDaRota('/dashboard')).toBe('painel')
+    expect(areaDaRota('/leads/123')).toBe('leads')
+    expect(areaDaRota('/clientes')).toBe('clientes')
+    expect(areaDaRota('/calendario')).toBe('agenda')
+    expect(areaDaRota('/settings/integrations')).toBeNull()
+  })
+})

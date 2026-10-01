@@ -2,8 +2,8 @@
 // TIPOS DE USUÁRIO E ROLES
 // =====================================================
 
-// 'admin' = superadmin da plataforma (nome mantido no enum do banco).
-export type UserRole = 'admin' | 'owner' | 'user'
+// 'admin' = superadmin da plataforma (nome mantido no enum do banco). 'user' = Artista.
+export type UserRole = 'admin' | 'owner' | 'gestor' | 'vendedor' | 'user'
 
 export interface Tenant {
   id: string
