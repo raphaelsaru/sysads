@@ -316,7 +316,7 @@ function LeadDetailPageContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" onClick={() => router.push('/')}>
+            <Button variant="outline" onClick={() => router.push('/leads')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Voltar para leads
             </Button>

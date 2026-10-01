@@ -31,7 +31,7 @@ export default function NotificationsBell() {
 
   const handleEditLead = (leadId: string) => {
     setOpen(false) // Fechar dropdown antes de navegar
-    router.push(`/?edit=${leadId}`)
+    router.push(`/leads/${leadId}`)
   }
 
   const hasNotifications = totalCount > 0
