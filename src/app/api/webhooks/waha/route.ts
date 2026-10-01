@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getChatLabels } from '@/lib/waha'
 import { extrairCamposDiagnostico } from '@/lib/waha-diagnostico'
+import { nomeDoContato } from '@/lib/waha-payload'
 
 interface WahaMessagePayload {
   // Id da mensagem WAHA, formato tipo whatsapp-web.js:
@@ -15,7 +16,7 @@ interface WahaMessagePayload {
   from: string
   fromMe: boolean
   timestamp: number
-  _data?: { notifyName?: string }
+  _data?: { pushName?: string; notifyName?: string }
 }
 
 interface WahaLabelChatPayload {
@@ -113,7 +114,8 @@ async function handleMessage(
       .eq('session_name', session)
   }
 
-  const nome = payload._data?.notifyName?.trim() || whatsapp
+  const nomeContato = nomeDoContato(payload)
+  const nome = nomeContato ?? whatsapp
   const dataContato = formatDateFromTimestamp(payload.timestamp)
 
   const { data, error } = await supabase
@@ -139,6 +141,13 @@ async function handleMessage(
   }
 
   const { id: clienteId, created } = data as { id: string; created: boolean }
+
+  // Leads antigos ficaram com o número como nome (engine NOWEB manda pushName,
+  // código lia só notifyName). Completa quando o contato mandar nova mensagem.
+  if (!created && nomeContato) {
+    await supabase.from('clientes').update({ nome: nomeContato })
+      .eq('id', clienteId).eq('nome', whatsapp)
+  }
 
   // Uma negociação por conversa, não por mensagem: só registra se o cliente não
   // teve negociação nos últimos 30 dias (retorno = nova negociação). Reentrega do
