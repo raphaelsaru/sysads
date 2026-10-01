@@ -23,6 +23,11 @@ const MATRIZ: Record<UserRole, readonly Area[]> = {
   user: [...BASE, 'painel'],
 }
 
+// Role existe na matriz? (perfil não carregado/enum novo → false)
+export function roleConhecido(role: unknown): role is UserRole {
+  return typeof role === 'string' && Object.hasOwn(MATRIZ, role)
+}
+
 // Guard p/ role desconhecido vindo do banco em runtime.
 export function pode(role: UserRole | null | undefined, area: Area): boolean {
   return !!role && (MATRIZ[role]?.includes(area) ?? false)

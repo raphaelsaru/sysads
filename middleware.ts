@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { areaDaRota, homePath, pode } from '@/lib/permissions'
+import { areaDaRota, homePath, pode, roleConhecido } from '@/lib/permissions'
 import type { UserRole } from '@/types/crm'
 
 const ALLOWED_ORIGINS = [
@@ -137,9 +137,10 @@ export async function middleware(request: NextRequest) {
       return redirectTo(homePath(role))
     }
 
-    // Guarda por área (matriz em src/lib/permissions.ts)
+    // Guarda por área (matriz em src/lib/permissions.ts). Sem role conhecido
+    // (falha transitória ao ler perfil) não guarda: evita loop de redirect; RLS protege.
     const area = areaDaRota(pathname)
-    if (area && !pode(role, area)) {
+    if (area && roleConhecido(role) && !pode(role, area)) {
       return redirectTo(homePath(role))
     }
 

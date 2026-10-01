@@ -107,6 +107,37 @@ begin
     then raise exception 'FALHA vendedor escapou p/ B'; end if;
   -- vínculo não ocupa slot: B (1 slot) aceitou owner A vinculado (insert acima sem erro)
 
+  -- vinculada escolhida inativa: cai p/ primária
+  update user_profiles set active_tenant_id = 'bbbbbbbb-1111-0000-0000-000000000000' where id = 'aaaaaaaa-0000-0000-0000-00000000000a';
+  update tenants set is_active = false where id = 'bbbbbbbb-1111-0000-0000-000000000000';
+  if public.effective_tenant_id('aaaaaaaa-0000-0000-0000-00000000000a') is distinct from 'aaaaaaaa-1111-0000-0000-000000000000'
+    then raise exception 'FALHA vinculada inativa nao caiu p/ primaria'; end if;
+  update tenants set is_active = true where id = 'bbbbbbbb-1111-0000-0000-000000000000';
+  update user_profiles set active_tenant_id = null where id = 'aaaaaaaa-0000-0000-0000-00000000000a';
+
+  -- primária inativa: owner entra na vinculada ativa; vendedor A fica bloqueado
+  update tenants set is_active = false where id = 'aaaaaaaa-1111-0000-0000-000000000000';
+  if public.effective_tenant_id('aaaaaaaa-0000-0000-0000-00000000000a') is distinct from 'bbbbbbbb-1111-0000-0000-000000000000'
+    then raise exception 'FALHA owner sem fallback p/ vinculada'; end if;
+  perform set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  if public.acesso_crm() <> 'ok' then raise exception 'FALHA acesso_crm owner c/ vinculada'; end if;
+  perform set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000000d","role":"authenticated"}', true);
+  if public.acesso_crm() <> 'empresa_inativa' then raise exception 'FALHA acesso_crm vendedor empresa inativa'; end if;
+  perform set_config('request.jwt.claims', '', true);
+  update tenants set is_active = true where id = 'aaaaaaaa-1111-0000-0000-000000000000';
+
+  -- owner não cria lead p/ usuário de outra empresa
+  perform set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin
+    insert into clientes (user_id, data_contato, nome, whatsapp_instagram, origem)
+    values ('bbbbbbbb-0000-0000-0000-00000000000a', current_date, 'owner A p/ owner B', '11911110088', 'Outro');
+    raise exception 'FALHA owner criou lead p/ usuario de outra empresa';
+  exception when insufficient_privilege then null;
+  end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
   -- owner B: vê 1
   perform set_config('request.jwt.claims', '{"sub":"bbbbbbbb-0000-0000-0000-00000000000a","role":"authenticated"}', true);
   execute 'set local role authenticated';

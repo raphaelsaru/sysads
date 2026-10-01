@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { areaDaRota, homePath, pode } from './permissions'
+import { areaDaRota, homePath, pode, roleConhecido } from './permissions'
 import type { UserRole } from '@/types/crm'
 
 const ROLES: UserRole[] = ['admin', 'owner', 'gestor', 'vendedor', 'user']
@@ -65,5 +65,13 @@ describe('areaDaRota', () => {
     expect(areaDaRota('/clientes')).toBe('clientes')
     expect(areaDaRota('/calendario')).toBe('agenda')
     expect(areaDaRota('/settings/integrations')).toBeNull()
+  })
+})
+
+describe('roleConhecido', () => {
+  it('so roles da matriz', () => {
+    for (const r of ROLES) expect(roleConhecido(r)).toBe(true)
+    expect(roleConhecido(undefined)).toBe(false)
+    expect(roleConhecido('xpto')).toBe(false)
   })
 })

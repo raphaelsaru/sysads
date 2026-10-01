@@ -30,9 +30,13 @@ export async function POST(request: NextRequest) {
     }
     if (tenantId !== null) {
       const { data: tenant, error } = await admin
-        .from('tenants').select('id').eq('id', tenantId).maybeSingle()
+        .from('tenants').select('id, is_active').eq('id', tenantId).maybeSingle()
       if (error) return NextResponse.json({ error: 'Erro ao buscar empresa' }, { status: 500 })
       if (!tenant) return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 404 })
+      // Só superadmin visita empresa inativa
+      if (!superadmin && !tenant.is_active) {
+        return NextResponse.json({ error: 'Empresa inativa' }, { status: 409 })
+      }
     }
 
     const active_tenant_id = tenantId === caller.ownTenantId ? null : tenantId

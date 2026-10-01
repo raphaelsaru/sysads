@@ -154,6 +154,8 @@ function HomePage() {
             </div>
           </div>
 
+          {/* Visualizando outro usuário sem editar_empresa: banco recusa criar p/ ele */}
+          {(!impersonatedUserId || pode(userProfile?.role, 'editar_empresa')) && (
           <Button
             onClick={() => setMostrarModal(true)}
             className="h-12 gap-2 self-start rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground shadow-brand hover:bg-primary/90"
@@ -161,6 +163,7 @@ function HomePage() {
             <Plus className="h-5 w-5" />
             Novo cliente
           </Button>
+          )}
         </div>
 
         <ClienteFiltrosPanel
