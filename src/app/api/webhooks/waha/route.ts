@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getChatLabels } from '@/lib/waha'
+import { extrairCamposDiagnostico } from '@/lib/waha-diagnostico'
 
 interface WahaMessagePayload {
   // Id da mensagem WAHA, formato tipo whatsapp-web.js:
@@ -88,6 +89,12 @@ async function handleMessage(
   if (!payload || payload.fromMe || !payload.from) {
     return NextResponse.json({ ignored: true })
   }
+
+  // Diagnóstico temporário (nome do contato / ctwa_clid); nunca bloqueia o lead.
+  const { error: diagError } = await supabase
+    .from('waha_diagnostico')
+    .insert({ session, amostra: extrairCamposDiagnostico(payload) })
+  if (diagError) console.warn('waha_diagnostico:', diagError.message)
 
   const whatsapp = await resolveJidToPhone(session, payload.from)
   if (!whatsapp) {
