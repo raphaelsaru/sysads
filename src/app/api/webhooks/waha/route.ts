@@ -140,30 +140,19 @@ async function handleMessage(
 
   const { id: clienteId, created } = data as { id: string; created: boolean }
 
-  // Sempre registra uma negociação nova pro evento, mesmo quando o cliente já
-  // existia (created:false) — corrige o bug em que um lead recorrente não
-  // gerava nenhum registro do novo contato.
-  //
-  // WAHA pode reentregar o mesmo webhook em caso de timeout/resposta não-2xx.
-  // origem_evento_id (id da mensagem WAHA) + índice único parcial em
-  // negociacoes tornam esse insert idempotente: uma reentrega com o mesmo id
-  // colide (23505) e é tratada como no-op, em vez de duplicar a negociação.
-  const origemEventoId = payload.id ?? null
-
-  const { error: negociacaoError } = await supabase.from('negociacoes').insert({
-    cliente_id: clienteId,
-    data_contato: dataContato,
-    created_by: userId,
-    updated_by: userId,
-    origem_evento_id: origemEventoId,
+  // Uma negociação por conversa, não por mensagem: só registra se o cliente não
+  // teve negociação nos últimos 30 dias (retorno = nova negociação). Reentrega do
+  // mesmo evento (origem_evento_id) também vira no-op. Ver registrar_negociacao_webhook.
+  const { error: negociacaoError } = await supabase.rpc('registrar_negociacao_webhook', {
+    p_cliente_id: clienteId,
+    p_data_contato: dataContato,
+    p_user_id: userId,
+    p_origem_evento_id: payload.id ?? null,
+    p_janela_dias: 30,
   })
 
   if (negociacaoError) {
-    if (negociacaoError.code === '23505' && origemEventoId) {
-      console.warn('Negociação duplicada ignorada (evento WAHA já processado):', origemEventoId)
-      return NextResponse.json({ ok: true, created, duplicate: true })
-    }
-    console.error('Erro ao criar negociação via webhook WAHA:', negociacaoError)
+    console.error('Erro ao registrar negociação via webhook WAHA:', negociacaoError)
     return NextResponse.json({ error: 'Erro ao criar negociação' }, { status: 500 })
   }
 
