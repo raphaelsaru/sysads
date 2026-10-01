@@ -86,9 +86,20 @@ begin
   perform set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000000a","role":"authenticated"}', true);
   execute 'set local role authenticated';
   select count(*) into n from clientes; if n <> 1 then raise exception 'FALHA owner A em B viu %', n; end if;
+  insert into clientes (user_id, data_contato, nome, whatsapp_instagram, origem)
+  values ('aaaaaaaa-0000-0000-0000-00000000000a', current_date, 'lead owner A em B', '11911110077', 'Outro');
   execute 'reset role';
   perform set_config('request.jwt.claims', '', true);
   update user_profiles set active_tenant_id = null where id = 'aaaaaaaa-0000-0000-0000-00000000000a';
+
+  -- owner B edita lead do dono vinculado (perfil dele não é visível p/ B)
+  perform set_config('request.jwt.claims', '{"sub":"bbbbbbbb-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  update clientes set nome = 'editado por B' where nome = 'lead owner A em B';
+  get diagnostics n = row_count; if n <> 1 then raise exception 'FALHA owner B nao editou lead do vinculado'; end if;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  delete from clientes where nome = 'editado por B';
 
   -- sem vínculo: active_tenant_id ignorado (vendedor tentando visitar B)
   update user_profiles set active_tenant_id = 'bbbbbbbb-1111-0000-0000-000000000000' where id = 'aaaaaaaa-0000-0000-0000-00000000000d';
