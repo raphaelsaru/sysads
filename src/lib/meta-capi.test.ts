@@ -2,11 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { MAX_TENTATIVAS, montarEvento, proximaTentativa, sha256, telefoneParaMeta } from './meta-capi'
 
 describe('telefoneParaMeta', () => {
-  it('prefixa 55 em número BR sem DDI', () => expect(telefoneParaMeta('11999998888')).toBe('5511999998888'))
-  it('mantém número com mais de 11 dígitos', () => expect(telefoneParaMeta('14155552671000')).toBe('14155552671000'))
+  it('BRL: prefixa 55 em número sem DDI', () => {
+    expect(telefoneParaMeta('11999998888', 'BRL')).toBe('5511999998888')
+    expect(telefoneParaMeta('1133334444', 'BRL')).toBe('551133334444')
+  })
+  it('USD: 10 dígitos ganham 1; 11 com 1 na frente ficam', () => {
+    expect(telefoneParaMeta('5550104477', 'USD')).toBe('15550104477')
+    expect(telefoneParaMeta('15550104477', 'USD')).toBe('15550104477')
+  })
+  it('outra moeda: só dígitos', () => expect(telefoneParaMeta('447911123456', 'EUR')).toBe('447911123456'))
+  it('mantém número com mais de 11 dígitos', () => expect(telefoneParaMeta('14155552671000', 'BRL')).toBe('14155552671000'))
   it('nulo/curto vira null', () => {
-    expect(telefoneParaMeta(null)).toBeNull()
-    expect(telefoneParaMeta('12345')).toBeNull()
+    expect(telefoneParaMeta(null, 'BRL')).toBeNull()
+    expect(telefoneParaMeta('12345', 'BRL')).toBeNull()
   })
 })
 
@@ -59,6 +67,11 @@ describe('montarEvento', () => {
     expect(e.event_name).toBe('QualifiedLead')
     expect(montarEvento({ ...ig, eventName: 'Contact' }).event_name).toBe('LeadSubmitted')
     expect(montarEvento({ ...ig, eventName: 'Purchase' }).event_name).toBe('Purchase')
+  })
+
+  it('telefone US usa DDI 1 quando moeda é USD', () => {
+    const e = montarEvento({ ...base, telefoneNormalizado: '15550104477', currency: 'USD' })
+    expect(e.user_data.ph).toEqual([sha256('15550104477')])
   })
 
   it('omite campos ausentes', () => {

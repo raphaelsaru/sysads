@@ -51,15 +51,20 @@ export type DadosEvento = {
 
 export const sha256 = (v: string) => createHash('sha256').update(v).digest('hex')
 
-// clientes.telefone_normalizado tira o 55; Meta quer com DDI.
-export function telefoneParaMeta(t: string | null): string | null {
+// Meta quer telefone com DDI. telefone_normalizado tira o 55 de números BR e não
+// guarda país, então o DDI vem da moeda do dono do lead (BRL→55, USD→1).
+// Sem isso, "11999998888" (SP) e "15550104477" (EUA) são indistinguíveis.
+export function telefoneParaMeta(t: string | null, currency: string): string | null {
   const d = t?.replace(/\D/g, '') ?? ''
   if (d.length < 10) return null
-  return d.length <= 11 ? `55${d}` : d
+  if (d.length > 11) return d
+  if (currency === 'BRL') return `55${d}`
+  if (currency === 'USD') return d.length === 10 ? `1${d}` : d
+  return d
 }
 
 export function montarEvento(d: DadosEvento): EventoMeta {
-  const ph = telefoneParaMeta(d.telefoneNormalizado)
+  const ph = telefoneParaMeta(d.telefoneNormalizado, d.currency)
   const em = d.email?.trim().toLowerCase() || null
   const viaIg = !!(d.igAccountId && d.igSid)
 
