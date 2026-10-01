@@ -3,13 +3,14 @@ import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller } from '@/lib/tenant-server'
 import { canManageTeam } from '@/lib/roles'
+import { pode } from '@/lib/permissions'
 import { convidarUsuario, normalizarEmail } from '@/lib/convite'
 
 // GET /api/empresa/usuarios[?ativos=1] — equipe da empresa atual.
 export async function GET(request: NextRequest) {
   try {
     const caller = await getCaller()
-    if (!caller?.tenantId || !canManageTeam(caller.role)) {
+    if (!caller?.tenantId || !pode(caller.role, 'ver_empresa')) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 

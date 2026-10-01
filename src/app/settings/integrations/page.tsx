@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import MetaAdsCard from '@/components/empresa/MetaAdsCard'
+import { useAuth } from '@/contexts/AuthContext'
+import { pode } from '@/lib/permissions'
 
 type WhatsappStatus =
   | { status: 'loading' }
@@ -111,7 +114,13 @@ function InstagramCard() {
   )
 }
 
+type UsuarioMeta = { id: string; full_name: string | null; email: string | null }
+
 function IntegrationsPageContent() {
+  const { userProfile, tenant } = useAuth()
+  const podeMeta = pode(userProfile?.role, 'meta')
+  const tenantId = tenant?.id ?? null
+  const [usuarios, setUsuarios] = useState<UsuarioMeta[]>([])
   const [state, setState] = useState<WhatsappStatus>({ status: 'loading' })
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -144,6 +153,15 @@ function IntegrationsPageContent() {
     return stopPolling
   }, [fetchStatus, startPolling, stopPolling])
 
+  // Lista de usuários p/ integração Meta por usuário (só quem gerencia Meta).
+  useEffect(() => {
+    if (!podeMeta || !tenantId) return
+    fetch('/api/empresa/usuarios?ativos=1')
+      .then((r) => (r.ok ? r.json() : { usuarios: [] }))
+      .then((d) => setUsuarios(d.usuarios || []))
+      .catch(() => {})
+  }, [podeMeta, tenantId])
+
   async function handleConnect() {
     setState({ status: 'loading' })
     const res = await fetch('/api/integrations/whatsapp/connect', { method: 'POST' })
@@ -163,7 +181,9 @@ function IntegrationsPageContent() {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold">Integrações</h1>
+          <h1 className="text-2xl font-semibold">
+            {pode(userProfile?.role, 'integracoes') ? 'Integrações' : 'Minhas conexões'}
+          </h1>
           <p className="text-muted-foreground">Conecte seus canais para receber leads automaticamente no CRM.</p>
         </div>
 
@@ -232,6 +252,8 @@ function IntegrationsPageContent() {
         </Card>
 
         <InstagramCard />
+
+        {podeMeta && <MetaAdsCard tenantId={tenantId} usuarios={usuarios} />}
       </div>
     </MainLayout>
   )

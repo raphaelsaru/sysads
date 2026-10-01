@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller } from '@/lib/tenant-server'
-import { isSuperadmin } from '@/lib/roles'
+import { pode } from '@/lib/permissions'
 import { escopoMeta } from '@/lib/meta-outbox'
 
 // POST /api/empresa/meta/reprocessar { userId? } — volta eventos 'failed' do escopo p/ a fila.
 export async function POST(request: NextRequest) {
   try {
     const caller = await getCaller()
-    if (!caller?.tenantId || !isSuperadmin(caller.role)) {
+    if (!caller?.tenantId || !pode(caller.role, 'meta')) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 

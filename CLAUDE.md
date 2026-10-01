@@ -53,7 +53,7 @@ Endpoints: `admin/users`, `admin/empresas`, `admin/empresa-ativa`, `empresa/`, `
 ### Meta CAPI
 - Trigger `meta_enfileirar_negociacao` em `negociacoes` grava Contact/Lead/Purchase em `meta_event_outbox` (só leads de anúncio: origem `Anúncio*` ou `meta_ad_id`; idempotente por `event_id`).
 - pg_cron (5 min) + pg_net chamam `/api/cron/meta-events` (`META_CRON_SECRET`; URL/segredo no Vault: `meta_cron_url`, `meta_cron_secret`). Envio em `src/lib/meta-outbox.ts` / `src/lib/meta-capi.ts`.
-- Config em `meta_integrations`: padrão da empresa (`user_id` null) ou própria do usuário (tatuador com conta de anúncio própria); `meta_integracao_efetiva(tenant, user)` escolhe pelo dono do lead (`meta_event_outbox.user_id`). Token no Vault por integração (`meta_salvar_token`/`meta_ler_token`, só service role). Card em `/empresa`, só superadmin.
+- Config em `meta_integrations`: padrão da empresa (`user_id` null) ou própria do usuário (tatuador com conta de anúncio própria); `meta_integracao_efetiva(tenant, user)` escolhe pelo dono do lead (`meta_event_outbox.user_id`). Token no Vault por integração (`meta_salvar_token`/`meta_ler_token`, só service role). Card em `/settings/integrations`, gestor/superadmin.
 - Teste: `supabase/tests/meta_outbox.sql`. Design: `docs/plans/2026-10-01-meta-capi-design.md`.
 
 ## Path Aliases

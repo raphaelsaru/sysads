@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller } from '@/lib/tenant-server'
 import { escopoMeta } from '@/lib/meta-outbox'
-import { isSuperadmin } from '@/lib/roles'
+import { pode } from '@/lib/permissions'
 
 const STATUS = ['pending', 'processing', 'sent', 'failed'] as const
 
@@ -10,7 +10,7 @@ const STATUS = ['pending', 'processing', 'sent', 'failed'] as const
 export async function GET(request: NextRequest) {
   try {
     const caller = await getCaller()
-    if (!caller?.tenantId || !isSuperadmin(caller.role)) {
+    if (!caller?.tenantId || !pode(caller.role, 'meta')) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
     const tenantId = caller.tenantId
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const caller = await getCaller()
-    if (!caller?.tenantId || !isSuperadmin(caller.role)) {
+    if (!caller?.tenantId || !pode(caller.role, 'meta')) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
     const tenantId = caller.tenantId

@@ -46,7 +46,7 @@ async function erroDa(response: Response, fallback: string) {
 const ESCOPO_EMPRESA = 'empresa'
 
 // Conexão Meta Conversions API: padrão da empresa ou própria de um usuário
-// (ex.: tatuador com conta de anúncio própria). Só superadmin até homologar.
+// (ex.: tatuador com conta de anúncio própria). Gestor e superadmin.
 export default function MetaAdsCard({ tenantId, usuarios }: {
   tenantId: string | null
   usuarios: { id: string; full_name: string | null; email: string | null }[]
@@ -132,7 +132,6 @@ export default function MetaAdsCard({ tenantId, usuarios }: {
         <CardTitle className="flex items-center gap-2">
           <Megaphone className="h-5 w-5" />
           Meta Ads
-          <Badge variant="outline">Superadmin</Badge>
         </CardTitle>
         <CardDescription>
           Envia Contact, Lead e Purchase dos leads de anúncio para a Meta (Conversions API).
