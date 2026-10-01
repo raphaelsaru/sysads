@@ -244,6 +244,7 @@ function LeadDetailPageContent() {
       dataContato: cliente.dataContato,
       nome: cliente.nome,
       whatsappInstagram: cliente.whatsappInstagram,
+      email: cliente.email ?? '',
       origem: cliente.origem,
       observacao: cliente.observacao ?? '',
       categoria: cliente.categoria ?? '',
@@ -516,6 +517,17 @@ function LeadDetailPageContent() {
                   value={pessoaForm.whatsappInstagram}
                   onChange={(e) => handlePessoaChange('whatsappInstagram', e.target.value)}
                   required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="pessoa-email">Email</Label>
+                <Input
+                  id="pessoa-email"
+                  type="email"
+                  value={pessoaForm.email ?? ''}
+                  onChange={(e) => handlePessoaChange('email', e.target.value)}
+                  placeholder="Opcional"
                 />
               </div>
 

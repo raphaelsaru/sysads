@@ -92,7 +92,7 @@ export async function GET(
     const { data: cliente, error } = await supabase
       .from('clientes')
       .select(`
-        id, data_contato, nome, whatsapp_instagram, origem, observacao,
+        id, data_contato, nome, whatsapp_instagram, email, origem, observacao,
         created_at, categoria, user_id,
         negociacoes(
           id, cliente_id, data_contato, orcamento_enviado, resultado,
@@ -135,6 +135,7 @@ export async function GET(
       dataContato: cliente.data_contato,
       nome: cliente.nome,
       whatsappInstagram: cliente.whatsapp_instagram,
+      email: cliente.email ?? undefined,
       origem: cliente.origem as Cliente['origem'],
       observacao: cliente.observacao ?? undefined,
       categoria: cliente.categoria ?? undefined,
@@ -196,6 +197,7 @@ export async function PATCH(
     if (typeof dadosAtualizados.origem === 'string') updateData.origem = dadosAtualizados.origem;
     if ('observacao' in dadosAtualizados) updateData.observacao = (dadosAtualizados.observacao as string | null) ?? null;
     if ('categoria' in dadosAtualizados) updateData.categoria = (dadosAtualizados.categoria as string | null) ?? null;
+    if ('email' in dadosAtualizados) updateData.email = (dadosAtualizados.email as string | null)?.trim() || null;
     updateData.updated_by = user.id;
 
     // Update cliente - RLS will automatically filter by user_id
@@ -203,7 +205,7 @@ export async function PATCH(
       .from('clientes')
       .update(updateData)
       .eq('id', id)
-      .select('id, data_contato, nome, whatsapp_instagram, origem, observacao, created_at, categoria, user_id')
+      .select('id, data_contato, nome, whatsapp_instagram, email, origem, observacao, created_at, categoria, user_id')
       .single();
 
     if (error || !cliente) {
@@ -218,6 +220,7 @@ export async function PATCH(
       dataContato: cliente.data_contato,
       nome: cliente.nome,
       whatsappInstagram: cliente.whatsapp_instagram,
+      email: cliente.email ?? undefined,
       origem: cliente.origem as Cliente['origem'],
       observacao: cliente.observacao ?? undefined,
       categoria: cliente.categoria ?? undefined,

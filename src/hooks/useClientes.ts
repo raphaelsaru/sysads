@@ -122,7 +122,7 @@ const NEGOCIACAO_COLUMNS = `
 // total/hasMore quando um cliente tinha mais de uma negociação.
 function selectClientes() {
   return `
-    id, data_contato, nome, whatsapp_instagram, origem, observacao, created_at,
+    id, data_contato, nome, whatsapp_instagram, email, origem, observacao, created_at,
     categoria, user_id,
     negociacoes(${NEGOCIACAO_COLUMNS})
   `
@@ -169,6 +169,7 @@ type ClienteSupabaseRow = {
   data_contato: string
   nome: string
   whatsapp_instagram: string
+  email: string | null
   origem: Cliente['origem']
   observacao: string | null
   created_at: string
@@ -368,6 +369,7 @@ export function useClientes(
         dataContato: cliente.data_contato,
         nome: cliente.nome,
         whatsappInstagram: cliente.whatsapp_instagram,
+        email: cliente.email ?? undefined,
         origem: cliente.origem,
         observacao: cliente.observacao ?? undefined,
         createdAt: cliente.created_at,
@@ -774,6 +776,7 @@ export function useClientes(
         data_contato?: string
         nome?: string
         whatsapp_instagram?: string
+        email?: string | null
         origem?: Cliente['origem']
         observacao?: string | null
         categoria?: string | null
@@ -788,6 +791,7 @@ export function useClientes(
       if (dadosAtualizados.dataContato) updateData.data_contato = dadosAtualizados.dataContato
       if (dadosAtualizados.nome) updateData.nome = dadosAtualizados.nome
       if (dadosAtualizados.whatsappInstagram) updateData.whatsapp_instagram = dadosAtualizados.whatsappInstagram
+      if (dadosAtualizados.email !== undefined) updateData.email = dadosAtualizados.email.trim() || null
       if (dadosAtualizados.origem) updateData.origem = dadosAtualizados.origem
       if (dadosAtualizados.observacao !== undefined) updateData.observacao = dadosAtualizados.observacao || null
       if (dadosAtualizados.categoria !== undefined) updateData.categoria = dadosAtualizados.categoria || null

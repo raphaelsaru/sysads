@@ -41,6 +41,7 @@ export interface Cliente {
   dataContato: string;
   nome: string;
   whatsappInstagram: string;
+  email?: string;
   origem: 'Indicação' | 'Orgânico / Perfil' | 'Anúncio' | 'Cliente antigo' | 'Anúncio Promoção' | 'Anúncio Geral' | 'Instagram' | 'Google' | 'Outro' | 'WhatsApp' | 'Site';
   observacao?: string;
   createdAt?: string;
@@ -88,6 +89,7 @@ export interface NovoCliente {
   dataContato: string;
   nome: string;
   whatsappInstagram: string;
+  email?: string;
   origem: Cliente['origem'];
   observacao?: string;
   categoria?: string;
