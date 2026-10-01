@@ -10,7 +10,8 @@ import { useAdmin } from '@/contexts/AdminContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Symbol } from '@/components/ui/symbol'
-import { canManageTeam, isSuperadmin, roleLabel } from '@/lib/roles'
+import { isSuperadmin, roleLabel } from '@/lib/roles'
+import { pode, type Area } from '@/lib/permissions'
 import NotificationsBell from '@/components/NotificationsBell'
 import EmpresaSwitcher from '@/components/layout/EmpresaSwitcher'
 import {
@@ -41,25 +42,27 @@ interface UsuarioEmpresa {
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const { userProfile, tenant } = useAuth()
-  // Superadmin visitando outra empresa vê os menus de owner; os globais voltam
+  // Superadmin visitando outra empresa navega como owner; os globais voltam
   // ao retornar pela EmpresaSwitcher (mesma regra de "visitando" dela).
-  const visitandoOutraEmpresa = !!tenant && !!userProfile?.tenant_id && tenant.id !== userProfile.tenant_id
-  const superadmin = isSuperadmin(userProfile?.role) && !visitandoOutraEmpresa
+  const visitandoOutraEmpresa = isSuperadmin(userProfile?.role) && !!tenant && !!userProfile?.tenant_id && tenant.id !== userProfile.tenant_id
+  const role = visitandoOutraEmpresa ? 'owner' : userProfile?.role
 
-  const navItems: { href: string; label: string }[] = [
-    { href: '/', label: 'Leads' },
-    { href: '/clientes', label: 'Clientes' },
-    { href: '/dashboard', label: 'Painel' },
-    { href: '/calendario', label: 'Agenda' },
-    { href: '/settings/integrations', label: 'Integrações' },
-    ...(canManageTeam(userProfile?.role) ? [{ href: '/empresa', label: 'Minha empresa' }] : []),
-    ...(superadmin ? [
-      { href: '/admin/empresas', label: 'Empresas' },
-      { href: '/admin', label: 'Administração' },
-      { href: '/settings/users', label: 'Usuários (global)' },
-      { href: '/admin/google-calendar', label: 'Google Calendar' },
-    ] : []),
-  ]
+  const navItems = ([
+    { href: '/clientes', label: 'Clientes', area: 'clientes' },
+    { href: '/leads', label: 'Leads', area: 'leads' },
+    { href: '/dashboard', label: 'Painel', area: 'painel' },
+    { href: '/calendario', label: 'Agenda', area: 'agenda' },
+    { href: '/settings/integrations', label: 'Integrações', area: 'integracoes' },
+    { href: '/empresa', label: 'Minha empresa', area: 'empresa' },
+    { href: '/admin/empresas', label: 'Empresas', area: 'admin' },
+    { href: '/admin', label: 'Administração', area: 'admin' },
+    { href: '/settings/users', label: 'Usuários (global)', area: 'admin' },
+    { href: '/admin/google-calendar', label: 'Google Calendar', area: 'admin' },
+  ] satisfies { href: string; label: string; area: Area }[]).filter(i => pode(role, i.area))
+
+  // '/admin' não fica ativo em sub-rotas que têm item próprio
+  const ativo = (href: string) =>
+    pathname === href || (href !== '/admin' && pathname.startsWith(href + '/'))
 
   return (
     <nav className="flex flex-col gap-1">
@@ -70,7 +73,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           onClick={onNavigate}
           className={cn(
             'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-            pathname === href
+            ativo(href)
               ? 'bg-foreground text-background'
               : 'text-foreground/80 hover:bg-muted hover:text-foreground'
           )}
@@ -126,6 +129,12 @@ function AccountFooter() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {/* Sem menu Integrações: conexões pessoais (WhatsApp/Instagram) por aqui */}
+        {!pode(userProfile?.role, 'integracoes') && (
+          <DropdownMenuItem asChild>
+            <Link href="/settings/integrations">Minhas conexões</Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onClick={() => { void signOut() }}
           className="text-destructive focus:text-destructive"
@@ -143,7 +152,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [users, setUsers] = useState<UserOption[]>([])
 
-  const podeVisualizarComo = canManageTeam(userProfile?.role)
+  const podeVisualizarComo = pode(userProfile?.role, 'visualizar_como')
   const tenantId = tenant?.id ?? null
 
   useEffect(() => {
