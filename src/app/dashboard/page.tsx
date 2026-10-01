@@ -4,7 +4,7 @@ import 'react-day-picker/dist/style.css'
 
 import { useEffect, useMemo, useState } from 'react'
 import { Users, ShoppingBag, TrendingUp, CircleDollarSign, Loader2, RefreshCcw, DollarSign, CheckCircle2, Bell } from 'lucide-react'
-import { eachDayOfInterval, endOfMonth, format, isValid, parseISO, startOfMonth } from 'date-fns'
+import { eachDayOfInterval, endOfMonth, format, startOfMonth } from 'date-fns'
 import {
   ResponsiveContainer,
   LineChart,
@@ -49,13 +49,11 @@ interface PeriodoResumo {
   leadsComLembrete: number
 }
 
-type NegociacaoRegistro = {
-  data_mes_venda: string | null
-  resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda' | null
-  valor_fechado: number | string | null
-  pagou_sinal: boolean | null
-  venda_paga: boolean | null
-  data_lembrete_chamada: string | null
+// Retorno de dashboard_resumo (numeric do Postgres pode vir como string).
+type ResumoDashboard = Omit<PeriodoResumo, 'valorEmProcesso' | 'valorVendido'> & {
+  valorEmProcesso: number | string
+  valorVendido: number | string
+  dias: { dia: string; leads: number; valor: number | string }[]
 }
 
 function DashboardContent() {
@@ -133,111 +131,45 @@ function DashboardContent() {
           throw new Error('Usuário não autenticado')
         }
 
-        // data_mes_venda = data_pagamento_sinal (quando a venda tiver) senão data_contato
-        // (coluna gerada em negociacoes). negociacoes não tem user_id próprio:
-        // pra escopar por impersonatedUserId precisamos do join com clientes
-        // (!inner) e filtrar clientes.user_id — mesmo padrão de useClientes.ts.
-        let query = impersonatedUserId
-          ? supabase
-              .from('negociacoes')
-              .select('data_mes_venda, resultado, valor_fechado, pagou_sinal, venda_paga, data_lembrete_chamada, clientes!inner(user_id)')
-              .eq('clientes.user_id', impersonatedUserId)
-          : supabase
-              .from('negociacoes')
-              .select('data_mes_venda, resultado, valor_fechado, pagou_sinal, venda_paga, data_lembrete_chamada')
-
-        query = query
-          .gte('data_mes_venda', inicioISO)
-          .lte('data_mes_venda', fimISO)
-          .order('data_mes_venda', { ascending: true })
-        const { data, error } = await query
+        // Agregado no banco (dashboard_resumo): evita o corte de 1000 linhas do
+        // PostgREST. RLS escopa (user = próprios leads); impersonatedUserId filtra.
+        // Dia = data_mes_venda (sinal se houver, senão data_contato).
+        const { data, error } = await supabase.rpc('dashboard_resumo', {
+          p_inicio: inicioISO,
+          p_fim: fimISO,
+          p_user_id: impersonatedUserId ?? null,
+          // função fora dos tipos gerados (mesmo padrão de find_or_create_cliente)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any)
 
         if (error) {
           throw error
         }
 
-        const registros: NegociacaoRegistro[] = data
-          ? (data as NegociacaoRegistro[])
-          : []
+        const resumo = data as ResumoDashboard
+        const porDia = new Map(resumo.dias.map((d) => [d.dia, d]))
 
-        const diasIntervalo = eachDayOfInterval({ start: dateRange.from, end: dateRange.to })
-        const leadsPorDia = new Map<string, number>()
-        const valorPorDia = new Map<string, number>()
-        let totalLeads = 0
-        let totalVendas = 0
-        let totalEmProcesso = 0
-        let totalNaoVenda = 0
-        let totalValorVendido = 0
-        let totalValorEmProcesso = 0
-        let totalVendasComSinal = 0
-        let totalVendasPagas = 0
-        let totalLeadsComLembrete = 0
-
-        for (const item of registros) {
-          const dataMesVendaRaw = item.data_mes_venda as string | null
-          if (!dataMesVendaRaw) continue
-
-          const dataMesVenda = parseISO(dataMesVendaRaw)
-          if (!isValid(dataMesVenda)) continue
-
-          const chave = format(dataMesVenda, 'yyyy-MM-dd')
-
-          leadsPorDia.set(chave, (leadsPorDia.get(chave) ?? 0) + 1)
-          totalLeads += 1
-
-          const valorFechado = typeof item.valor_fechado === 'number'
-            ? item.valor_fechado
-            : typeof item.valor_fechado === 'string'
-              ? Number(item.valor_fechado) || 0
-              : 0
-
-          switch (item.resultado) {
-            case 'Venda':
-              totalVendas += 1
-              totalValorVendido += valorFechado
-              valorPorDia.set(chave, (valorPorDia.get(chave) ?? 0) + valorFechado)
-              // Contar vendas com sinal e vendas pagas
-              if (item.pagou_sinal) totalVendasComSinal += 1
-              if (item.venda_paga) totalVendasPagas += 1
-              break
-            case 'Orçamento em Processo':
-              totalEmProcesso += 1
-              totalValorEmProcesso += valorFechado
-              break
-            case 'Não Venda':
-              totalNaoVenda += 1
-              break
-            default:
-              break
-          }
-
-          // Contar leads com lembrete
-          if (item.data_lembrete_chamada) {
-            totalLeadsComLembrete += 1
-          }
-        }
-
-        const historicoFormatado = diasIntervalo.map((dia) => {
+        const historicoFormatado = eachDayOfInterval({ start: dateRange.from, end: dateRange.to }).map((dia) => {
           const chave = format(dia, 'yyyy-MM-dd')
           return {
             isoDate: chave,
             label: format(dia, 'dd/MM'),
-            leads: leadsPorDia.get(chave) ?? 0,
-            valor: valorPorDia.get(chave) ?? 0,
+            leads: porDia.get(chave)?.leads ?? 0,
+            valor: Number(porDia.get(chave)?.valor ?? 0),
           }
         })
 
         setHistorico(historicoFormatado)
         setPeriodSummary({
-          total: totalLeads,
-          vendas: totalVendas,
-          emProcesso: totalEmProcesso,
-          naoVenda: totalNaoVenda,
-          valorEmProcesso: totalValorEmProcesso,
-          valorVendido: totalValorVendido,
-          vendasComSinal: totalVendasComSinal,
-          vendasPagas: totalVendasPagas,
-          leadsComLembrete: totalLeadsComLembrete,
+          total: resumo.total,
+          vendas: resumo.vendas,
+          emProcesso: resumo.emProcesso,
+          naoVenda: resumo.naoVenda,
+          valorEmProcesso: Number(resumo.valorEmProcesso),
+          valorVendido: Number(resumo.valorVendido),
+          vendasComSinal: resumo.vendasComSinal,
+          vendasPagas: resumo.vendasPagas,
+          leadsComLembrete: resumo.leadsComLembrete,
         })
       } catch (error) {
         console.error('Erro ao carregar histórico de clientes:', error)
