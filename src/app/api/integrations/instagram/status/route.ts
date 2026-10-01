@@ -15,7 +15,7 @@ export async function GET() {
   const admin = createAdminClient()
   const { data: row } = await admin
     .from('instagram_accounts')
-    .select('username, status')
+    .select('username, status, capturar_nao_seguidos')
     .eq('user_id', user.id)
     .maybeSingle()
 
@@ -23,5 +23,9 @@ export async function GET() {
     return NextResponse.json({ status: 'not_connected' })
   }
 
-  return NextResponse.json({ status: 'connected', username: row.username })
+  return NextResponse.json({
+    status: 'connected',
+    username: row.username,
+    capturar_nao_seguidos: row.capturar_nao_seguidos,
+  })
 }

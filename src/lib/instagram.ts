@@ -66,19 +66,39 @@ export async function getProfile(accessToken: string): Promise<{ user_id: string
   return res.json()
 }
 
-export async function getSenderUsername(senderId: string, accessToken: string): Promise<string | null> {
+async function fetchSender(
+  senderId: string,
+  accessToken: string,
+  fields: string
+): Promise<{ username?: string; is_business_follow_user?: boolean } | null> {
   const params = new URLSearchParams({
-    fields: 'username',
+    fields,
     access_token: accessToken,
     appsecret_proof: appSecretProof(accessToken),
   })
   try {
     const res = await fetch(`https://graph.instagram.com/v21.0/${senderId}?${params.toString()}`)
     if (!res.ok) return null
-    const data = (await res.json()) as { username?: string }
-    return data.username ?? null
+    return await res.json()
   } catch {
     return null
+  }
+}
+
+export async function getSenderUsername(senderId: string, accessToken: string): Promise<string | null> {
+  return (await fetchSender(senderId, accessToken, 'username'))?.username ?? null
+}
+
+// seguidoPelaConta: null = desconhecido (API não devolveu o campo).
+export async function getSenderInfo(
+  senderId: string,
+  accessToken: string
+): Promise<{ username: string | null; seguidoPelaConta: boolean | null }> {
+  const data = await fetchSender(senderId, accessToken, 'username,is_business_follow_user')
+  if (!data) return { username: await getSenderUsername(senderId, accessToken), seguidoPelaConta: null }
+  return {
+    username: data.username ?? null,
+    seguidoPelaConta: typeof data.is_business_follow_user === 'boolean' ? data.is_business_follow_user : null,
   }
 }
 

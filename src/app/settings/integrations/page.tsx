@@ -7,6 +7,8 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import MainLayout from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 
 type WhatsappStatus =
   | { status: 'loading' }
@@ -19,7 +21,7 @@ type WhatsappStatus =
 type InstagramStatus =
   | { status: 'loading' }
   | { status: 'not_connected' }
-  | { status: 'connected'; username: string | null }
+  | { status: 'connected'; username: string | null; capturar_nao_seguidos: boolean }
 
 function InstagramCard() {
   const [state, setState] = useState<InstagramStatus>({ status: 'loading' })
@@ -33,6 +35,16 @@ function InstagramCard() {
   useEffect(() => {
     fetchStatus()
   }, [fetchStatus])
+
+  async function handleCapturarNaoSeguidos(valor: boolean) {
+    setState((s) => (s.status === 'connected' ? { ...s, capturar_nao_seguidos: valor } : s))
+    const res = await fetch('/api/integrations/instagram/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ capturar_nao_seguidos: valor }),
+    })
+    if (!res.ok) await fetchStatus()
+  }
 
   async function handleDisconnect() {
     setState({ status: 'loading' })
@@ -72,6 +84,22 @@ function InstagramCard() {
             <div className="flex items-center gap-2 text-sm text-green-600">
               <CheckCircle2 className="h-5 w-5" />
               Conectado{state.username ? ` — @${state.username}` : ''}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Mensagens vindas de anúncios viram lead automaticamente.
+            </p>
+            <div className="flex items-start gap-3">
+              <Switch
+                id="capturar-nao-seguidos"
+                checked={state.capturar_nao_seguidos}
+                onCheckedChange={handleCapturarNaoSeguidos}
+              />
+              <Label htmlFor="capturar-nao-seguidos" className="space-y-1 font-normal">
+                <span className="block text-sm font-medium">Capturar também quem você não segue</span>
+                <span className="block text-sm text-muted-foreground">
+                  DMs sem anúncio viram lead só se o seu perfil não segue a pessoa (filtra amigos e família).
+                </span>
+              </Label>
             </div>
             <Button variant="outline" onClick={handleDisconnect}>
               Desconectar

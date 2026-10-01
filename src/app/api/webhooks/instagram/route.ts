@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
-import { verifyWebhookSignature, getSenderUsername } from '@/lib/instagram'
+import { verifyWebhookSignature, getSenderInfo, getSenderUsername } from '@/lib/instagram'
+
+interface InstagramReferral {
+  ad_id?: string
+  source?: string
+  type?: string
+}
 
 interface InstagramMessagingEvent {
   sender: { id: string }
   recipient: { id: string }
   timestamp: number
-  message?: { mid: string; text?: string; is_echo?: boolean }
-  referral?: { ad_id?: string; source?: string; type?: string }
+  // Clique em anúncio p/ direct: referral vem dentro de message (webhook `messages`);
+  // no topo do evento só em `messaging_referrals` (conversa já existente).
+  message?: { mid: string; text?: string; is_echo?: boolean; referral?: InstagramReferral }
+  referral?: InstagramReferral
 }
 
 interface InstagramWebhookBody {
@@ -47,17 +55,28 @@ export async function POST(request: NextRequest) {
   for (const entry of body.entry ?? []) {
     for (const event of entry.messaging ?? []) {
       if (!event.message || event.message.is_echo || !event.message.text) continue
-      if (event.referral?.source !== 'ADS') continue
+
+      const veioDeAnuncio = (event.message.referral ?? event.referral)?.source === 'ADS'
 
       const { data: account } = await supabase
         .from('instagram_accounts')
-        .select('user_id, access_token')
+        .select('user_id, access_token, capturar_nao_seguidos')
         .eq('ig_user_id', entry.id)
         .maybeSingle()
 
       if (!account) continue
 
-      const username = await getSenderUsername(event.sender.id, account.access_token)
+      // Sem anúncio: só vira lead se a regra estiver ligada e a conta NÃO seguir o
+      // remetente (amigos/família costumam ser seguidos). Desconhecido = ignora.
+      let username: string | null
+      if (veioDeAnuncio) {
+        username = await getSenderUsername(event.sender.id, account.access_token)
+      } else {
+        if (!account.capturar_nao_seguidos) continue
+        const info = await getSenderInfo(event.sender.id, account.access_token)
+        if (info.seguidoPelaConta !== false) continue
+        username = info.username
+      }
       const identificador = username ? `@${username}` : event.sender.id
       const dataContato = new Date(event.timestamp).toISOString().split('T')[0]
 
@@ -85,7 +104,11 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const { id: clienteId } = data as { id: string; created: boolean }
+      const { id: clienteId, created } = data as { id: string; created: boolean }
+
+      // Sem anúncio, cada mensagem da conversa chega aqui: só o primeiro contato
+      // gera negociação. Anúncio traz referral só na 1ª mensagem do clique.
+      if (!veioDeAnuncio && !created) continue
 
       // Sempre registra uma negociação nova pro evento, mesmo quando o cliente já
       // existia (created:false) — mesma correção da Task 5.1 (WAHA): um lead
