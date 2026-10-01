@@ -5,7 +5,7 @@ import { processarOutbox } from '@/lib/meta-outbox'
 // Chamado a cada 5 min pelo pg_cron + pg_net do Supabase (Vercel Hobby só tem cron diário).
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.META_CRON_SECRET || authHeader !== `Bearer ${process.env.META_CRON_SECRET}`) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 
