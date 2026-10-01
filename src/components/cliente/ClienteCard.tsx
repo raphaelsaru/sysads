@@ -5,14 +5,23 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency, type SupportedCurrency } from '@/lib/currency'
 import type { Cliente } from '@/types/crm'
+import type { Pagamento, TotalCliente } from '@/lib/totais-vendas'
 
 type StatusPagamento = { label: string; variant: 'success' | 'warning' | 'outline' }
 
-function statusPagamento(c: Cliente): StatusPagamento {
+const STATUS: Record<Pagamento, StatusPagamento> = {
+  pago: { label: 'Pago', variant: 'success' },
+  parcial: { label: 'Parcial', variant: 'warning' },
+  a_receber: { label: 'A receber', variant: 'outline' },
+}
+
+// Sem totais (ainda carregando): cai na última negociação
+function statusPagamento(c: Cliente, totais?: TotalCliente): StatusPagamento {
+  if (totais) return STATUS[totais.pagamento]
   const n = c.ultimaNegociacao
-  if (n?.vendaPaga) return { label: 'Pago', variant: 'success' }
-  if (n?.pagouSinal) return { label: 'Sinal pago', variant: 'warning' }
-  return { label: 'A receber', variant: 'outline' }
+  if (n?.vendaPaga) return STATUS.pago
+  if (n?.pagouSinal) return STATUS.parcial
+  return STATUS.a_receber
 }
 
 // dataContato é `date` (YYYY-MM-DD); T00:00 evita deslocamento de fuso.
@@ -20,15 +29,15 @@ function formatarData(data: string) {
   return new Date(`${data}T00:00`).toLocaleDateString('pt-BR')
 }
 
-export default function ClienteCard({ cliente, currency, responsavel }: {
+export default function ClienteCard({ cliente, currency, responsavel, totais }: {
   cliente: Cliente
   currency: SupportedCurrency
   responsavel?: string
+  totais?: TotalCliente
 }) {
-  const status = statusPagamento(cliente)
+  const status = statusPagamento(cliente, totais)
   const ultima = cliente.ultimaNegociacao
-  // useClientes só traz a última negociação (sem LTV agregado)
-  const valor = cliente.ltv ?? ultima?.valorFechadoNumero ?? null
+  const valor = totais?.total ?? ultima?.valorFechadoNumero ?? null
 
   return (
     <Link
@@ -47,7 +56,7 @@ export default function ClienteCard({ cliente, currency, responsavel }: {
           <div className="text-lg font-semibold">{formatCurrency(valor, currency, { fallback: '—' })}</div>
           <div className="text-xs text-muted-foreground">
             {ultima?.dataContato ? `Última negociação: ${formatarData(ultima.dataContato)}` : 'Sem negociação'}
-            {cliente.totalFollowUps ? ` · ${cliente.totalFollowUps} follow-ups` : ''}
+            {totais && totais.vendas > 1 ? ` · ${totais.vendas} vendas` : ''}
           </div>
           {responsavel && <div className="truncate text-xs text-muted-foreground">Responsável: {responsavel}</div>}
         </CardContent>

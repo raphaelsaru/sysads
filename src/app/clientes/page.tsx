@@ -18,6 +18,7 @@ import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
 import { pode } from '@/lib/permissions'
 import { useNomesUsuarios } from '@/hooks/useNomesUsuarios'
+import { useTotaisVendas } from '@/hooks/useTotaisVendas'
 
 export default function ClientesPage() {
   return (
@@ -72,6 +73,9 @@ function ClientesPageContent() {
     carregarMaisClientes,
     estatisticas,
   } = useClientes(currency, impersonatedUserId, filtrosQuery)
+
+  const idsClientes = useMemo(() => clientes.flatMap((c) => (c.id ? [c.id] : [])), [clientes])
+  const totaisPorCliente = useTotaisVendas(idsClientes)
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -227,6 +231,7 @@ function ClientesPageContent() {
                   cliente={c}
                   currency={currency}
                   responsavel={mostrarResponsavel && c.userId ? nomesPorUsuario[c.userId] : undefined}
+                  totais={c.id ? totaisPorCliente[c.id] : undefined}
                 />
               ))}
             </div>
