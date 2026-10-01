@@ -6,6 +6,7 @@ Data: 2026-10-01
 Controle de acesso por perfil (superadmin, dono, gestor, vendedor, artista), navegação adaptada ao perfil, home orientada a cliente e dono com múltiplas empresas.
 
 ## Papéis
+- Gestor = gestor de tráfego: vê operação da empresa, cuida de integrações/Meta, não opera leads alheios.
 - Enum `user_role` += `gestor`, `vendedor`.
 - `admin` = superadmin (nome mantido). `owner` = Dono. `user` = **Artista** (só o label muda; os 11 `user` atuais viram Artista).
 - Role continua global em `user_profiles.role` (dono é dono em todas as empresas vinculadas).
@@ -17,12 +18,14 @@ Fonte única p/ Sidebar, middleware e APIs: `pode(role, area)` e `homePath(role)
 |---|---|---|---|---|---|
 | leads / clientes / agenda | ✓ | ✓ | ✓ | ✓ | ✓ |
 | painel | ✓ | ✓ | ✓ | – | ✓ (só próprias métricas) |
-| integrações (empresa, incl. Meta) | ✓ | ✓ | ✓ | – | – |
+| integrações (empresa) | ✓ | ✓ | ✓ | – | – |
+| card Meta CAPI | ✓ | – | ✓ | – | – |
+| convidar/gerenciar usuários | ✓ | ✓ | – | – | – |
 | minha empresa | ✓ | ✓ | – | – | – |
 | visualizar como | ✓ | ✓ | ✓ | – | – |
 | admin global | ✓ | – | – | – | – |
 | ver dados | empresa | empresa | empresa | próprios | próprios |
-| editar/excluir dados | empresa | empresa | próprios | próprios | próprios |
+| criar/editar/excluir dados | empresa | empresa | só próprios (não cria p/ outro) | próprios | próprios |
 | home | /admin/empresas | /clientes | /leads | /leads | /clientes |
 
 Superadmin visitando outra empresa continua vendo menus de owner (regra atual).
@@ -43,7 +46,7 @@ Superadmin visitando outra empresa continua vendo menus de owner (regra atual).
 - `/clientes` vira grid de cards: nome, status, valor, última interação, próximo agendamento. Clique → `/leads/[id]`. Escopo pelo RLS.
 - Middleware: rota fora da matriz → home do perfil. APIs (`dashboard`, `empresa/meta`, `settings/integrations`, etc.) checam `pode()` também.
 - `EmpresaSwitcher`: aparece p/ owner com >1 empresa (lista via `tenant_owners`); endpoint de troca generalizado (superadmin ou owner vinculado).
-- WhatsApp/Instagram pessoais → `/conta/conexoes`, item no menu da conta (todos os perfis). `/settings/integrations` = integrações da empresa; card Meta liberado p/ owner/gestor.
+- WhatsApp/Instagram pessoais → `/conta/conexoes`, item no menu da conta (todos os perfis). `/settings/integrations` = integrações da empresa; card Meta só gestor/superadmin (owner vê a página sem o card).
 - Painel do artista: mesmo `/dashboard`, dados restritos aos próprios (RLS/RPC), sem seletor de usuário.
 - Convite em `/empresa`: owner escolhe papel (gestor / vendedor / artista).
 
