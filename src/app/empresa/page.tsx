@@ -19,6 +19,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import MetaAdsCard from '@/components/empresa/MetaAdsCard'
 import { HEX_COLOR_RE, foregroundFor, hexToHslTriplet } from '@/lib/color'
 import { canManageTeam, isSuperadmin, roleLabel } from '@/lib/roles'
 import type { UserRole } from '@/types/crm'
@@ -436,6 +437,8 @@ function EmpresaPageContent() {
             )}
           </CardContent>
         </Card>
+
+        {isSuperadmin(userProfile?.role) && <MetaAdsCard tenantId={tenantId} />}
       </div>
 
       <Dialog open={conviteOpen} onOpenChange={fecharConvite}>
