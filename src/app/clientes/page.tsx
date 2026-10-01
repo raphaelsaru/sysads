@@ -5,17 +5,19 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Users, DollarSign, CheckCircle2, Clock, Loader2 } from 'lucide-react'
 
 import MainLayout from '@/components/layout/MainLayout'
-import ClienteTable from '@/components/ClienteTable'
+import ClienteCard from '@/components/cliente/ClienteCard'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import ClienteFiltrosPanel, { filtrosIniciais, TODOS_MESES } from '@/components/ClienteFiltros'
 import { useClientes, type ClienteFiltrosInput } from '@/hooks/useClientes'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAdmin } from '@/contexts/AdminContext'
-import { Cliente } from '@/types/crm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
+import { pode } from '@/lib/permissions'
+import { useNomesUsuarios } from '@/hooks/useNomesUsuarios'
 
 export default function ClientesPage() {
   return (
@@ -32,7 +34,7 @@ export default function ClientesPage() {
 }
 
 function ClientesPageContent() {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, tenant } = useAuth()
   const { impersonatedUserId, impersonatedUser } = useAdmin()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -40,6 +42,10 @@ function ClientesPageContent() {
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as 'BRL' | 'USD' | 'EUR'
   const effectiveUserId = impersonatedUserId ?? user?.id
   const categorias = getCategoriasParaUsuario(effectiveUserId)
+
+  const verEmpresa = pode(userProfile?.role, 'ver_empresa')
+  const mostrarResponsavel = verEmpresa && !impersonatedUserId
+  const nomesPorUsuario = useNomesUsuarios(mostrarResponsavel, tenant?.id)
 
   const [filtros, setFiltros] = useState(filtrosIniciais)
 
@@ -62,7 +68,6 @@ function ClientesPageContent() {
     total,
     loading,
     loadingMais,
-    excluirCliente,
     hasMore,
     carregarMaisClientes,
     estatisticas,
@@ -74,16 +79,6 @@ function ClientesPageContent() {
       router.replace(`/leads/${editId}`)
     }
   }, [searchParams, router])
-
-  const handleEditarCliente = (cliente: Cliente) => {
-    if (!cliente.id) return
-    router.push(`/leads/${cliente.id}`)
-  }
-
-  const handleExcluirCliente = async (id: string) => {
-    await excluirCliente(id)
-    window.dispatchEvent(new CustomEvent('cliente-atualizado'))
-  }
 
   const atualizarFiltro = (campo: keyof typeof filtrosIniciais, valor: string) => {
     setFiltros((prev) => ({
@@ -107,12 +102,16 @@ function ClientesPageContent() {
             </Badge>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                {impersonatedUser ? `Clientes de ${impersonatedUser.company_name}` : 'Meus Clientes'}
+                {impersonatedUser
+                  ? `Clientes de ${impersonatedUser.company_name}`
+                  : verEmpresa ? 'Clientes da empresa' : 'Meus clientes'}
               </h1>
               <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
                 {impersonatedUser
                   ? `Visualizando vendas fechadas de ${impersonatedUser.company_name}.`
-                  : 'Gerencie seus clientes que já fecharam venda. Acompanhe pagamentos, atualize informações e mantenha o relacionamento ativo.'}
+                  : verEmpresa
+                    ? 'Clientes com venda fechada de toda a empresa. Clique em um cliente para ver o detalhe.'
+                    : 'Gerencie seus clientes que já fecharam venda. Acompanhe pagamentos, atualize informações e mantenha o relacionamento ativo.'}
               </p>
             </div>
           </div>
@@ -188,7 +187,7 @@ function ClientesPageContent() {
           categorias={categorias}
         />
 
-        {/* Tabela de Clientes */}
+        {/* Cards de Clientes */}
         {loading && clientes.length === 0 ? (
           <Card>
             <CardHeader>
@@ -220,15 +219,25 @@ function ClientesPageContent() {
             </CardHeader>
           </Card>
         ) : (
-          <ClienteTable
-            clientes={clientes}
-            onEdit={handleEditarCliente}
-            onDelete={handleExcluirCliente}
-            onLoadMore={carregarMaisClientes}
-            hasMore={hasMore}
-            isLoadingMore={loadingMais}
-            userId={effectiveUserId}
-          />
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {clientes.map((c) => (
+                <ClienteCard
+                  key={c.id}
+                  cliente={c}
+                  currency={currency}
+                  responsavel={mostrarResponsavel && c.userId ? nomesPorUsuario[c.userId] : undefined}
+                />
+              ))}
+            </div>
+            {hasMore && (
+              <div className="flex justify-center">
+                <Button variant="outline" onClick={() => carregarMaisClientes()} disabled={loadingMais}>
+                  {loadingMais ? 'Carregando…' : 'Carregar mais'}
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </section>
     </MainLayout>

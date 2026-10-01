@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { FALLBACK_CURRENCY_VALUE } from '@/lib/currency'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
 import { pode } from '@/lib/permissions'
+import { useNomesUsuarios } from '@/hooks/useNomesUsuarios'
 
 export default function Home() {
   return (
@@ -46,25 +47,7 @@ function HomePage() {
   const categorias = getCategoriasParaUsuario(effectiveUserId)
 
   const mostrarColunaUsuario = pode(userProfile?.role, 'ver_empresa') && !impersonatedUserId
-  const [nomesPorUsuario, setNomesPorUsuario] = useState<Record<string, string>>({})
-
-  useEffect(() => {
-    setNomesPorUsuario({})
-    if (!mostrarColunaUsuario) return
-    let cancelado = false
-    fetch('/api/empresa/usuarios')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelado || !data?.usuarios) return
-        const mapa: Record<string, string> = {}
-        for (const u of data.usuarios as { id: string; full_name: string | null; email: string | null }[]) {
-          mapa[u.id] = u.full_name ?? u.email ?? 'Sem nome'
-        }
-        setNomesPorUsuario(mapa)
-      })
-      .catch(() => {})
-    return () => { cancelado = true }
-  }, [mostrarColunaUsuario, tenant?.id])
+  const nomesPorUsuario = useNomesUsuarios(mostrarColunaUsuario, tenant?.id)
 
   const [filtros, setFiltros] = useState(filtrosIniciais)
 
