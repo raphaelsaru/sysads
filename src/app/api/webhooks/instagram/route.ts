@@ -56,7 +56,8 @@ export async function POST(request: NextRequest) {
     for (const event of entry.messaging ?? []) {
       if (!event.message || event.message.is_echo || !event.message.text) continue
 
-      const veioDeAnuncio = (event.message.referral ?? event.referral)?.source === 'ADS'
+      const referral = event.message.referral ?? event.referral
+      const veioDeAnuncio = referral?.source === 'ADS'
 
       const { data: account } = await supabase
         .from('instagram_accounts')
@@ -128,6 +129,10 @@ export async function POST(request: NextRequest) {
         created_by: account.user_id,
         updated_by: account.user_id,
         origem_evento_id: origemEventoId,
+        // atribuição p/ Meta CAPI (ver src/lib/meta-capi.ts)
+        meta_ad_id: veioDeAnuncio ? referral?.ad_id ?? null : null,
+        meta_sender_id: event.sender.id,
+        meta_ig_account_id: entry.id,
       })
 
       if (negociacaoError) {
