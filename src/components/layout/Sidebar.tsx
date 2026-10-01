@@ -40,8 +40,11 @@ interface UsuarioEmpresa {
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  const { userProfile } = useAuth()
-  const superadmin = isSuperadmin(userProfile?.role)
+  const { userProfile, tenant } = useAuth()
+  // Superadmin visitando outra empresa vê os menus de owner; os globais voltam
+  // ao retornar pela EmpresaSwitcher (mesma regra de "visitando" dela).
+  const visitandoOutraEmpresa = !!tenant && !!userProfile?.tenant_id && tenant.id !== userProfile.tenant_id
+  const superadmin = isSuperadmin(userProfile?.role) && !visitandoOutraEmpresa
 
   const navItems: { href: string; label: string }[] = [
     { href: '/', label: 'Leads' },
