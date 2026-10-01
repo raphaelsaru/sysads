@@ -51,6 +51,9 @@ interface ClienteTableProps {
   userId?: string | null
   mostrarUsuario?: boolean
   nomesPorUsuario?: Record<string, string>
+  // Por linha: esconde ações quando o lead é de outro usuário e o perfil só lê (gestor).
+  podeExcluir?: (cliente: Cliente) => boolean
+  podeAlterar?: (cliente: Cliente) => boolean
 }
 
 const resultadoVariant: Record<Negociacao['resultado'], 'success' | 'warning' | 'destructive'> = {
@@ -91,7 +94,7 @@ function QualidadeBadge({ qualidade }: { qualidade?: Negociacao['qualidadeContat
   )
 }
 
-export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, hasMore = false, isLoadingMore = false, userId, mostrarUsuario = false, nomesPorUsuario = {} }: ClienteTableProps) {
+export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, hasMore = false, isLoadingMore = false, userId, mostrarUsuario = false, nomesPorUsuario = {}, podeExcluir, podeAlterar }: ClienteTableProps) {
   const router = useRouter()
   const mostrarCategoria = getCategoriasParaUsuario(userId).length > 0
   const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null)
@@ -402,7 +405,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
               )}
             </CardContent>
             <CardFooter className="flex items-center justify-end gap-2 pt-0">
-              {cliente.id && (
+              {cliente.id && (podeAlterar?.(cliente) ?? true) && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -419,7 +422,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                   Editar
                 </Button>
               )}
-              {onDelete && cliente.id && (
+              {onDelete && cliente.id && (podeExcluir?.(cliente) ?? true) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -574,7 +577,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {cliente.id && (
+                      {cliente.id && (podeAlterar?.(cliente) ?? true) && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -597,7 +600,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
                           <Pencil className="h-4 w-4" />
                         </Button>
                       )}
-                      {onDelete && cliente.id && (
+                      {onDelete && cliente.id && (podeExcluir?.(cliente) ?? true) && (
                         <Button
                           variant="ghost"
                           size="icon"

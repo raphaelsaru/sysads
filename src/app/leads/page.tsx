@@ -132,6 +132,9 @@ function HomePage() {
     router.push(`/leads/${cliente.id}`)
   }
 
+  // Gestor lê a empresa toda mas só altera os próprios leads (RLS idem).
+  const podeAlterarLead = (c: Cliente) => c.userId === user?.id || pode(userProfile?.role, 'editar_empresa')
+
   const handleExcluirCliente = async (id: string) => {
     await excluirCliente(id)
     window.dispatchEvent(new CustomEvent('cliente-atualizado'))
@@ -225,6 +228,8 @@ function HomePage() {
             userId={effectiveUserId}
             mostrarUsuario={mostrarColunaUsuario}
             nomesPorUsuario={nomesPorUsuario}
+            podeExcluir={podeAlterarLead}
+            podeAlterar={podeAlterarLead}
           />
         )}
 

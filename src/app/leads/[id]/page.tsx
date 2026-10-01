@@ -28,6 +28,7 @@ import { formatDateBR } from '@/lib/dateUtils'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
 import { calcularLtv, calcularTotalVendas } from '@/lib/negociacoes'
 import { cn } from '@/lib/utils'
+import { pode } from '@/lib/permissions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -238,6 +239,10 @@ function LeadDetailPageContent() {
   const donoId = cliente?.userId ?? impersonatedUser?.id ?? userProfile?.id
   const categorias = useMemo(() => getCategoriasParaUsuario(donoId), [donoId])
 
+  // Gestor vê leads da empresa toda, mas só altera os próprios (RLS idem).
+  const somenteLeitura =
+    !!cliente?.userId && cliente.userId !== userProfile?.id && !pode(userProfile?.role, 'editar_empresa')
+
   const abrirEdicaoPessoa = () => {
     if (!cliente) return
     setPessoaForm({
@@ -361,6 +366,7 @@ function LeadDetailPageContent() {
                   {cliente.nome}
                 </h1>
                 {cliente.categoria && <Badge variant="muted">{cliente.categoria}</Badge>}
+                {somenteLeitura && <Badge variant="secondary">Somente leitura</Badge>}
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 <span>{cliente.whatsappInstagram}</span>
@@ -377,16 +383,18 @@ function LeadDetailPageContent() {
               )}
             </div>
 
-            <div className="flex shrink-0 gap-3">
-              <Button variant="outline" className="gap-2" onClick={abrirEdicaoPessoa}>
-                <Pencil className="h-4 w-4" />
-                Editar dados
-              </Button>
-              <Button className="gap-2" onClick={abrirNovaNegociacao}>
-                <Plus className="h-4 w-4" />
-                Nova negociação
-              </Button>
-            </div>
+            {!somenteLeitura && (
+              <div className="flex shrink-0 gap-3">
+                <Button variant="outline" className="gap-2" onClick={abrirEdicaoPessoa}>
+                  <Pencil className="h-4 w-4" />
+                  Editar dados
+                </Button>
+                <Button className="gap-2" onClick={abrirNovaNegociacao}>
+                  <Plus className="h-4 w-4" />
+                  Nova negociação
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -464,7 +472,7 @@ function LeadDetailPageContent() {
                       currency={currency}
                       expandida={expandidas.has(item.negociacao.id)}
                       onToggle={() => toggleExpandida(item.negociacao.id)}
-                      onEditar={() => abrirEdicaoNegociacao(item.negociacao)}
+                      onEditar={somenteLeitura ? undefined : () => abrirEdicaoNegociacao(item.negociacao)}
                     />
                   ) : (
                     <FollowUpItem key={`followup-${item.followUp.id}`} followUp={item.followUp} />
@@ -617,7 +625,7 @@ function NegociacaoItem({
   currency: SupportedCurrency
   expandida: boolean
   onToggle: () => void
-  onEditar: () => void
+  onEditar?: () => void
 }) {
   return (
     <li className="rounded-xl border border-border/70 bg-muted/20">
@@ -678,12 +686,14 @@ function NegociacaoItem({
             </div>
           )}
 
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" className="gap-2" onClick={onEditar}>
-              <Pencil className="h-3.5 w-3.5" />
-              Editar negociação
-            </Button>
-          </div>
+          {onEditar && (
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" className="gap-2" onClick={onEditar}>
+                <Pencil className="h-3.5 w-3.5" />
+                Editar negociação
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </li>
