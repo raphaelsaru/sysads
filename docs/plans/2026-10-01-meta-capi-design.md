@@ -74,3 +74,11 @@ save negociação ─trigger─▶ meta_event_outbox (pending)
 - `supabase/tests/meta_outbox.sql`: estágios uma vez só, não-elegível ignorado, Purchase
   espera valor, isolamento por tenant.
 - Homologação com `test_event_code` no Events Manager (Prizely primeiro).
+
+## Revisão 2026-10-01: integração por usuário
+
+Tenant Prizely tem tatuadores com contas de anúncio/BM próprias; Meta só atribui
+conversão IG ao Dataset vinculado àquela conta. `meta_integrations.user_id` opcional:
+integração do dono do lead se existir, senão a da empresa. Moeda = do dono do lead.
+IG business_messaging: `instagram_business_account_id` + `ig_sid`; nomes
+LeadSubmitted/QualifiedLead/Purchase.

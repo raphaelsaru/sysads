@@ -438,7 +438,7 @@ function EmpresaPageContent() {
           </CardContent>
         </Card>
 
-        {isSuperadmin(userProfile?.role) && <MetaAdsCard tenantId={tenantId} />}
+        {isSuperadmin(userProfile?.role) && <MetaAdsCard tenantId={tenantId} usuarios={usuarios} />}
       </div>
 
       <Dialog open={conviteOpen} onOpenChange={fecharConvite}>

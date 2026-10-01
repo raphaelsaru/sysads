@@ -63,10 +63,27 @@ begin
   end;
   execute 'reset role';
 
-  -- claim só pega tenant com integração ativa
+  -- outbox guarda o dono do lead
+  select count(*) into n from meta_event_outbox
+   where tenant_id = 'cccccccc-1111-0000-0000-000000000000' and user_id is distinct from 'cccccccc-0000-0000-0000-00000000000a';
+  if n <> 0 then raise exception 'FALHA user_id: %', n; end if;
+
+  -- claim só pega evento com integração efetiva ativa
   select count(*) into n from claim_meta_events(50);
   if n <> 0 then raise exception 'FALHA claim sem integracao: %', n; end if;
-  insert into meta_integrations (tenant_id, dataset_id, is_active) values ('cccccccc-1111-0000-0000-000000000000', 'ds', true);
+
+  -- integração do usuário (inativa) tem precedência sobre a da empresa (ativa)
+  insert into meta_integrations (tenant_id, dataset_id, is_active) values ('cccccccc-1111-0000-0000-000000000000', 'ds-empresa', true);
+  insert into meta_integrations (tenant_id, user_id, dataset_id, is_active)
+    values ('cccccccc-1111-0000-0000-000000000000', 'cccccccc-0000-0000-0000-00000000000a', 'ds-user', false);
+  if (select dataset_id from meta_integracao_efetiva('cccccccc-1111-0000-0000-000000000000', 'cccccccc-0000-0000-0000-00000000000a')) <> 'ds-user'
+    then raise exception 'FALHA efetiva usuario'; end if;
+  if (select dataset_id from meta_integracao_efetiva('cccccccc-1111-0000-0000-000000000000', gen_random_uuid())) <> 'ds-empresa'
+    then raise exception 'FALHA efetiva empresa'; end if;
+  select count(*) into n from claim_meta_events(50) c where c.tenant_id = 'cccccccc-1111-0000-0000-000000000000';
+  if n <> 0 then raise exception 'FALHA claim com integracao do usuario inativa: %', n; end if;
+
+  update meta_integrations set is_active = true where user_id = 'cccccccc-0000-0000-0000-00000000000a';
   select count(*) into n from claim_meta_events(50) c where c.tenant_id = 'cccccccc-1111-0000-0000-000000000000';
   if n <> 4 then raise exception 'FALHA claim: %', n; end if; -- 2 contact + 1 lead + 1 purchase
   select count(*) into n from claim_meta_events(50) c where c.tenant_id = 'cccccccc-1111-0000-0000-000000000000';

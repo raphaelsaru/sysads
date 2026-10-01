@@ -1,19 +1,24 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller } from '@/lib/tenant-server'
 import { isSuperadmin } from '@/lib/roles'
-import { carregarConfigMeta } from '@/lib/meta-outbox'
+import { carregarConfigMeta, escopoMeta } from '@/lib/meta-outbox'
 import { enviarEvento, montarEvento } from '@/lib/meta-capi'
 
-// POST /api/empresa/meta/testar — envia um Contact de teste (exige test_event_code). Não usa a outbox.
-export async function POST() {
+// POST /api/empresa/meta/testar { userId? } — envia um Contact de teste (exige test_event_code). Não usa a outbox.
+export async function POST(request: NextRequest) {
   try {
     const caller = await getCaller()
     if (!caller?.tenantId || !isSuperadmin(caller.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
-    const cfg = await carregarConfigMeta(createAdminClient(), caller.tenantId)
+    const admin = createAdminClient()
+    const body = await request.json().catch(() => ({}))
+    const escopo = await escopoMeta(admin, caller.tenantId, body.userId)
+    if (!escopo) return NextResponse.json({ error: 'Usuário inválido' }, { status: 400 })
+
+    const cfg = await carregarConfigMeta(admin, caller.tenantId, escopo.userId)
     if (!cfg) return NextResponse.json({ error: 'Configure dataset e token' }, { status: 400 })
     if (!cfg.testEventCode) return NextResponse.json({ error: 'Preencha o test event code' }, { status: 400 })
 

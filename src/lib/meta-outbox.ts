@@ -1,4 +1,5 @@
 import type { createAdminClient } from '@/lib/supabase-admin'
+import { usuarioNaEmpresa } from '@/lib/tenant-server'
 import {
   IDADE_MAXIMA_MS, MAX_TENTATIVAS, enviarEvento, montarEvento, proximaTentativa, type MetaEventName,
 } from '@/lib/meta-capi'
@@ -8,6 +9,7 @@ type Admin = ReturnType<typeof createAdminClient>
 type LinhaOutbox = {
   id: string
   tenant_id: string
+  user_id: string | null
   event_name: MetaEventName
   event_id: string
   entity_id: string
@@ -24,22 +26,38 @@ type NegociacaoEnvio = {
   clientes: { id: string; telefone_normalizado: string | null; email: string | null } | null
 }
 
+// Escopo da integração: userId = própria do usuário; vazio = padrão da empresa.
+// null se o usuário não for da empresa.
+export async function escopoMeta(
+  admin: Admin, tenantId: string, userId: unknown,
+): Promise<{ userId: string | null } | null> {
+  if (typeof userId !== 'string' || !userId) return { userId: null }
+  return (await usuarioNaEmpresa(admin, userId, tenantId)) ? { userId } : null
+}
+
 type Config = { datasetId: string; token: string; testEventCode: string | null; currency: string }
 
-export async function carregarConfigMeta(admin: Admin, tenantId: string): Promise<Config | null> {
-  const [{ data: integ }, { data: token }, { data: dono }] = await Promise.all([
-    admin.from('meta_integrations').select('dataset_id, test_event_code').eq('tenant_id', tenantId).maybeSingle(),
-    admin.rpc('meta_ler_token', { p_tenant: tenantId }),
-    admin.from('user_profiles').select('currency')
-      .eq('tenant_id', tenantId).eq('role', 'owner').limit(1).maybeSingle(),
+// Integração do dono do lead se existir, senão a padrão da empresa.
+// Moeda: do dono do lead (valor_fechado está na moeda dele), senão do owner, senão BRL.
+export async function carregarConfigMeta(
+  admin: Admin, tenantId: string, userId: string | null,
+): Promise<Config | null> {
+  const { data: integs } = await admin.rpc('meta_integracao_efetiva', { p_tenant: tenantId, p_user: userId })
+  const integ = (integs as { id: string; dataset_id: string; test_event_code: string | null }[] | null)?.[0]
+  if (!integ) return null
+
+  const [{ data: token }, { data: perfis }] = await Promise.all([
+    admin.rpc('meta_ler_token', { p_integracao: integ.id }),
+    admin.from('user_profiles').select('id, role, currency').eq('tenant_id', tenantId)
+      .or(userId ? `id.eq.${userId},role.eq.owner` : 'role.eq.owner'),
   ])
-  if (!integ || !token) return null
-  return {
-    datasetId: integ.dataset_id,
-    token: token as string,
-    testEventCode: integ.test_event_code,
-    currency: dono?.currency ?? 'BRL',
-  }
+  if (!token) return null
+  const lista = (perfis ?? []) as { id: string; role: string; currency: string | null }[]
+  const currency = lista.find((p) => p.id === userId)?.currency
+    ?? lista.find((p) => p.role === 'owner')?.currency
+    ?? 'BRL'
+
+  return { datasetId: integ.dataset_id, token: token as string, testEventCode: integ.test_event_code, currency }
 }
 
 // Envia um lote da outbox (claim atômico via RPC; só tenants com integração ativa).
@@ -51,8 +69,9 @@ export async function processarOutbox(admin: Admin, limit = 50) {
   const total = { enviados: 0, falhas: 0 }
 
   for (const l of linhas) {
-    if (!configs.has(l.tenant_id)) configs.set(l.tenant_id, await carregarConfigMeta(admin, l.tenant_id))
-    const cfg = configs.get(l.tenant_id)
+    const chave = `${l.tenant_id}:${l.user_id ?? ''}`
+    if (!configs.has(chave)) configs.set(chave, await carregarConfigMeta(admin, l.tenant_id, l.user_id))
+    const cfg = configs.get(chave)
 
     const falhar = async (erro: string, resposta: unknown = null, definitivo = false) => {
       const attempts = l.attempts + 1

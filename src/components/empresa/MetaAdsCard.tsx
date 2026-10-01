@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -42,8 +43,16 @@ async function erroDa(response: Response, fallback: string) {
   return new Error(data.error || fallback)
 }
 
-// Conexão Meta Conversions API da empresa. Só superadmin até homologar.
-export default function MetaAdsCard({ tenantId }: { tenantId: string | null }) {
+const ESCOPO_EMPRESA = 'empresa'
+
+// Conexão Meta Conversions API: padrão da empresa ou própria de um usuário
+// (ex.: tatuador com conta de anúncio própria). Só superadmin até homologar.
+export default function MetaAdsCard({ tenantId, usuarios }: {
+  tenantId: string | null
+  usuarios: { id: string; full_name: string | null; email: string | null }[]
+}) {
+  const [escopo, setEscopo] = useState(ESCOPO_EMPRESA)
+  const userId = escopo === ESCOPO_EMPRESA ? null : escopo
   const [diag, setDiag] = useState<Diagnostico | null>(null)
   const [datasetId, setDatasetId] = useState('')
   const [token, setToken] = useState('')
@@ -53,14 +62,15 @@ export default function MetaAdsCard({ tenantId }: { tenantId: string | null }) {
   const [mensagem, setMensagem] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
 
   const carregar = useCallback(async () => {
-    const res = await fetch('/api/empresa/meta')
+    const res = await fetch(`/api/empresa/meta${userId ? `?userId=${userId}` : ''}`)
     if (!res.ok) throw await erroDa(res, 'Erro ao carregar integração')
     const data: Diagnostico = await res.json()
     setDiag(data)
     setDatasetId(data.integracao?.datasetId ?? '')
     setTestEventCode(data.integracao?.testEventCode ?? '')
     setAtivo(data.integracao?.isActive ?? false)
-  }, [])
+    setToken('')
+  }, [userId])
 
   useEffect(() => {
     if (!tenantId) return
@@ -84,7 +94,7 @@ export default function MetaAdsCard({ tenantId }: { tenantId: string | null }) {
     const res = await fetch('/api/empresa/meta', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ datasetId, testEventCode, isActive: ativo, ...(token && { token }) }),
+      body: JSON.stringify({ userId, datasetId, testEventCode, isActive: ativo, ...(token && { token }) }),
     })
     if (!res.ok) throw await erroDa(res, 'Erro ao salvar')
     setToken('')
@@ -92,7 +102,11 @@ export default function MetaAdsCard({ tenantId }: { tenantId: string | null }) {
   })
 
   const testar = () => executar('testar', async () => {
-    const res = await fetch('/api/empresa/meta/testar', { method: 'POST' })
+    const res = await fetch('/api/empresa/meta/testar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
     if (!res.ok) throw await erroDa(res, 'Erro ao testar')
     const data = await res.json()
     if (!data.ok) throw new Error(`Meta recusou: ${data.erro}`)
@@ -100,7 +114,11 @@ export default function MetaAdsCard({ tenantId }: { tenantId: string | null }) {
   })
 
   const reprocessar = () => executar('reprocessar', async () => {
-    const res = await fetch('/api/empresa/meta/reprocessar', { method: 'POST' })
+    const res = await fetch('/api/empresa/meta/reprocessar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
     if (!res.ok) throw await erroDa(res, 'Erro ao reprocessar')
     const data = await res.json()
     return `${data.reprocessados} evento(s) de volta na fila`
@@ -122,6 +140,24 @@ export default function MetaAdsCard({ tenantId }: { tenantId: string | null }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="max-w-sm">
+          <Label htmlFor="meta-escopo">Conta</Label>
+          <Select value={escopo} onValueChange={(v) => { setMensagem(null); setEscopo(v) }}>
+            <SelectTrigger id="meta-escopo" className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ESCOPO_EMPRESA}>Empresa (padrão)</SelectItem>
+              {usuarios.map((u) => (
+                <SelectItem key={u.id} value={u.id}>{u.full_name || u.email || u.id}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Leads de um usuário usam a integração dele; sem ela, a da empresa.
+          </p>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="meta-dataset">Dataset ID</Label>

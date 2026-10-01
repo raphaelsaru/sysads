@@ -1,20 +1,26 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller } from '@/lib/tenant-server'
 import { isSuperadmin } from '@/lib/roles'
+import { escopoMeta } from '@/lib/meta-outbox'
 
-// POST /api/empresa/meta/reprocessar — volta eventos 'failed' da empresa p/ a fila.
-export async function POST() {
+// POST /api/empresa/meta/reprocessar { userId? } — volta eventos 'failed' do escopo p/ a fila.
+export async function POST(request: NextRequest) {
   try {
     const caller = await getCaller()
     if (!caller?.tenantId || !isSuperadmin(caller.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
-    const { data, error } = await createAdminClient().from('meta_event_outbox')
+    const admin = createAdminClient()
+    const body = await request.json().catch(() => ({}))
+    const escopo = await escopoMeta(admin, caller.tenantId, body.userId)
+    if (!escopo) return NextResponse.json({ error: 'Usuário inválido' }, { status: 400 })
+
+    const query = admin.from('meta_event_outbox')
       .update({ status: 'pending', attempts: 0, next_attempt_at: new Date().toISOString(), last_error: null })
       .eq('tenant_id', caller.tenantId).eq('status', 'failed')
-      .select('id')
+    const { data, error } = await (escopo.userId ? query.eq('user_id', escopo.userId) : query).select('id')
     if (error) return NextResponse.json({ error: 'Erro ao reprocessar' }, { status: 500 })
 
     return NextResponse.json({ reprocessados: data?.length ?? 0 })
