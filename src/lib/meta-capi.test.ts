@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import { MAX_TENTATIVAS, montarEvento, proximaTentativa, sha256, telefoneParaMeta } from './meta-capi'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  MAX_TENTATIVAS, enviarEvento, montarEvento, proximaTentativa, sha256, telefoneParaMeta,
+} from './meta-capi'
 
 describe('telefoneParaMeta', () => {
   it('BRL: prefixa 55 em número sem DDI', () => {
@@ -88,4 +90,27 @@ describe('proximaTentativa', () => {
     expect(proximaTentativa(20, agora).toISOString()).toBe('2026-10-01T06:00:00.000Z')
   })
   it('MAX_TENTATIVAS = 8', () => expect(MAX_TENTATIVAS).toBe(8))
+})
+
+describe('enviarEvento', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const evento = montarEvento({
+    eventName: 'Contact', eventId: 'x', eventTime: new Date(), clienteId: 'c', telefoneNormalizado: null,
+    email: null, igAccountId: null, igSid: null, fbc: null, fbp: null, value: null, currency: 'BRL',
+  })
+  const responder = (status: number, body: unknown) =>
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status })))
+
+  it('erro não transitório é definitivo e usa a mensagem amigável', async () => {
+    responder(400, { error: { message: 'Invalid parameter', is_transient: false, error_user_msg: 'ig_sid inválido' } })
+    const r = await enviarEvento('1', 't', evento)
+    expect(r).toMatchObject({ ok: false, definitivo: true, erro: 'ig_sid inválido' })
+  })
+
+  it('erro transitório ou de rede tenta de novo', async () => {
+    responder(500, { error: { message: 'Service unavailable', is_transient: true } })
+    expect(await enviarEvento('1', 't', evento)).toMatchObject({ ok: false, definitivo: false })
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNRESET')))
+    expect(await enviarEvento('1', 't', evento)).toMatchObject({ ok: false, definitivo: false })
+  })
 })

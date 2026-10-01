@@ -127,7 +127,7 @@ export async function processarOutbox(admin: Admin, limit = 50) {
     } else {
       // log sem token/PII: só ids
       console.error('meta capi falhou', { outboxId: l.id, tenant: l.tenant_id, erro: r.erro })
-      await falhar(r.erro, r.resposta)
+      await falhar(r.erro, r.resposta, r.definitivo)
     }
   }
 

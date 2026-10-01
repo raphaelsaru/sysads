@@ -96,7 +96,8 @@ export function proximaTentativa(tentativas: number, agora = new Date()): Date {
 
 export type ResultadoEnvio =
   | { ok: true; resposta: unknown; fbtraceId: string | null }
-  | { ok: false; erro: string; resposta: unknown }
+  // definitivo: Meta disse que não adianta repetir (is_transient false), ex.: parâmetro inválido
+  | { ok: false; erro: string; resposta: unknown; definitivo: boolean }
 
 // Token vai no corpo (não na URL) p/ não vazar em logs.
 export async function enviarEvento(
@@ -114,13 +115,18 @@ export async function enviarEvento(
     })
     const json = (await res.json().catch(() => ({}))) as {
       fbtrace_id?: string
-      error?: { message?: string; fbtrace_id?: string }
+      error?: { message?: string; fbtrace_id?: string; is_transient?: boolean; error_user_msg?: string }
     }
     if (!res.ok || json.error) {
-      return { ok: false, erro: json.error?.message ?? `HTTP ${res.status}`, resposta: json }
+      return {
+        ok: false,
+        erro: json.error?.error_user_msg ?? json.error?.message ?? `HTTP ${res.status}`,
+        resposta: json,
+        definitivo: json.error?.is_transient === false,
+      }
     }
     return { ok: true, resposta: json, fbtraceId: json.fbtrace_id ?? null }
   } catch (e) {
-    return { ok: false, erro: e instanceof Error ? e.message : 'erro de rede', resposta: null }
+    return { ok: false, erro: e instanceof Error ? e.message : 'erro de rede', resposta: null, definitivo: false }
   }
 }
