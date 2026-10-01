@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getChatLabels } from '@/lib/waha'
 import { extrairCamposDiagnostico } from '@/lib/waha-diagnostico'
-import { nomeDoContato } from '@/lib/waha-payload'
+import { nomeDoContato, telefoneAlternativo } from '@/lib/waha-payload'
 
 interface WahaMessagePayload {
   // Id da mensagem WAHA, formato tipo whatsapp-web.js:
@@ -16,7 +16,7 @@ interface WahaMessagePayload {
   from: string
   fromMe: boolean
   timestamp: number
-  _data?: { pushName?: string; notifyName?: string }
+  _data?: { pushName?: string; notifyName?: string; key?: Record<string, unknown> }
 }
 
 interface WahaLabelChatPayload {
@@ -97,9 +97,19 @@ async function handleMessage(
     .insert({ session, amostra: extrairCamposDiagnostico(payload) })
   if (diagError) console.warn('waha_diagnostico:', diagError.message)
 
-  const whatsapp = await resolveJidToPhone(session, payload.from)
+  // Grupo/status não vira lead
+  if (payload.from.endsWith('@g.us') || payload.from.endsWith('@broadcast')) {
+    return NextResponse.json({ ignored: true, reason: 'grupo' })
+  }
+
+  // @lid sem mapeamento no WAHA: NOWEB traz o telefone em _data.key
+  const whatsapp = (await resolveJidToPhone(session, payload.from)) ?? telefoneAlternativo(payload)
   if (!whatsapp) {
-    return NextResponse.json({ ignored: true })
+    const tipo = payload.from.split('@')[1] ?? 'desconhecido'
+    console.warn('Webhook WAHA ignorado: remetente sem telefone', {
+      session, tipo, chavesKey: Object.keys(payload._data?.key ?? {}),
+    })
+    return NextResponse.json({ ignored: true, reason: 'sem_telefone' })
   }
 
   const { userId, sessionRow } = await resolveUserId(supabase, session)

@@ -61,8 +61,9 @@ async function definirEmpresaAtiva(tenantId: string | null) {
     body: JSON.stringify({ tenant_id: tenantId }),
   })
   if (!res.ok) throw new Error('Falha ao trocar de empresa')
-  // Recarrega tudo para os hooks buscarem os dados da nova empresa
-  window.location.href = '/'
+  // Recarrega tudo para os hooks buscarem os dados da nova empresa.
+  // Visitando outra empresa → Equipe (home de dono); voltando à própria → home do perfil.
+  window.location.href = tenantId ? '/equipe' : '/'
 }
 
 export default function EmpresaSwitcher() {
