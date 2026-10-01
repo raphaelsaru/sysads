@@ -1,5 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { areaDaRota, homePath, pode } from '@/lib/permissions'
+import type { UserRole } from '@/types/crm'
 
 const ALLOWED_ORIGINS = [
   'https://web.whatsapp.com',
@@ -128,14 +130,17 @@ export async function middleware(request: NextRequest) {
       .select('role')
       .eq('id', data.user.id)
       .single()
-    const role = profile?.role
+    const role = profile?.role as UserRole | undefined
 
-    if ((matches(pathname, '/admin') || matches(pathname, '/settings/users')) && role !== 'admin') {
-      return redirectTo('/dashboard')
+    // Home depende do perfil
+    if (pathname === '/') {
+      return redirectTo(homePath(role))
     }
 
-    if (matches(pathname, '/empresa') && role !== 'admin' && role !== 'owner') {
-      return redirectTo('/dashboard')
+    // Guarda por área (matriz em src/lib/permissions.ts)
+    const area = areaDaRota(pathname)
+    if (area && !pode(role, area)) {
+      return redirectTo(homePath(role))
     }
 
     return supabaseResponse
