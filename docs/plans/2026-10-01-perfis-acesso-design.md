@@ -26,7 +26,7 @@ Fonte única p/ Sidebar, middleware e APIs: `pode(role, area)` e `homePath(role)
 | admin global | ✓ | – | – | – | – |
 | ver dados | empresa | empresa | empresa | próprios | próprios |
 | criar/editar/excluir dados | empresa | empresa | só próprios (não cria p/ outro) | próprios | próprios |
-| home | /admin/empresas | /equipe | /leads | /leads | /clientes |
+| home | /admin/empresas | /equipe | /leads | /atendimento | /clientes |
 
 Superadmin visitando outra empresa continua vendo menus de owner (regra atual).
 
@@ -58,3 +58,9 @@ Superadmin visitando outra empresa continua vendo menus de owner (regra atual).
 - `/equipe` (área `equipe`): um card por artista ativo (role `user`) com leads, vendas, valor vendido e conversão (vendas/leads) do mês vigente — RPC `dashboard_equipe(p_inicio, p_fim)` (security invoker, mesmo critério do `dashboard_resumo`).
 - Clique no card: "Visualizar como" o artista + abre `/dashboard`.
 - `/clientes` continua no menu.
+
+## Ajuste 2026-10-01: vendedor atende artistas
+- Vendedor não tem leads próprios: atende 1+ artistas (`vendedor_artistas`, dono vincula em `/empresa`).
+- Home `/atendimento`: cards dos artistas atendidos (métricas do mês); escolha = "visualizar como" o artista → `/leads`. Um único artista: entra direto. Sem artista escolhido, Leads/Clientes/Agenda redirecionam p/ `/atendimento`.
+- RLS: `pode_ver_lead`/`pode_operar_lead` (próprio, empresa, ou `atende_artista`); `find_or_create_cliente` aceita lead p/ artista atendido. Agenda: `podeVerAgenda` (src/lib/agenda-acesso.ts).
+- Vendedor sem Painel (decisão do usuário).

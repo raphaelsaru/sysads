@@ -28,7 +28,7 @@ import { formatDateBR } from '@/lib/dateUtils'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
 import { calcularLtv, calcularTotalVendas } from '@/lib/negociacoes'
 import { cn } from '@/lib/utils'
-import { pode } from '@/lib/permissions'
+import { podeOperarLead } from '@/lib/permissions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -239,9 +239,10 @@ function LeadDetailPageContent() {
   const donoId = cliente?.userId ?? impersonatedUser?.id ?? userProfile?.id
   const categorias = useMemo(() => getCategoriasParaUsuario(donoId), [donoId])
 
-  // Gestor vê leads da empresa toda, mas só altera os próprios (RLS idem).
+  // Gestor vê leads da empresa toda, mas só altera os próprios; vendedor altera os
+  // do artista que atende (RLS idem).
   const somenteLeitura =
-    !!cliente?.userId && cliente.userId !== userProfile?.id && !pode(userProfile?.role, 'editar_empresa')
+    !!cliente?.userId && !podeOperarLead(userProfile?.role, userProfile?.id, cliente.userId, impersonatedUser?.id)
 
   const abrirEdicaoPessoa = () => {
     if (!cliente) return

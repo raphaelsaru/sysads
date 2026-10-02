@@ -80,6 +80,34 @@ begin
   select count(*) into n from user_profiles; if n <> 1 then raise exception 'FALHA vendedor perfis %', n; end if;
   execute 'reset role';
 
+  -- vendedor A atende artista (user A): vê/edita/cria leads dele, não os do owner
+  perform set_config('request.jwt.claims', '', true);
+  insert into vendedor_artistas (tenant_id, vendedor_id, artista_id)
+  values ('aaaaaaaa-1111-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000000d', 'aaaaaaaa-0000-0000-0000-00000000000b');
+  perform set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000000d","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from clientes; if n <> 2 then raise exception 'FALHA vendedor c/ artista viu %', n; end if;
+  update clientes set observacao = 'pelo vendedor' where nome = 'lead user A';
+  get diagnostics n = row_count; if n <> 1 then raise exception 'FALHA vendedor nao editou lead do artista'; end if;
+  update clientes set observacao = 'x' where nome = 'lead owner A';
+  get diagnostics n = row_count; if n <> 0 then raise exception 'FALHA vendedor editou lead do owner'; end if;
+  perform * from find_or_create_cliente('aaaaaaaa-0000-0000-0000-00000000000b', current_date, 'lead p/ artista', '11911110066', 'Outro', null);
+  begin
+    perform * from find_or_create_cliente('aaaaaaaa-0000-0000-0000-00000000000a', current_date, 'lead p/ owner', '11911110055', 'Outro', null);
+    raise exception 'FALHA vendedor criou lead p/ owner';
+  exception when others then
+    if sqlerrm not like 'p_user_id invalido%' then raise; end if;
+  end;
+  begin
+    update clientes set user_id = 'aaaaaaaa-0000-0000-0000-00000000000a' where nome = 'lead user A';
+    raise exception 'FALHA vendedor reatribuiu lead p/ owner';
+  exception when insufficient_privilege then null;
+  end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  delete from clientes where nome = 'lead p/ artista';
+  delete from vendedor_artistas where vendedor_id = 'aaaaaaaa-0000-0000-0000-00000000000d';
+
   -- owner A visitando B (vínculo): vê só B
   perform set_config('request.jwt.claims', '', true);
   update user_profiles set active_tenant_id = 'bbbbbbbb-1111-0000-0000-000000000000' where id = 'aaaaaaaa-0000-0000-0000-00000000000a';

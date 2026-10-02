@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
-import { getCaller, usuarioNaEmpresa } from '@/lib/tenant-server'
+import { podeVerAgenda } from '@/lib/agenda-acesso'
 import { getValidAccessToken, listEvents, GoogleCalendarNotConnectedError } from '@/lib/google-calendar'
 
 export async function GET(request: NextRequest) {
@@ -11,18 +11,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
   const url = new URL(request.url)
   const requestedUserId = url.searchParams.get('userId')
   const startMonth = url.searchParams.get('startMonth') // YYYY-MM
   const months = Math.min(Math.max(Number(url.searchParams.get('months') ?? '8'), 1), 12)
 
-  const targetUserId = profile?.role === 'admin' && requestedUserId ? requestedUserId : user.id
+  const targetUserId = requestedUserId || user.id
 
   if (!startMonth || !/^\d{4}-\d{2}$/.test(startMonth)) {
     return NextResponse.json({ error: 'startMonth inválido, use YYYY-MM' }, { status: 400 })
@@ -30,12 +24,8 @@ export async function GET(request: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Superadmin só consulta usuários da empresa atual.
-  if (targetUserId !== user.id) {
-    const caller = await getCaller()
-    if (!caller?.tenantId || !(await usuarioNaEmpresa(admin, targetUserId, caller.tenantId))) {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
-    }
+  if (!(await podeVerAgenda(admin, user.id, targetUserId))) {
+    return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
   }
 
   const { data: mapping } = await admin

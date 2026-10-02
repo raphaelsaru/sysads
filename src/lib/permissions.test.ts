@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { areaDaRota, homePath, pode, roleConhecido } from './permissions'
+import { areaDaRota, homePath, pode, podeCriarLead, podeOperarLead, roleConhecido } from './permissions'
 import type { UserRole } from '@/types/crm'
 
 const ROLES: UserRole[] = ['admin', 'owner', 'gestor', 'vendedor', 'user']
@@ -42,7 +42,7 @@ describe('homePath', () => {
     expect(homePath('admin')).toBe('/admin/empresas')
     expect(homePath('owner')).toBe('/equipe')
     expect(homePath('gestor')).toBe('/leads')
-    expect(homePath('vendedor')).toBe('/leads')
+    expect(homePath('vendedor')).toBe('/atendimento')
     expect(homePath('user')).toBe('/clientes')
   })
   it('home sempre permitida (evita loop de redirect)', () => {
@@ -65,6 +65,7 @@ describe('areaDaRota', () => {
     expect(areaDaRota('/clientes')).toBe('clientes')
     expect(areaDaRota('/calendario')).toBe('agenda')
     expect(areaDaRota('/equipe')).toBe('equipe')
+    expect(areaDaRota('/atendimento')).toBe('atendimento')
     expect(areaDaRota('/settings/integrations')).toBeNull()
   })
 })
@@ -74,5 +75,33 @@ describe('roleConhecido', () => {
     for (const r of ROLES) expect(roleConhecido(r)).toBe(true)
     expect(roleConhecido(undefined)).toBe(false)
     expect(roleConhecido('xpto')).toBe(false)
+  })
+})
+
+describe('atendimento', () => {
+  it('so vendedor', () => {
+    expect(ROLES.filter(r => pode(r, 'atendimento'))).toEqual(['vendedor'])
+  })
+})
+
+describe('podeOperarLead', () => {
+  it('proprio lead ou dono/superadmin', () => {
+    expect(podeOperarLead('user', 'u1', 'u1')).toBe(true)
+    expect(podeOperarLead('owner', 'o1', 'u1')).toBe(true)
+    expect(podeOperarLead('gestor', 'g1', 'u1')).toBe(false)
+  })
+  it('vendedor so no artista que esta atendendo', () => {
+    expect(podeOperarLead('vendedor', 'v1', 'u1', 'u1')).toBe(true)
+    expect(podeOperarLead('vendedor', 'v1', 'u2', 'u1')).toBe(false)
+    expect(podeOperarLead('vendedor', 'v1', 'u1', null)).toBe(false)
+  })
+})
+
+describe('podeCriarLead', () => {
+  it('sem visualizar como: todos', () => {
+    for (const r of ROLES) expect(podeCriarLead(r, null)).toBe(true)
+  })
+  it('visualizando outro: dono, superadmin e vendedor', () => {
+    expect(ROLES.filter(r => podeCriarLead(r, 'x'))).toEqual(['admin', 'owner', 'vendedor'])
   })
 })

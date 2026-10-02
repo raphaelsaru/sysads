@@ -1,13 +1,30 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import Sidebar from './Sidebar'
+import { useAuth } from '@/contexts/AuthContext'
+import { useAdmin } from '@/contexts/AdminContext'
+
+// Vendedor não tem dados próprios: sem artista escolhido, só /atendimento e conexões.
+const LIVRES_SEM_ARTISTA = ['/atendimento', '/settings/integrations']
 
 interface MainLayoutProps {
   children: ReactNode
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
+  const { userProfile } = useAuth()
+  const { impersonatedUserId, pronto } = useAdmin()
+  const pathname = usePathname()
+  const router = useRouter()
+  const vendedorSemArtista =
+    pronto && userProfile?.role === 'vendedor' && !impersonatedUserId && !LIVRES_SEM_ARTISTA.includes(pathname)
+
+  useEffect(() => {
+    if (vendedorSemArtista) router.replace('/atendimento')
+  }, [vendedorSemArtista, router])
+
   return (
     <div className="relative flex min-h-screen flex-col md:flex-row">
       <Sidebar />

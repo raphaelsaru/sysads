@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge'
 import { FALLBACK_CURRENCY_VALUE } from '@/lib/currency'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
-import { pode } from '@/lib/permissions'
+import { pode, podeCriarLead, podeOperarLead } from '@/lib/permissions'
 import { useNomesUsuarios } from '@/hooks/useNomesUsuarios'
 
 export default function Home() {
@@ -116,7 +116,7 @@ function HomePage() {
   }
 
   // Gestor lê a empresa toda mas só altera os próprios leads (RLS idem).
-  const podeAlterarLead = (c: Cliente) => c.userId === user?.id || pode(userProfile?.role, 'editar_empresa')
+  const podeAlterarLead = (c: Cliente) => podeOperarLead(userProfile?.role, user?.id, c.userId, impersonatedUserId)
 
   const handleExcluirCliente = async (id: string) => {
     await excluirCliente(id)
@@ -154,8 +154,8 @@ function HomePage() {
             </div>
           </div>
 
-          {/* Visualizando outro usuário sem editar_empresa: banco recusa criar p/ ele */}
-          {(!impersonatedUserId || pode(userProfile?.role, 'editar_empresa')) && (
+          {/* Visualizando outro: só dono/superadmin/vendedor criam p/ ele (banco idem) */}
+          {podeCriarLead(userProfile?.role, impersonatedUserId) && (
           <Button
             onClick={() => setMostrarModal(true)}
             className="h-12 gap-2 self-start rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground shadow-brand hover:bg-primary/90"

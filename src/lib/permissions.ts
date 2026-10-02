@@ -11,6 +11,7 @@ export type Area =
   | 'ver_empresa'      // lê dados de toda a empresa
   | 'editar_empresa'   // edita/exclui dados de outros usuários
   | 'visualizar_como'
+  | 'atendimento'      // vendedor escolhe artista que atende
   | 'admin'            // painel global superadmin
 
 const BASE: readonly Area[] = ['leads', 'clientes', 'agenda']
@@ -19,7 +20,7 @@ const MATRIZ: Record<UserRole, readonly Area[]> = {
   admin: [...BASE, 'painel', 'integracoes', 'meta', 'empresa', 'equipe', 'ver_empresa', 'editar_empresa', 'visualizar_como', 'admin'],
   owner: [...BASE, 'painel', 'integracoes', 'empresa', 'equipe', 'ver_empresa', 'editar_empresa', 'visualizar_como'],
   gestor: [...BASE, 'painel', 'integracoes', 'meta', 'ver_empresa', 'visualizar_como'],
-  vendedor: BASE,
+  vendedor: [...BASE, 'atendimento'],
   user: [...BASE, 'painel'],
 }
 
@@ -37,7 +38,7 @@ const HOME: Record<UserRole, string> = {
   admin: '/admin/empresas',
   owner: '/equipe',
   gestor: '/leads',
-  vendedor: '/leads',
+  vendedor: '/atendimento',
   user: '/clientes',
 }
 
@@ -51,6 +52,7 @@ const ROTAS: [string, Area][] = [
   ['/settings/users', 'admin'],
   ['/empresa', 'empresa'],
   ['/equipe', 'equipe'],
+  ['/atendimento', 'atendimento'],
   ['/dashboard', 'painel'],
   ['/leads', 'leads'],
   ['/clientes', 'clientes'],
@@ -60,4 +62,23 @@ const ROTAS: [string, Area][] = [
 export function areaDaRota(pathname: string): Area | null {
   const achada = ROTAS.find(([base]) => pathname === base || pathname.startsWith(base + '/'))
   return achada ? achada[1] : null
+}
+
+// Espelha pode_operar_lead do banco: próprio lead, dono/superadmin, ou vendedor
+// no artista que está atendendo (o banco confere o vínculo real).
+export function podeOperarLead(
+  role: UserRole | null | undefined,
+  userId: string | null | undefined,
+  donoLead: string | null | undefined,
+  artistaAtendido?: string | null,
+): boolean {
+  if (!donoLead) return false
+  return donoLead === userId
+    || pode(role, 'editar_empresa')
+    || (role === 'vendedor' && !!artistaAtendido && donoLead === artistaAtendido)
+}
+
+// Criar lead no "Visualizar como" (lead fica no nome do visualizado).
+export function podeCriarLead(role: UserRole | null | undefined, visualizandoId: string | null | undefined): boolean {
+  return !visualizandoId || pode(role, 'editar_empresa') || role === 'vendedor'
 }

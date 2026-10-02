@@ -7,6 +7,7 @@ import { CalendarOff } from 'lucide-react'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import MainLayout from '@/components/layout/MainLayout'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAdmin } from '@/contexts/AdminContext'
 import { useGoogleCalendarEvents, MonthCount } from '@/hooks/useGoogleCalendarEvents'
 import CalendarioMensal from '@/components/calendario/CalendarioMensal'
 import DiaEventosDialog from '@/components/calendario/DiaEventosDialog'
@@ -15,6 +16,7 @@ import TatuadorSelector, { TatuadorOption } from '@/components/calendario/Tatuad
 
 function CalendarioContent() {
   const { userProfile } = useAuth()
+  const { impersonatedUserId } = useAdmin()
   const isAdmin = userProfile?.role === 'admin'
 
   const [tatuadores, setTatuadores] = useState<TatuadorOption[]>([])
@@ -38,7 +40,8 @@ function CalendarioContent() {
       .catch(() => {})
   }, [isAdmin])
 
-  const targetUserId = isAdmin ? selectedUserId : (userProfile?.id ?? null)
+  // Visualizando como/atendendo um artista: agenda dele
+  const targetUserId = isAdmin ? selectedUserId : (impersonatedUserId ?? userProfile?.id ?? null)
 
   useEffect(() => {
     if (!targetUserId) return
