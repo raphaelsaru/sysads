@@ -13,13 +13,14 @@ export type Area =
   | 'visualizar_como'
   | 'atendimento'      // vendedor escolhe artista que atende
   | 'ver_artistas'     // cards dos artistas (/equipe)
+  | 'logs'             // auditoria da empresa
   | 'admin'            // painel global superadmin
 
 const BASE: readonly Area[] = ['leads', 'clientes', 'agenda']
 
 const MATRIZ: Record<UserRole, readonly Area[]> = {
-  admin: [...BASE, 'painel', 'integracoes', 'meta', 'empresa', 'equipe', 'ver_empresa', 'editar_empresa', 'visualizar_como', 'ver_artistas', 'admin'],
-  owner: [...BASE, 'painel', 'integracoes', 'empresa', 'equipe', 'ver_empresa', 'editar_empresa', 'visualizar_como', 'ver_artistas'],
+  admin: [...BASE, 'painel', 'integracoes', 'meta', 'empresa', 'equipe', 'ver_empresa', 'editar_empresa', 'visualizar_como', 'ver_artistas', 'logs', 'admin'],
+  owner: [...BASE, 'painel', 'integracoes', 'empresa', 'equipe', 'ver_empresa', 'editar_empresa', 'visualizar_como', 'ver_artistas', 'logs'],
   gestor: [...BASE, 'painel', 'integracoes', 'meta', 'ver_empresa', 'visualizar_como', 'ver_artistas'],
   vendedor: [...BASE, 'atendimento'],
   user: [...BASE, 'painel'],
@@ -54,6 +55,7 @@ const ROTAS: [string, Area][] = [
   ['/empresa', 'empresa'],
   ['/equipe', 'ver_artistas'],
   ['/atendimento', 'atendimento'],
+  ['/logs', 'logs'],
   ['/dashboard', 'painel'],
   ['/leads', 'leads'],
   ['/clientes', 'clientes'],

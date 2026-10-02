@@ -66,6 +66,7 @@ describe('areaDaRota', () => {
     expect(areaDaRota('/calendario')).toBe('agenda')
     expect(areaDaRota('/equipe')).toBe('ver_artistas')
     expect(areaDaRota('/atendimento')).toBe('atendimento')
+    expect(areaDaRota('/logs')).toBe('logs')
     expect(areaDaRota('/settings/integrations')).toBeNull()
   })
 })
@@ -109,5 +110,11 @@ describe('podeCriarLead', () => {
 describe('ver_artistas', () => {
   it('dono, gestor e superadmin', () => {
     expect(ROLES.filter(r => pode(r, 'ver_artistas'))).toEqual(['admin', 'owner', 'gestor'])
+  })
+})
+
+describe('logs', () => {
+  it('so dono e superadmin', () => {
+    expect(ROLES.filter(r => pode(r, 'logs'))).toEqual(['admin', 'owner'])
   })
 })
