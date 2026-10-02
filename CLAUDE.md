@@ -54,6 +54,12 @@ Endpoints: `admin/users`, `admin/empresas`, `admin/empresa-ativa`, `empresa/`, `
 - `lib/api.ts` — shared fetch helpers for API routes
 - shadcn/ui components in `src/components/ui/`
 
+### Auditoria (logs)
+- `audit_log` (append-only, RLS: só dono/superadmin da empresa leem). Gatilho genérico `registrar_auditoria()` em clientes, negociacoes, follow_ups, user_profiles, tenants, vendedor_artistas, tenant_owners (campos auditados via args do gatilho).
+- Ator: `auth.uid()` ou header `x-prizely-ator` — rotas de gestão usam `createAdminClient({ atorId: caller.userId })`. Sem ator (webhook, cron) = não registra.
+- Tela `/logs` (área `logs`), API `/api/empresa/logs`, texto em `src/lib/auditoria.ts`. Retenção 12 meses (pg_cron `audit-log-retencao`). Pedido LGPD: `select anonimizar_auditoria_cliente('<cliente_id>')`.
+- Teste: `supabase/tests/audit_log.sql`. Design: `docs/plans/2026-10-02-logs-auditoria.md`.
+
 ### Meta CAPI
 - Trigger `meta_enfileirar_negociacao` em `negociacoes` grava Contact/Lead/Purchase em `meta_event_outbox` (só leads de anúncio: origem `Anúncio*` ou `meta_ad_id`; idempotente por `event_id`).
 - pg_cron (5 min) + pg_net chamam `/api/cron/meta-events` (`META_CRON_SECRET`; URL/segredo no Vault: `meta_cron_url`, `meta_cron_secret`). Envio em `src/lib/meta-outbox.ts` / `src/lib/meta-capi.ts`.
