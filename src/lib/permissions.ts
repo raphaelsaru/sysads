@@ -12,14 +12,15 @@ export type Area =
   | 'editar_empresa'   // edita/exclui dados de outros usuários
   | 'visualizar_como'
   | 'atendimento'      // vendedor escolhe artista que atende
+  | 'ver_artistas'     // cards dos artistas (/equipe)
   | 'admin'            // painel global superadmin
 
 const BASE: readonly Area[] = ['leads', 'clientes', 'agenda']
 
 const MATRIZ: Record<UserRole, readonly Area[]> = {
-  admin: [...BASE, 'painel', 'integracoes', 'meta', 'empresa', 'equipe', 'ver_empresa', 'editar_empresa', 'visualizar_como', 'admin'],
-  owner: [...BASE, 'painel', 'integracoes', 'empresa', 'equipe', 'ver_empresa', 'editar_empresa', 'visualizar_como'],
-  gestor: [...BASE, 'painel', 'integracoes', 'meta', 'ver_empresa', 'visualizar_como'],
+  admin: [...BASE, 'painel', 'integracoes', 'meta', 'empresa', 'equipe', 'ver_empresa', 'editar_empresa', 'visualizar_como', 'ver_artistas', 'admin'],
+  owner: [...BASE, 'painel', 'integracoes', 'empresa', 'equipe', 'ver_empresa', 'editar_empresa', 'visualizar_como', 'ver_artistas'],
+  gestor: [...BASE, 'painel', 'integracoes', 'meta', 'ver_empresa', 'visualizar_como', 'ver_artistas'],
   vendedor: [...BASE, 'atendimento'],
   user: [...BASE, 'painel'],
 }
@@ -37,7 +38,7 @@ export function pode(role: UserRole | null | undefined, area: Area): boolean {
 const HOME: Record<UserRole, string> = {
   admin: '/admin/empresas',
   owner: '/equipe',
-  gestor: '/leads',
+  gestor: '/equipe',
   vendedor: '/atendimento',
   user: '/clientes',
 }
@@ -51,7 +52,7 @@ const ROTAS: [string, Area][] = [
   ['/admin', 'admin'],
   ['/settings/users', 'admin'],
   ['/empresa', 'empresa'],
-  ['/equipe', 'equipe'],
+  ['/equipe', 'ver_artistas'],
   ['/atendimento', 'atendimento'],
   ['/dashboard', 'painel'],
   ['/leads', 'leads'],

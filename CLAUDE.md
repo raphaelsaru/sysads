@@ -36,9 +36,9 @@ Prizely — CRM for customer management. Portuguese-language interface (lang="pt
 Endpoints: `admin/users`, `admin/empresas`, `admin/empresa-ativa`, `empresa/`, `empresa/usuarios`, `clientes/`, `followups/`, `ocr/vision`, `user/profile`, `empresa/meta`, `cron/meta-events`. Rotas de gestão autorizam via `getCaller()` e escrevem com service role sempre escopado ao tenant.
 
 ### Pages
-- `/` — redireciona p/ home do perfil (owner → `/equipe`, artista → `/clientes`, gestor → `/leads`, vendedor → `/atendimento`, superadmin → `/admin/empresas`)
+- `/` — redireciona p/ home do perfil (owner/gestor → `/equipe`, artista → `/clientes`, vendedor → `/atendimento`, superadmin → `/admin/empresas`)
 - `/atendimento` — home do vendedor: escolhe artista que atende (`vendedor_artistas`, vinculado pelo dono em `/empresa`); opera sempre "visualizando como" o artista (persistido em sessionStorage; sem artista, `MainLayout` manda p/ cá)
-- `/equipe` — home do dono: cards dos artistas ativos c/ métricas do mês (RPC `dashboard_equipe`); clique = "Visualizar como" + `/dashboard`
+- `/equipe` — home do dono e do gestor (área `ver_artistas`): cards dos artistas ativos c/ métricas do mês (RPC `dashboard_equipe`); clique = "Visualizar como" + `/dashboard`
 - `/leads` — leads (tabela + filtros + modal); `/leads/[id]` detalhe (somente leitura p/ gestor em lead alheio)
 - `/clientes` — clientes com venda em cards; clique abre `/leads/[id]`
 - `/settings/integrations` — todos (WhatsApp/Instagram pessoais; menu "Minhas conexões" p/ vendedor/artista) + card Meta (gestor/superadmin)

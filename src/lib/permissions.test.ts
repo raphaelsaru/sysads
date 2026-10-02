@@ -41,7 +41,7 @@ describe('homePath', () => {
   it('por perfil', () => {
     expect(homePath('admin')).toBe('/admin/empresas')
     expect(homePath('owner')).toBe('/equipe')
-    expect(homePath('gestor')).toBe('/leads')
+    expect(homePath('gestor')).toBe('/equipe')
     expect(homePath('vendedor')).toBe('/atendimento')
     expect(homePath('user')).toBe('/clientes')
   })
@@ -64,7 +64,7 @@ describe('areaDaRota', () => {
     expect(areaDaRota('/leads/123')).toBe('leads')
     expect(areaDaRota('/clientes')).toBe('clientes')
     expect(areaDaRota('/calendario')).toBe('agenda')
-    expect(areaDaRota('/equipe')).toBe('equipe')
+    expect(areaDaRota('/equipe')).toBe('ver_artistas')
     expect(areaDaRota('/atendimento')).toBe('atendimento')
     expect(areaDaRota('/settings/integrations')).toBeNull()
   })
@@ -103,5 +103,11 @@ describe('podeCriarLead', () => {
   })
   it('visualizando outro: dono, superadmin e vendedor', () => {
     expect(ROLES.filter(r => podeCriarLead(r, 'x'))).toEqual(['admin', 'owner', 'vendedor'])
+  })
+})
+
+describe('ver_artistas', () => {
+  it('dono, gestor e superadmin', () => {
+    expect(ROLES.filter(r => pode(r, 'ver_artistas'))).toEqual(['admin', 'owner', 'gestor'])
   })
 })

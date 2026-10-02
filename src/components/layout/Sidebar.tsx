@@ -48,7 +48,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const role = visitandoOutraEmpresa ? 'owner' : userProfile?.role
 
   const navItems = ([
-    { href: '/equipe', label: 'Equipe', area: 'equipe' },
+    { href: '/equipe', label: 'Equipe', area: 'ver_artistas' },
     { href: '/atendimento', label: 'Atendimento', area: 'atendimento' },
     { href: '/clientes', label: 'Clientes', area: 'clientes' },
     { href: '/leads', label: 'Leads', area: 'leads' },
@@ -131,8 +131,8 @@ function AccountFooter() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {/* Sem menu Integrações: conexões pessoais (WhatsApp/Instagram) por aqui */}
-        {!pode(userProfile?.role, 'integracoes') && (
+        {/* Sem menu Integrações: conexões pessoais (WhatsApp/Instagram) por aqui; vendedor não usa */}
+        {!pode(userProfile?.role, 'integracoes') && userProfile?.role !== 'vendedor' && (
           <DropdownMenuItem asChild>
             <Link href="/settings/integrations">Minhas conexões</Link>
           </DropdownMenuItem>

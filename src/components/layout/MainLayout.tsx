@@ -6,8 +6,8 @@ import Sidebar from './Sidebar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAdmin } from '@/contexts/AdminContext'
 
-// Vendedor não tem dados próprios: sem artista escolhido, só /atendimento e conexões.
-const LIVRES_SEM_ARTISTA = ['/atendimento', '/settings/integrations']
+// Vendedor não tem dados próprios: sem artista escolhido, só /atendimento.
+const LIVRES_SEM_ARTISTA = ['/atendimento']
 
 interface MainLayoutProps {
   children: ReactNode

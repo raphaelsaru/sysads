@@ -26,7 +26,7 @@ Fonte única p/ Sidebar, middleware e APIs: `pode(role, area)` e `homePath(role)
 | admin global | ✓ | – | – | – | – |
 | ver dados | empresa | empresa | empresa | próprios | próprios |
 | criar/editar/excluir dados | empresa | empresa | só próprios (não cria p/ outro) | próprios | próprios |
-| home | /admin/empresas | /equipe | /leads | /atendimento | /clientes |
+| home | /admin/empresas | /equipe | /equipe | /atendimento | /clientes |
 
 Superadmin visitando outra empresa continua vendo menus de owner (regra atual).
 
@@ -64,3 +64,7 @@ Superadmin visitando outra empresa continua vendo menus de owner (regra atual).
 - Home `/atendimento`: cards dos artistas atendidos (métricas do mês); escolha = "visualizar como" o artista → `/leads`. Um único artista: entra direto. Sem artista escolhido, Leads/Clientes/Agenda redirecionam p/ `/atendimento`.
 - RLS: `pode_ver_lead`/`pode_operar_lead` (próprio, empresa, ou `atende_artista`); `find_or_create_cliente` aceita lead p/ artista atendido. Agenda: `podeVerAgenda` (src/lib/agenda-acesso.ts).
 - Vendedor sem Painel (decisão do usuário).
+
+## Ajuste 2026-10-02
+- Gestor também cai em `/equipe` (cards dos artistas; clique abre o Painel do artista). Área `ver_artistas` = admin/owner/gestor.
+- Vendedor sem "Minhas conexões".
