@@ -44,7 +44,7 @@ function formatar(campo: string, valor: unknown, nomes: Record<string, string>):
 }
 
 function detalhes(e: EventoAuditoria, nomes: Record<string, string>): string[] {
-  if (e.operacao === 'DELETE') return []
+  if (e.operacao === 'DELETE' || e.mudancas.restaurado === true) return []
   return Object.entries(e.mudancas)
     .filter(([campo]) => !OCULTOS.has(campo))
     .map(([campo, valor]) => {
@@ -57,9 +57,16 @@ function detalhes(e: EventoAuditoria, nomes: Record<string, string>): string[] {
     })
 }
 
+const OBJETO: Record<string, string> = {
+  clientes: 'o lead', negociacoes: 'uma negociação de', follow_ups: 'um follow-up de',
+}
+
 function titulo(e: EventoAuditoria): string {
   const r = e.rotulo ?? '(sem nome)'
   const op = e.operacao
+  // Lixeira: restauração (superadmin) e exclusão definitiva
+  if (OBJETO[e.tabela] && op === 'UPDATE' && e.mudancas.restaurado === true) return `restaurou ${OBJETO[e.tabela]} ${r}`
+  if (OBJETO[e.tabela] && op === 'DELETE' && e.mudancas.definitivo === true) return `excluiu definitivamente ${OBJETO[e.tabela]} ${r}`
   switch (e.tabela) {
     case 'clientes':
       return { INSERT: `criou o lead ${r}`, UPDATE: `editou o lead ${r}`, DELETE: `excluiu o lead ${r}` }[op]

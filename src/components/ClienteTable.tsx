@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { isSuperadmin } from '@/lib/roles'
 import { CalendarDays, CircleDollarSign, Loader2, MessageCircle, Pencil, Trash2, ArrowUp, ArrowDown, UserX, DollarSign, CheckCircle2, Bell, Plus, History } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -98,6 +100,8 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
   const router = useRouter()
   const mostrarCategoria = getCategoriasParaUsuario(userId).length > 0
   const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null)
+  // Só superadmin apaga de verdade; demais usuários inativam (trava no banco)
+  const exclusaoPermanente = isSuperadmin(useAuth().userProfile?.role)
   const [sortField, setSortField] = useState<SortField>('createdAt')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
@@ -633,17 +637,30 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onLoadMore, h
       <AlertDialog open={!!clienteParaExcluir} onOpenChange={(open) => !open && setClienteParaExcluir(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Deseja remover este cliente?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {exclusaoPermanente ? 'Excluir permanentemente?' : 'Deseja remover este cliente?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. O cliente
-              <span className="font-semibold text-foreground"> {clienteParaExcluir?.nome} </span>
-              será excluído permanentemente dos registros.
+              {exclusaoPermanente ? (
+                <>
+                  <span className="font-semibold text-destructive">Exclusão permanente: não pode ser desfeita.</span>{' '}
+                  O cliente
+                  <span className="font-semibold text-foreground"> {clienteParaExcluir?.nome} </span>
+                  e todas as negociações dele serão apagados do banco.
+                </>
+              ) : (
+                <>
+                  O cliente
+                  <span className="font-semibold text-foreground"> {clienteParaExcluir?.nome} </span>
+                  será removido da lista.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleDelete}>
-              Confirmar exclusão
+              {exclusaoPermanente ? 'Excluir permanentemente' : 'Confirmar exclusão'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

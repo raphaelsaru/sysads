@@ -54,3 +54,14 @@ describe('descreverEvento', () => {
     expect(d.detalhes[0].length).toBeLessThan(110)
   })
 })
+
+describe('lixeira', () => {
+  it('restaurou e excluiu definitivamente', () => {
+    expect(descreverEvento(ev({ mudancas: { restaurado: true } }))).toEqual({ titulo: 'restaurou o lead João Silva', detalhes: [] })
+    expect(descreverEvento(ev({ tabela: 'negociacoes', mudancas: { restaurado: true } })).titulo).toBe('restaurou uma negociação de João Silva')
+    expect(descreverEvento(ev({ operacao: 'DELETE', mudancas: { nome: 'x', definitivo: true } })).titulo)
+      .toBe('excluiu definitivamente o lead João Silva')
+    expect(descreverEvento(ev({ tabela: 'follow_ups', operacao: 'DELETE', mudancas: { definitivo: true } })).titulo)
+      .toBe('excluiu definitivamente um follow-up de João Silva')
+  })
+})
