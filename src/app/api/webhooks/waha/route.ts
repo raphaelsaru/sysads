@@ -212,6 +212,7 @@ async function handleLabelChange(
     .update({ categoria, updated_by: userId })
     .eq('user_id', userId)
     .eq('whatsapp_instagram', whatsapp)
+    .is('deleted_at', null) // service role não passa pelo RLS: ignora leads excluídos
 
   if (error) {
     console.error('Erro ao atualizar categoria via etiqueta WAHA:', error)
