@@ -56,6 +56,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     { href: '/calendario', label: 'Agenda', area: 'agenda' },
     { href: '/settings/integrations', label: 'Integrações', area: 'integracoes' },
     { href: '/empresa', label: 'Minha empresa', area: 'empresa' },
+    { href: '/logs', label: 'Logs', area: 'logs' },
     { href: '/admin/empresas', label: 'Empresas', area: 'admin' },
     { href: '/admin', label: 'Administração', area: 'admin' },
     { href: '/settings/users', label: 'Usuários (global)', area: 'admin' },
