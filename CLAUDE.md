@@ -58,6 +58,7 @@ Endpoints: `admin/users`, `admin/empresas`, `admin/empresa-ativa`, `empresa/`, `
 - clientes, negociacoes, follow_ups têm `deleted_at`/`deleted_by`. Gatilho `excluir_com_trava()` (BEFORE DELETE): só superadmin ou contexto confiável (service role/SQL) apaga de verdade; demais usuários → soft delete (DELETE não dá erro, retorna 0 linhas).
 - RLS esconde `deleted_at` preenchido (e filhos de lead excluído). Dedup (`find_or_create_cliente`, índices únicos) ignora excluídos: lead excluído que volta vira lead novo. Auditoria registra como exclusão.
 - Consultas por service role (fora do RLS) precisam filtrar `deleted_at is null`. Teste: `supabase/tests/soft_delete.sql`.
+- Lixeira do superadmin: `/admin/lixeira` (API `/api/admin/lixeira`: listar, restaurar, excluir de vez). Auditoria registra "restaurou" e "excluiu definitivamente". Na tabela de leads, o diálogo avisa exclusão permanente só p/ superadmin.
 
 ### Auditoria (logs)
 - `audit_log` (append-only, RLS: só dono/superadmin da empresa leem). Gatilho genérico `registrar_auditoria()` em clientes, negociacoes, follow_ups, user_profiles, tenants, vendedor_artistas, tenant_owners (campos auditados via args do gatilho).

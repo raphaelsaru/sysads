@@ -61,6 +61,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     { href: '/admin', label: 'Administração', area: 'admin' },
     { href: '/settings/users', label: 'Usuários (global)', area: 'admin' },
     { href: '/admin/google-calendar', label: 'Google Calendar', area: 'admin' },
+    { href: '/admin/lixeira', label: 'Lixeira', area: 'admin' },
   ] satisfies { href: string; label: string; area: Area }[]).filter(i => pode(role, i.area))
 
   // '/admin' não fica ativo em sub-rotas que têm item próprio
