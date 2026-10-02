@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     if (!isRoleConvidavel(role)) return NextResponse.json({ error: 'Papel inválido' }, { status: 400 })
 
     const r = await convidarUsuario({
-      admin: createAdminClient(),
+      admin: createAdminClient({ atorId: caller.userId }),
       email,
       full_name,
       tenantId: caller.tenantId,

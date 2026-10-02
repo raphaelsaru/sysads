@@ -37,7 +37,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient({ atorId: caller.userId })
     const { data: tenants, error: tErro } = await admin
       .from('tenants').select('id, name, slug, max_users, is_active, created_at').order('name')
     if (tErro) return NextResponse.json({ error: 'Erro ao buscar empresas' }, { status: 500 })
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dono é obrigatório' }, { status: 400 })
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient({ atorId: caller.userId })
 
     // Valida o dono ANTES de criar a empresa (evita rollback).
     let existente: { id: string; role: string; full_name: string | null; tenant_id: string | null } | null = null

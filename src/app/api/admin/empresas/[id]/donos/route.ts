@@ -12,22 +12,23 @@ import { resumoAuth } from '@/lib/auth-resumo'
 type Params = { params: Promise<{ id: string }> }
 
 // Retorna o id da empresa ou a resposta de erro.
-async function autorizar(params: Params['params']): Promise<string | NextResponse> {
+async function autorizar(params: Params['params']): Promise<{ id: string; atorId: string } | NextResponse> {
   const { id } = await params
   const caller = await getCaller()
   if (!caller || !isSuperadmin(caller.role)) {
     return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
   }
   if (!isUuid(id)) return NextResponse.json({ error: 'Empresa inválida' }, { status: 400 })
-  return id
+  return { id, atorId: caller.userId }
 }
 
 // GET /api/admin/empresas/[id]/donos → { donos: [{ user_id, full_name, email, created_at }] }
 export async function GET(_request: NextRequest, { params }: Params) {
   try {
-    const id = await autorizar(params)
-    if (typeof id !== 'string') return id
-    const admin = createAdminClient()
+    const autorizado = await autorizar(params)
+    if (autorizado instanceof NextResponse) return autorizado
+    const { id, atorId } = autorizado
+    const admin = createAdminClient({ atorId })
 
     const { data: vinculos, error } = await admin.from('tenant_owners')
       .select('user_id, created_at').eq('tenant_id', id).order('created_at')
@@ -57,13 +58,14 @@ export async function GET(_request: NextRequest, { params }: Params) {
 // POST /api/admin/empresas/[id]/donos { email } — vincula owner (ativo, de outra empresa).
 export async function POST(request: NextRequest, { params }: Params) {
   try {
-    const id = await autorizar(params)
-    if (typeof id !== 'string') return id
+    const autorizado = await autorizar(params)
+    if (autorizado instanceof NextResponse) return autorizado
+    const { id, atorId } = autorizado
     const body = await request.json().catch(() => ({}))
     const email = normalizarEmail(body?.email)
     if (!email) return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
 
-    const admin = createAdminClient()
+    const admin = createAdminClient({ atorId })
     const { data: tenant, error: tenantErro } = await admin
       .from('tenants').select('id').eq('id', id).maybeSingle()
     if (tenantErro) return NextResponse.json({ error: 'Erro ao buscar empresa' }, { status: 500 })
@@ -103,12 +105,13 @@ export async function POST(request: NextRequest, { params }: Params) {
 // DELETE /api/admin/empresas/[id]/donos?user_id= — remove vínculo; tira o dono da empresa se estava nela.
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
-    const id = await autorizar(params)
-    if (typeof id !== 'string') return id
+    const autorizado = await autorizar(params)
+    if (autorizado instanceof NextResponse) return autorizado
+    const { id, atorId } = autorizado
     const userId = request.nextUrl.searchParams.get('user_id')
     if (!isUuid(userId)) return NextResponse.json({ error: 'Usuário inválido' }, { status: 400 })
 
-    const admin = createAdminClient()
+    const admin = createAdminClient({ atorId })
     const { data: removidos, error } = await admin.from('tenant_owners')
       .delete().eq('tenant_id', id).eq('user_id', userId).select('user_id')
     if (error) return NextResponse.json({ error: 'Erro ao remover vínculo' }, { status: 500 })

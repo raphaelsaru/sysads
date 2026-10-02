@@ -43,7 +43,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Cor inválida (use #RRGGBB)' }, { status: 400 })
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient({ atorId: caller.userId })
     const { data: atual, error: buscaError } = await admin
       .from('tenants').select('branding').eq('id', caller.tenantId).single()
     if (buscaError || !atual) {

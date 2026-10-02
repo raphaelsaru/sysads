@@ -29,7 +29,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     if (!caller?.tenantId || !canManageTeam(caller.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
-    const admin = createAdminClient()
+    const admin = createAdminClient({ atorId: caller.userId })
     const invalido = await validarVendedor(admin, id, caller.tenantId)
     if (invalido) return invalido
 
@@ -51,7 +51,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
     const tenantId = caller.tenantId
-    const admin = createAdminClient()
+    const admin = createAdminClient({ atorId: caller.userId })
     const invalido = await validarVendedor(admin, id, tenantId)
     if (invalido) return invalido
 

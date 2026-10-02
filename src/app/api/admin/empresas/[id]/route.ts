@@ -48,7 +48,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Nada para atualizar' }, { status: 400 })
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient({ atorId: caller.userId })
     const { data: tenant, error: buscaErro } = await admin
       .from('tenants').select('id').eq('id', id).maybeSingle()
     if (buscaErro) return NextResponse.json({ error: 'Erro ao buscar empresa' }, { status: 500 })

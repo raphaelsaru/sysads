@@ -30,7 +30,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }, { status: 400 })
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient({ atorId: caller.userId })
     const { data: alvo } = await admin
       .from('user_profiles').select('tenant_id, role').eq('id', id).maybeSingle()
     if (!alvo || alvo.tenant_id !== caller.tenantId || alvo.role === 'admin') {
