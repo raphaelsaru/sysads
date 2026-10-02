@@ -5,6 +5,7 @@ import { getCaller } from '@/lib/tenant-server'
 import { canManageTeam, isRoleConvidavel } from '@/lib/roles'
 import { pode } from '@/lib/permissions'
 import { convidarUsuario, normalizarEmail } from '@/lib/convite'
+import { resumoAuth } from '@/lib/auth-resumo'
 
 // GET /api/empresa/usuarios[?ativos=1] — equipe da empresa atual.
 export async function GET(request: NextRequest) {
@@ -28,18 +29,18 @@ export async function GET(request: NextRequest) {
     ])
     if (error) return NextResponse.json({ error: 'Erro ao buscar usuários' }, { status: 500 })
 
-    // Emails e status de convite vêm do auth (service role). Equipes pequenas: paralelo.
-    const admin = createAdminClient()
-    const usuarios = await Promise.all((perfis ?? []).map(async ({ preferences, ...p }) => {
-      const { data } = await admin.auth.admin.getUserById(p.id)
+    // Emails e status de convite vêm do auth (uma consulta, service role).
+    const auth = await resumoAuth(createAdminClient(), (perfis ?? []).map(p => p.id))
+    const usuarios = (perfis ?? []).map(({ preferences, ...p }) => {
+      const a = auth.get(p.id)
       const prefs = (preferences as Record<string, unknown>) || {}
       return {
         ...p,
-        email: data.user?.email ?? null,
-        currency: (prefs.currency as string) ?? (data.user?.user_metadata?.currency as string) ?? 'BRL',
-        convite_pendente: !data.user?.last_sign_in_at,
+        email: a?.email ?? null,
+        currency: (prefs.currency as string) ?? a?.currency ?? 'BRL',
+        convite_pendente: !a?.last_sign_in_at,
       }
-    }))
+    })
 
     return NextResponse.json({
       usuarios,

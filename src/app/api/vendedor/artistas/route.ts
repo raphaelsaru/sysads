@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller } from '@/lib/tenant-server'
+import { resumoAuth } from '@/lib/auth-resumo'
 
 // GET — artistas ativos que o vendedor logado atende na empresa atual.
 export async function GET() {
@@ -22,16 +23,17 @@ export async function GET() {
       .order('full_name')
     if (perfisError) return NextResponse.json({ error: 'Erro ao buscar artistas' }, { status: 500 })
 
-    // Mesmo formato de /api/empresa/usuarios (email/moeda vêm do auth). Listas pequenas.
-    const artistas = await Promise.all((perfis ?? []).map(async ({ preferences, ...p }) => {
-      const { data } = await admin.auth.admin.getUserById(p.id)
+    // Mesmo formato de /api/empresa/usuarios (email/moeda vêm do auth)
+    const auth = await resumoAuth(admin, (perfis ?? []).map(p => p.id))
+    const artistas = (perfis ?? []).map(({ preferences, ...p }) => {
+      const a = auth.get(p.id)
       const prefs = (preferences as Record<string, unknown>) || {}
       return {
         ...p,
-        email: data.user?.email ?? null,
-        currency: (prefs.currency as string) ?? (data.user?.user_metadata?.currency as string) ?? 'BRL',
+        email: a?.email ?? null,
+        currency: (prefs.currency as string) ?? a?.currency ?? 'BRL',
       }
-    }))
+    })
     return NextResponse.json({ artistas })
   } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })

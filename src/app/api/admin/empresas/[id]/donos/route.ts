@@ -4,6 +4,7 @@ import { getCaller } from '@/lib/tenant-server'
 import { isSuperadmin } from '@/lib/roles'
 import { isUuid } from '@/lib/validacao'
 import { buscarUsuarioPorEmail, normalizarEmail } from '@/lib/convite'
+import { resumoAuth } from '@/lib/auth-resumo'
 
 // Donos adicionais (tenant_owners): owner de outra empresa com acesso a esta. Só superadmin.
 // Vínculo não consome slot; o dono troca de empresa pela EmpresaSwitcher.
@@ -34,20 +35,17 @@ export async function GET(_request: NextRequest, { params }: Params) {
     if (!vinculos?.length) return NextResponse.json({ donos: [] })
 
     const ids = vinculos.map(v => v.user_id as string)
-    const [{ data: perfis, error: perfisErro }, emails] = await Promise.all([
+    const [{ data: perfis, error: perfisErro }, auth] = await Promise.all([
       admin.from('user_profiles').select('id, full_name').in('id', ids),
-      Promise.all(ids.map(async (uid) => {
-        const { data } = await admin.auth.admin.getUserById(uid)
-        return data?.user?.email ?? null
-      })),
+      resumoAuth(admin, ids),
     ])
     if (perfisErro) return NextResponse.json({ error: 'Erro ao buscar donos' }, { status: 500 })
 
     const nomes = new Map((perfis || []).map(p => [p.id as string, p.full_name as string | null]))
-    const donos = vinculos.map((v, i) => ({
+    const donos = vinculos.map((v) => ({
       user_id: v.user_id as string,
       full_name: nomes.get(v.user_id as string) ?? null,
-      email: emails[i],
+      email: auth.get(v.user_id as string)?.email ?? null,
       created_at: v.created_at as string,
     }))
     return NextResponse.json({ donos })
