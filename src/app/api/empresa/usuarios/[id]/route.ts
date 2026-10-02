@@ -40,7 +40,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (alvo.role === 'owner' && !isSuperadmin(caller.role)) {
       return NextResponse.json({ error: 'Apenas o superadmin pode alterar outro dono' }, { status: 403 })
     }
-    // Papel de dono não muda por aqui (nem pelo superadmin): usar definir_dono.
+    // Papel de dono não muda por aqui (nem pelo superadmin): usar /api/empresa/donos.
     if (alvo.role === 'owner' && role !== undefined) {
       return NextResponse.json({ error: 'O papel do dono não pode ser alterado aqui' }, { status: 403 })
     }

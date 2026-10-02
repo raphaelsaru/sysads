@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getCaller, mensagemErroDb } from '@/lib/tenant-server'
 import { isSuperadmin } from '@/lib/roles'
+import { adicionarDono } from '@/lib/donos'
 import { convidarUsuario, normalizarEmail } from '@/lib/convite'
 import { isMaxUsersValido, isUuid, MAX_USERS_LIMITE, NOME_EMPRESA_MAX } from '@/lib/validacao'
 
@@ -100,18 +101,6 @@ export async function POST(request: NextRequest) {
         .select('id, role, full_name, tenant_id').eq('id', dono.user_id).maybeSingle()
       if (error) return NextResponse.json({ error: 'Erro ao buscar usuário' }, { status: 500 })
       if (!perfil) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
-      // Não deixa a empresa atual sem dono ativo.
-      if (perfil.role === 'owner' && perfil.tenant_id) {
-        const { count, error: donosErro } = await admin.from('user_profiles')
-          .select('id', { count: 'exact', head: true })
-          .eq('tenant_id', perfil.tenant_id).eq('role', 'owner').eq('is_active', true)
-          .neq('id', perfil.id)
-        if (donosErro) return NextResponse.json({ error: 'Erro ao buscar usuário' }, { status: 500 })
-        if (!count) {
-          return NextResponse.json(
-            { error: 'Usuário é o único dono da empresa atual. Defina outro dono antes.' }, { status: 409 })
-        }
-      }
       existente = perfil
     } else {
       const email = normalizarEmail(dono.email)
@@ -137,7 +126,16 @@ export async function POST(request: NextRequest) {
       if (existente.role === 'admin') {
         return NextResponse.json({ empresa, dono: { id: existente.id, role: 'admin', reaproveitado: true } }, { status: 201 })
       }
-      // Move o usuário p/ a nova empresa (leads antigos ficam na empresa anterior).
+      // Dono de outra empresa: vira dono desta também (vínculo), sem sair da atual.
+      if (existente.role === 'owner' && existente.tenant_id) {
+        const r = await adicionarDono(admin, empresa.id, { user_id: existente.id }, request.nextUrl.origin)
+        if (r.status >= 400) {
+          await removerEmpresaVazia(admin, empresa.id)
+          return NextResponse.json(r.body, { status: r.status })
+        }
+        return NextResponse.json({ empresa, dono: { id: existente.id, role: 'owner', reaproveitado: true, vinculado: true } }, { status: 201 })
+      }
+      // Demais: move o usuário p/ a nova empresa (leads antigos ficam na empresa anterior).
       const { data: movidos, error } = await admin.from('user_profiles')
         .update({ tenant_id: empresa.id, role: 'owner', is_active: true })
         .eq('id', existente.id).neq('role', 'admin').select('id')

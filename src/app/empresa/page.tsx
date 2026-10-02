@@ -7,6 +7,7 @@ import { Users, UserPlus, Palette, Loader2, Mail } from 'lucide-react'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import MainLayout from '@/components/layout/MainLayout'
 import ArtistasDoVendedor from '@/components/empresa/ArtistasDoVendedor'
+import CardDonos from '@/components/empresa/CardDonos'
 import { useAuth } from '@/contexts/AuthContext'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -501,6 +502,14 @@ function EmpresaPageContent() {
             )}
           </CardContent>
         </Card>
+
+        {tenantId && (
+          <CardDonos
+            endpoint="/api/empresa/donos"
+            membros={usuarios.map(u => ({ id: u.id, nome: u.full_name || u.email || 'Sem nome', role: u.role, is_active: u.is_active }))}
+            onAlterado={() => { void carregarUsuarios(true) }}
+          />
+        )}
       </div>
 
       <Dialog open={conviteOpen} onOpenChange={fecharConvite}>
