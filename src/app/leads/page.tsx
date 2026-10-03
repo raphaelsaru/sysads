@@ -62,6 +62,8 @@ function HomePage() {
     comSinal: filtros.comSinal !== 'todos' ? filtros.comSinal === 'sim' : undefined,
     mes: filtros.mes !== TODOS_MESES ? filtros.mes : undefined,
     categoria: filtros.categoria !== 'todos' ? filtros.categoria : undefined,
+    procedimento: filtros.procedimento !== 'todos' ? filtros.procedimento : undefined,
+    motivoNaoVenda: filtros.motivoNaoVenda !== 'todos' ? filtros.motivoNaoVenda : undefined,
   }), [filtros])
 
   const {

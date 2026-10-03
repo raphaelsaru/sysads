@@ -37,6 +37,8 @@ export type FiltroChave =
   | 'vendaPaga'
   | 'mes'
   | 'categoria'
+  | 'procedimento'
+  | 'motivoNaoVenda'
 
 export const TODOS_MESES = 'todos'
 
@@ -52,6 +54,8 @@ export const filtrosIniciais = {
   vendaPaga: 'todos',
   mes: TODOS_MESES,
   categoria: 'todos',
+  procedimento: 'todos',
+  motivoNaoVenda: 'todos',
 } satisfies Record<FiltroChave, string>
 
 export type FiltrosState = typeof filtrosIniciais
@@ -98,6 +102,8 @@ const labelsFiltro: Partial<Record<FiltroChave, (valor: string) => string>> = {
   comSinal: (v) => (v === 'sim' ? 'Com sinal' : 'Sem sinal'),
   vendaPaga: (v) => (v === 'pagos' ? 'Vendas pagas' : 'Vendas pendentes'),
   categoria: (v) => `Categoria: ${v}`,
+  procedimento: (v) => `Procedimento: ${v}`,
+  motivoNaoVenda: (v) => `Motivo: ${v}`,
   mes: (v) => {
     const mes = gerarMesesAnoVigente().find((m) => m.valor === v)
     return `Mês: ${mes?.label ?? v}`
@@ -235,7 +241,39 @@ export default function ClienteFiltrosPanel({
           </Select>
         )}
 
-        {mostrarPagamento && (
+        {opcoes.procedimentos.length > 0 && (
+          <Select value={filtros.procedimento} onValueChange={(valor) => atualizarFiltro('procedimento', valor)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Procedimento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os procedimentos</SelectItem>
+              {opcoes.procedimentos.map((procedimento) => (
+                <SelectItem key={procedimento} value={procedimento}>
+                  {procedimento}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {opcoes.motivosNaoVenda.length > 0 && (
+          <Select value={filtros.motivoNaoVenda} onValueChange={(valor) => atualizarFiltro('motivoNaoVenda', valor)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Motivo não venda" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os motivos</SelectItem>
+              {opcoes.motivosNaoVenda.map((motivo) => (
+                <SelectItem key={motivo} value={motivo}>
+                  {motivo}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+                {mostrarPagamento && (
           <Select value={filtros.vendaPaga} onValueChange={(valor) => atualizarFiltro('vendaPaga', valor)}>
             <SelectTrigger>
               <SelectValue placeholder="Status de pagamento" />

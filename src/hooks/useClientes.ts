@@ -76,6 +76,8 @@ export interface ClienteFiltrosInput {
   vendaPaga?: boolean
   mes?: string // formato YYYY-MM
   categoria?: string
+  procedimento?: string
+  motivoNaoVenda?: string
 }
 
 interface EstatisticasClientes {
@@ -134,6 +136,8 @@ function temFiltroDeNegociacao(filtros?: ClienteFiltrosInput): boolean {
   return (
     filtros.resultado !== undefined ||
     filtros.qualidadeContato !== undefined ||
+    filtros.procedimento !== undefined ||
+    filtros.motivoNaoVenda !== undefined ||
     filtros.valorMin !== undefined ||
     filtros.valorMax !== undefined ||
     filtros.naoRespondeu !== undefined ||
@@ -241,6 +245,14 @@ function aplicarFiltrosNegociacao(query: any, filtros?: ClienteFiltrosInput) {
 
   if (filtros.qualidadeContato) {
     query = query.eq('qualidade_contato', filtros.qualidadeContato)
+  }
+
+  if (filtros.procedimento) {
+    query = query.eq('procedimento', filtros.procedimento)
+  }
+
+  if (filtros.motivoNaoVenda) {
+    query = query.eq('motivo_nao_venda', filtros.motivoNaoVenda)
   }
 
   if (filtros.valorMin !== undefined && !Number.isNaN(filtros.valorMin)) {
