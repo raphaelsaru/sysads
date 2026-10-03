@@ -110,6 +110,7 @@ const NEGOCIACAO_COLUMNS = `
   id, cliente_id, data_contato, orcamento_enviado, resultado, qualidade_contato,
   nao_respondeu, valor_fechado, observacao, pagou_sinal, valor_sinal,
   data_pagamento_sinal, venda_paga, data_pagamento_venda, data_lembrete_chamada,
+  procedimento, motivo_nao_venda, forma_pagamento_sinal,
   data_mes_venda, created_at, created_by, updated_by
 `
 
@@ -158,6 +159,9 @@ type NegociacaoSupabaseRow = {
   venda_paga: boolean
   data_pagamento_venda: string | null
   data_lembrete_chamada: string | null
+  procedimento: string | null
+  motivo_nao_venda: string | null
+  forma_pagamento_sinal: string | null
   data_mes_venda: string | null
   created_at: string
   created_by: string | null
@@ -351,6 +355,9 @@ export function useClientes(
         vendaPaga: negociacao.venda_paga || false,
         dataPagamentoVenda: negociacao.data_pagamento_venda ?? undefined,
         dataLembreteChamada: negociacao.data_lembrete_chamada ?? undefined,
+        procedimento: negociacao.procedimento ?? undefined,
+        motivoNaoVenda: negociacao.motivo_nao_venda ?? undefined,
+        formaPagamentoSinal: negociacao.forma_pagamento_sinal ?? undefined,
         dataMesVenda: negociacao.data_mes_venda ?? undefined,
         createdAt: negociacao.created_at,
         createdBy: negociacao.created_by ?? undefined,
@@ -445,12 +452,15 @@ export function useClientes(
               }
               break
             case 'Orçamento em Processo':
+            case 'Formulário':
+            case 'Consulta Presencial':
               emProcesso += 1
               if (item.valor_fechado !== null) {
                 valorEmProcesso += Number(item.valor_fechado) || 0
               }
               break
             case 'Não Venda':
+            case 'Cancelado':
               naoVenda += 1
               break
             default:
@@ -706,6 +716,9 @@ export function useClientes(
           venda_paga: nova.vendaPaga || false,
           data_pagamento_venda: nova.dataPagamentoVenda || null,
           data_lembrete_chamada: nova.dataLembreteChamada || null,
+          procedimento: nova.procedimento || null,
+          motivo_nao_venda: nova.motivoNaoVenda || null,
+          forma_pagamento_sinal: nova.formaPagamentoSinal || null,
           created_by: user.id,
           updated_by: user.id,
         })

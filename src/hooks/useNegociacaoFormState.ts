@@ -25,6 +25,9 @@ export function useNegociacaoFormState(
       vendaPaga: false,
       dataPagamentoVenda: '',
       dataLembreteChamada: '',
+      procedimento: '',
+      motivoNaoVenda: '',
+      formaPagamentoSinal: '',
     }),
     [clienteId]
   )
@@ -50,6 +53,9 @@ export function useNegociacaoFormState(
         vendaPaga: negociacao.vendaPaga || false,
         dataPagamentoVenda: negociacao.dataPagamentoVenda || '',
         dataLembreteChamada: negociacao.dataLembreteChamada || '',
+        procedimento: negociacao.procedimento || '',
+        motivoNaoVenda: negociacao.motivoNaoVenda || '',
+        formaPagamentoSinal: negociacao.formaPagamentoSinal || '',
       })
       setValorNumerico(
         negociacao.valorFechadoNumero !== null && negociacao.valorFechadoNumero !== undefined
@@ -110,8 +116,11 @@ export function useNegociacaoFormState(
             dataPagamentoSinal: '',
             vendaPaga: false,
             dataPagamentoVenda: '',
+            formaPagamentoSinal: '',
           }
         : {}),
+      // motivo de não venda não se aplica a Venda
+      ...(willBeVenda ? { motivoNaoVenda: '' } : {}),
       ...(wasValorVisible && !willBeValorVisible ? { valorFechado: '' } : {}),
     }))
 
@@ -142,7 +151,7 @@ export function useNegociacaoFormState(
     setFormData((prev) => ({
       ...prev,
       pagouSinal: checked,
-      ...(!checked ? { valorSinal: '', dataPagamentoSinal: '' } : {}),
+      ...(!checked ? { valorSinal: '', dataPagamentoSinal: '', formaPagamentoSinal: '' } : {}),
     }))
 
     if (!checked) {

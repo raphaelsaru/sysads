@@ -22,6 +22,8 @@ import { formatDateISO } from '@/lib/dateUtils'
 import { FALLBACK_CURRENCY_VALUE, type SupportedCurrency } from '@/lib/currency'
 import { useNegociacaoFormState } from '@/hooks/useNegociacaoFormState'
 import NegociacaoFormFields from './NegociacaoFormFields'
+import { useOpcoesCrm } from '@/hooks/useOpcoesCrm'
+import { comValorAtual } from '@/lib/crm-preset'
 
 type NegociacaoInicial = Omit<NovaNegociacao, 'clienteId'>
 
@@ -43,6 +45,7 @@ export default function ClienteForm({
   currency = FALLBACK_CURRENCY_VALUE,
 }: ClienteFormProps) {
   const categorias = useMemo(() => getCategoriasParaUsuario(userId), [userId])
+  const opcoes = useOpcoesCrm()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [mostrarNegociacao, setMostrarNegociacao] = useState(false)
   const negociacaoFormState = useNegociacaoFormState('', undefined, currency)
@@ -82,6 +85,9 @@ export default function ClienteForm({
           vendaPaga: negForm.vendaPaga,
           dataPagamentoVenda: negForm.dataPagamentoVenda,
           dataLembreteChamada: negForm.dataLembreteChamada,
+          procedimento: negForm.procedimento,
+          motivoNaoVenda: negForm.motivoNaoVenda,
+          formaPagamentoSinal: negForm.formaPagamentoSinal,
         }
         await onSubmit(formData, negociacaoInicial)
       } else {
@@ -158,12 +164,11 @@ export default function ClienteForm({
                   <SelectValue placeholder="Selecione a origem" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Indicação">Indicação</SelectItem>
-                  <SelectItem value="Orgânico / Perfil">Orgânico / Perfil</SelectItem>
-                  <SelectItem value="Anúncio">Anúncio</SelectItem>
-                  <SelectItem value="Cliente antigo">Cliente antigo</SelectItem>
-                  <SelectItem value="Site">Site</SelectItem>
-                  <SelectItem value="Instagram">Instagram</SelectItem>
+                  {comValorAtual(opcoes.origens, formData.origem).map((origem) => (
+                    <SelectItem key={origem} value={origem}>
+                      {origem}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

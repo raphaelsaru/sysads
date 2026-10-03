@@ -11,6 +11,8 @@ export interface Tenant {
   max_users: number | null
   is_active: boolean
   branding: { primaryColor?: string | null } | null
+  // opções extras dos forms (src/lib/crm-preset.ts); null = padrão
+  crm_preset?: 'planilha' | null
 }
 
 export interface UserProfile {
@@ -42,7 +44,8 @@ export interface Cliente {
   nome: string;
   whatsappInstagram: string;
   email?: string;
-  origem: 'Indicação' | 'Orgânico / Perfil' | 'Anúncio' | 'Cliente antigo' | 'Anúncio Promoção' | 'Anúncio Geral' | 'Instagram' | 'Google' | 'Outro' | 'WhatsApp' | 'Site';
+  origem: 'Indicação' | 'Orgânico / Perfil' | 'Anúncio' | 'Cliente antigo' | 'Anúncio Promoção' | 'Anúncio Geral' | 'Instagram' | 'Google' | 'Outro' | 'WhatsApp' | 'Site'
+    | 'TikTok' | 'WhatsApp Studio' | 'Cliente ativo' | 'Cliente de Porta';
   observacao?: string;
   createdAt?: string;
   createdBy?: string;
@@ -63,7 +66,8 @@ export interface Negociacao {
   clienteId: string;
   dataContato: string;
   orcamentoEnviado: boolean;
-  resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda';
+  // Formulário/Consulta Presencial/Cancelado só no preset 'planilha'
+  resultado: 'Venda' | 'Orçamento em Processo' | 'Não Venda' | 'Formulário' | 'Consulta Presencial' | 'Cancelado';
   // nullable no banco (sem NOT NULL em qualidade_contato)
   qualidadeContato?: 'Bom' | 'Regular' | 'Ruim';
   naoRespondeu?: boolean;
@@ -77,6 +81,10 @@ export interface Negociacao {
   vendaPaga?: boolean;
   dataPagamentoVenda?: string;
   dataLembreteChamada?: string;
+  // preset 'planilha' (texto livre no banco; opções em crm-preset.ts)
+  procedimento?: string;
+  motivoNaoVenda?: string;
+  formaPagamentoSinal?: string;
   // coluna gerada (`data_mes_venda`, stored, read-only) — coalesce(data_pagamento_sinal, data_contato).
   // exposta como opcional pra leitura (ex.: dashboard/Fase 7); nunca setável, por isso ausente de NovaNegociacao.
   dataMesVenda?: string;
@@ -110,6 +118,9 @@ export interface NovaNegociacao {
   vendaPaga?: boolean;
   dataPagamentoVenda?: string;
   dataLembreteChamada?: string;
+  procedimento?: string;
+  motivoNaoVenda?: string;
+  formaPagamentoSinal?: string;
 }
 
 // =====================================================

@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         const { data: tenantRaw, error: tenantError } = await supabase
           .from('tenants')
-          .select('id, name, max_users, is_active, branding')
+          .select('id, name, max_users, is_active, branding, crm_preset')
           .eq('id', tenantId as string)
           .single()
         if (isStale()) return

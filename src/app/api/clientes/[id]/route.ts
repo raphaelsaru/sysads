@@ -24,6 +24,9 @@ const CAMPOS_SOMENTE_NEGOCIACAO = [
   'dataPagamentoVenda',
   'dataLembreteChamada',
   'dataMesVenda',
+  'procedimento',
+  'motivoNaoVenda',
+  'formaPagamentoSinal',
 ] as const;
 
 function negociacaoRowParaNegociacao(row: {
@@ -42,6 +45,9 @@ function negociacaoRowParaNegociacao(row: {
   venda_paga: boolean | null;
   data_pagamento_venda: string | null;
   data_lembrete_chamada: string | null;
+  procedimento: string | null;
+  motivo_nao_venda: string | null;
+  forma_pagamento_sinal: string | null;
   data_mes_venda: string | null;
   created_at: string;
   created_by: string | null;
@@ -63,6 +69,9 @@ function negociacaoRowParaNegociacao(row: {
     vendaPaga: row.venda_paga || false,
     dataPagamentoVenda: row.data_pagamento_venda ?? undefined,
     dataLembreteChamada: row.data_lembrete_chamada ?? undefined,
+    procedimento: row.procedimento ?? undefined,
+    motivoNaoVenda: row.motivo_nao_venda ?? undefined,
+    formaPagamentoSinal: row.forma_pagamento_sinal ?? undefined,
     dataMesVenda: row.data_mes_venda ?? undefined,
     createdAt: row.created_at,
     createdBy: row.created_by ?? undefined,
@@ -99,6 +108,7 @@ export async function GET(
           qualidade_contato, nao_respondeu, valor_fechado, observacao,
           pagou_sinal, valor_sinal, data_pagamento_sinal, venda_paga,
           data_pagamento_venda, data_lembrete_chamada, data_mes_venda,
+          procedimento, motivo_nao_venda, forma_pagamento_sinal,
           created_at, created_by, updated_by
         )
       `)

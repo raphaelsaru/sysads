@@ -15,9 +15,42 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { FALLBACK_CURRENCY_VALUE, type SupportedCurrency } from '@/lib/currency'
 import { DatePicker } from '@/components/ui/date-picker'
+import { useOpcoesCrm } from '@/hooks/useOpcoesCrm'
+import { comValorAtual } from '@/lib/crm-preset'
 
-const RESULTADOS: Negociacao['resultado'][] = ['Venda', 'Orçamento em Processo', 'Não Venda']
-const QUALIDADES: NonNullable<Negociacao['qualidadeContato']>[] = ['Bom', 'Regular', 'Ruim']
+// Select de texto livre do preset (vazio = campo some). Valor fora da lista é mantido.
+function SelectOpcao({
+  id,
+  label,
+  opcoes,
+  value,
+  onChange,
+}: {
+  id: string
+  label: string
+  opcoes: string[]
+  value?: string
+  onChange: (value: string) => void
+}) {
+  if (opcoes.length === 0) return null
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Select value={value || undefined} onValueChange={onChange}>
+        <SelectTrigger id={id}>
+          <SelectValue placeholder="Selecione" />
+        </SelectTrigger>
+        <SelectContent>
+          {comValorAtual(opcoes, value).map((opcao) => (
+            <SelectItem key={opcao} value={opcao}>
+              {opcao}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
 
 export interface NegociacaoFormFieldsProps {
   formData: NovaNegociacao
@@ -49,6 +82,7 @@ export default function NegociacaoFormFields({
   idPrefix = '',
 }: NegociacaoFormFieldsProps) {
   const id = (name: string) => `${idPrefix}${name}`
+  const opcoes = useOpcoesCrm()
 
   return (
     <>
@@ -90,7 +124,7 @@ export default function NegociacaoFormFields({
               <SelectValue placeholder="Selecione o status" />
             </SelectTrigger>
             <SelectContent>
-              {RESULTADOS.map((resultado) => (
+              {comValorAtual(opcoes.resultados, formData.resultado).map((resultado) => (
                 <SelectItem key={resultado} value={resultado}>
                   {resultado}
                 </SelectItem>
@@ -98,6 +132,24 @@ export default function NegociacaoFormFields({
             </SelectContent>
           </Select>
         </div>
+
+        <SelectOpcao
+          id={id('procedimento')}
+          label="Procedimento"
+          opcoes={opcoes.procedimentos}
+          value={formData.procedimento}
+          onChange={(value) => handleChange('procedimento', value)}
+        />
+
+        {formData.resultado !== 'Venda' && (
+          <SelectOpcao
+            id={id('motivoNaoVenda')}
+            label="Motivo não venda"
+            opcoes={opcoes.motivosNaoVenda}
+            value={formData.motivoNaoVenda}
+            onChange={(value) => handleChange('motivoNaoVenda', value)}
+          />
+        )}
 
         <div className="space-y-2">
           <Label htmlFor={id('qualidadeContato')}>Qualidade do contato</Label>
@@ -111,7 +163,7 @@ export default function NegociacaoFormFields({
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
-              {QUALIDADES.map((qualidade) => (
+              {comValorAtual(opcoes.qualidades, formData.qualidadeContato).map((qualidade) => (
                 <SelectItem key={qualidade} value={qualidade}>
                   {qualidade}
                 </SelectItem>
@@ -209,6 +261,13 @@ export default function NegociacaoFormFields({
                   placeholder="Selecione a data"
                 />
               </div>
+              <SelectOpcao
+                id={id('formaPagamentoSinal')}
+                label="Forma de pagamento do sinal"
+                opcoes={opcoes.formasPagamentoSinal}
+                value={formData.formaPagamentoSinal}
+                onChange={(value) => handleChange('formaPagamentoSinal', value)}
+              />
             </div>
           )}
 

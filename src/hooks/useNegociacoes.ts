@@ -31,6 +31,9 @@ type NegociacaoSupabaseRow = {
   venda_paga: boolean
   data_pagamento_venda: string | null
   data_lembrete_chamada: string | null
+  procedimento: string | null
+  motivo_nao_venda: string | null
+  forma_pagamento_sinal: string | null
   data_mes_venda: string | null
   created_at: string
   created_by: string | null
@@ -67,6 +70,9 @@ export function useNegociacoes(currency: SupportedCurrency = FALLBACK_CURRENCY_V
         vendaPaga: negociacao.venda_paga || false,
         dataPagamentoVenda: negociacao.data_pagamento_venda ?? undefined,
         dataLembreteChamada: negociacao.data_lembrete_chamada ?? undefined,
+        procedimento: negociacao.procedimento ?? undefined,
+        motivoNaoVenda: negociacao.motivo_nao_venda ?? undefined,
+        formaPagamentoSinal: negociacao.forma_pagamento_sinal ?? undefined,
         dataMesVenda: negociacao.data_mes_venda ?? undefined,
         createdAt: negociacao.created_at,
         createdBy: negociacao.created_by ?? undefined,
@@ -145,6 +151,9 @@ export function useNegociacoes(currency: SupportedCurrency = FALLBACK_CURRENCY_V
             venda_paga: nova.vendaPaga || false,
             data_pagamento_venda: nova.dataPagamentoVenda || null,
             data_lembrete_chamada: nova.dataLembreteChamada || null,
+            procedimento: nova.procedimento || null,
+            motivo_nao_venda: nova.motivoNaoVenda || null,
+            forma_pagamento_sinal: nova.formaPagamentoSinal || null,
             created_by: user.id,
             updated_by: user.id,
           })
@@ -205,6 +214,9 @@ export function useNegociacoes(currency: SupportedCurrency = FALLBACK_CURRENCY_V
           venda_paga?: boolean
           data_pagamento_venda?: string | null
           data_lembrete_chamada?: string | null
+          procedimento?: string | null
+          motivo_nao_venda?: string | null
+          forma_pagamento_sinal?: string | null
           updated_by?: string
         }
 
@@ -230,6 +242,9 @@ export function useNegociacoes(currency: SupportedCurrency = FALLBACK_CURRENCY_V
         if (payload.vendaPaga !== undefined) updateData.venda_paga = payload.vendaPaga
         if (payload.dataPagamentoVenda !== undefined) updateData.data_pagamento_venda = payload.dataPagamentoVenda || null
         if (payload.dataLembreteChamada !== undefined) updateData.data_lembrete_chamada = payload.dataLembreteChamada || null
+        if (payload.procedimento !== undefined) updateData.procedimento = payload.procedimento || null
+        if (payload.motivoNaoVenda !== undefined) updateData.motivo_nao_venda = payload.motivoNaoVenda || null
+        if (payload.formaPagamentoSinal !== undefined) updateData.forma_pagamento_sinal = payload.formaPagamentoSinal || null
         if (user) updateData.updated_by = user.id
 
         const { data: negociacao, error } = await negociacoesTable()

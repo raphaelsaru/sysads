@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Filter, X } from 'lucide-react'
+import { useOpcoesCrm } from '@/hooks/useOpcoesCrm'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,8 +23,6 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 
-export const ORIGENS = ['Indicação', 'Orgânico / Perfil', 'Anúncio', 'Cliente antigo', 'Site', 'Instagram'] as const
-export const RESULTADOS = ['Venda', 'Orçamento em Processo', 'Não Venda'] as const
 export const QUALIDADES = ['Bom', 'Regular', 'Ruim'] as const
 
 export type FiltroChave =
@@ -159,6 +158,7 @@ export default function ClienteFiltrosPanel({
 }: ClienteFiltrosPanelProps) {
   const isMobile = useIsMobile()
   const [sheetOpen, setSheetOpen] = useState(false)
+  const opcoes = useOpcoesCrm()
   const mesesAno = gerarMesesAnoVigente()
 
   const filtrosAtivos = (Object.keys(filtrosIniciais) as FiltroChave[]).filter(
@@ -195,7 +195,7 @@ export default function ClienteFiltrosPanel({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todas as origens</SelectItem>
-            {ORIGENS.map((origem) => (
+            {opcoes.origens.map((origem) => (
               <SelectItem key={origem} value={origem}>
                 {origem}
               </SelectItem>
@@ -210,7 +210,7 @@ export default function ClienteFiltrosPanel({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os status</SelectItem>
-              {RESULTADOS.map((resultado) => (
+              {opcoes.resultados.map((resultado) => (
                 <SelectItem key={resultado} value={resultado}>
                   {resultado}
                 </SelectItem>

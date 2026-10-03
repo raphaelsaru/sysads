@@ -39,6 +39,7 @@ import { formatDateBR, formatDateISO } from '@/lib/dateUtils'
 import AddFollowUpModal from '@/components/followup/AddFollowUpModal'
 import { useFollowUps } from '@/hooks/useFollowUps'
 import { getCategoriasParaUsuario } from '@/lib/leadCategoria'
+import { RESULTADO_VARIANT } from '@/lib/crm-preset'
 
 type SortField = 'createdAt' | 'dataContato' | 'nome' | 'valorFechado'
 type SortOrder = 'asc' | 'desc'
@@ -58,11 +59,7 @@ interface ClienteTableProps {
   podeAlterar?: (cliente: Cliente) => boolean
 }
 
-const resultadoVariant: Record<Negociacao['resultado'], 'success' | 'warning' | 'destructive'> = {
-  Venda: 'success',
-  'Orçamento em Processo': 'warning',
-  'Não Venda': 'destructive',
-}
+const resultadoVariant = RESULTADO_VARIANT
 
 const qualidadeColor: Record<NonNullable<Negociacao['qualidadeContato']>, string> = {
   Bom: 'bg-success/15 text-success font-semibold',

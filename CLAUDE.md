@@ -66,6 +66,11 @@ Endpoints: `admin/users`, `admin/empresas`, `admin/empresa-ativa`, `empresa/`, `
 - Tela `/logs` (área `logs`), API `/api/empresa/logs`, texto em `src/lib/auditoria.ts`. Retenção 12 meses (pg_cron `audit-log-retencao`). Pedido LGPD: `select anonimizar_auditoria_cliente('<cliente_id>')`.
 - Teste: `supabase/tests/audit_log.sql`. Design: `docs/plans/2026-10-02-logs-auditoria.md`.
 
+### Preset de CRM por empresa
+- `tenants.crm_preset` (null = padrão Prizely; `'planilha'` = DNA4, Concept Studio, Travizan). Opções dos forms em `src/lib/crm-preset.ts` (`useOpcoesCrm()`).
+- 'planilha': campos `procedimento`, `motivo_nao_venda`, `forma_pagamento_sinal` em negociacoes; origens/resultados extras (Formulário/Consulta Presencial = em processo; Cancelado = não venda). `dashboard_resumo` devolve `procedimentos`/`motivos` p/ gráficos do Painel.
+- Ligar em empresa nova: `update tenants set crm_preset = 'planilha' where id = ...`. Design: `docs/plans/2026-10-03-crm-preset-planilha-design.md`.
+
 ### Meta CAPI
 - Trigger `meta_enfileirar_negociacao` em `negociacoes` grava Contact/Lead/Purchase em `meta_event_outbox` (só leads de anúncio: origem `Anúncio*` ou `meta_ad_id`; idempotente por `event_id`).
 - pg_cron (5 min) + pg_net chamam `/api/cron/meta-events` (`META_CRON_SECRET`; URL/segredo no Vault: `meta_cron_url`, `meta_cron_secret`). Envio em `src/lib/meta-outbox.ts` / `src/lib/meta-capi.ts`.

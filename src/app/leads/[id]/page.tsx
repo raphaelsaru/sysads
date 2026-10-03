@@ -22,6 +22,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAdmin } from '@/contexts/AdminContext'
 import { useNegociacoes } from '@/hooks/useNegociacoes'
 import { useFollowUps } from '@/hooks/useFollowUps'
+import { useOpcoesCrm } from '@/hooks/useOpcoesCrm'
+import { comValorAtual, RESULTADO_VARIANT } from '@/lib/crm-preset'
 import { Cliente, FollowUp, Negociacao, NovaNegociacao, NovoCliente } from '@/types/crm'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency, type SupportedCurrency } from '@/lib/currency'
 import { formatDateBR } from '@/lib/dateUtils'
@@ -45,20 +47,6 @@ import {
 } from '@/components/ui/select'
 import { DatePicker } from '@/components/ui/date-picker'
 
-const ORIGENS: Cliente['origem'][] = [
-  'Indicação',
-  'Orgânico / Perfil',
-  'Anúncio',
-  'Cliente antigo',
-  'Site',
-  'Instagram',
-]
-
-const RESULTADO_VARIANT: Record<Negociacao['resultado'], 'success' | 'warning' | 'destructive'> = {
-  Venda: 'success',
-  'Orçamento em Processo': 'warning',
-  'Não Venda': 'destructive',
-}
 
 // negociações vindas de fontes diferentes (fetch direto na API vs
 // useNegociacoes, que fala com Supabase no browser) representam valorFechado
@@ -105,6 +93,7 @@ function LeadDetailPageContent() {
 
   const { userProfile } = useAuth()
   const { impersonatedUser } = useAdmin()
+  const opcoes = useOpcoesCrm()
   const currency = (impersonatedUser?.currency ?? userProfile?.currency ?? FALLBACK_CURRENCY_VALUE) as typeof FALLBACK_CURRENCY_VALUE
 
   const [cliente, setCliente] = useState<Cliente | null>(null)
@@ -550,7 +539,7 @@ function LeadDetailPageContent() {
                     <SelectValue placeholder="Selecione a origem" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ORIGENS.map((origem) => (
+                    {comValorAtual(opcoes.origens, pessoaForm.origem).map((origem) => (
                       <SelectItem key={origem} value={origem}>
                         {origem}
                       </SelectItem>
@@ -658,6 +647,8 @@ function NegociacaoItem({
           <div className="grid gap-3 text-sm sm:grid-cols-2">
             <Campo label="Orçamento enviado" valor={negociacao.orcamentoEnviado ? 'Sim' : 'Não'} />
             <Campo label="Qualidade do contato" valor={negociacao.qualidadeContato ?? '—'} />
+            {negociacao.procedimento && <Campo label="Procedimento" valor={negociacao.procedimento} />}
+            {negociacao.motivoNaoVenda && <Campo label="Motivo não venda" valor={negociacao.motivoNaoVenda} />}
             <Campo label="Não respondeu" valor={negociacao.naoRespondeu ? 'Sim' : 'Não'} />
             <Campo label="Pagou sinal" valor={negociacao.pagouSinal ? 'Sim' : 'Não'} />
             {negociacao.pagouSinal && (
@@ -667,6 +658,9 @@ function NegociacaoItem({
                   label="Data do pagamento do sinal"
                   valor={negociacao.dataPagamentoSinal ? formatDateBR(negociacao.dataPagamentoSinal) : '—'}
                 />
+                {negociacao.formaPagamentoSinal && (
+                  <Campo label="Forma de pgto do sinal" valor={negociacao.formaPagamentoSinal} />
+                )}
               </>
             )}
             <Campo label="Venda paga" valor={negociacao.vendaPaga ? 'Sim' : 'Não'} />

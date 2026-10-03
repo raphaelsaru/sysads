@@ -18,6 +18,7 @@ const ROTULOS: Record<string, string> = {
   qualidade_contato: 'Qualidade', nao_respondeu: 'Não respondeu', pagou_sinal: 'Pagou sinal',
   valor_sinal: 'Valor do sinal', data_pagamento_sinal: 'Data do sinal', venda_paga: 'Venda paga',
   data_pagamento_venda: 'Data do pagamento', data_lembrete_chamada: 'Lembrete', respondeu: 'Respondeu',
+  procedimento: 'Procedimento', motivo_nao_venda: 'Motivo não venda', forma_pagamento_sinal: 'Forma de pgto do sinal',
   role: 'Papel', is_active: 'Ativo', full_name: 'Nome', name: 'Nome', branding: 'Cores', max_users: 'Vagas',
 }
 

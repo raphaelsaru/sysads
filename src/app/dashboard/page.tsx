@@ -8,6 +8,9 @@ import { eachDayOfInterval, endOfMonth, format, startOfMonth } from 'date-fns'
 import {
   ResponsiveContainer,
   LineChart,
+  BarChart,
+  Bar,
+  LabelList,
   CartesianGrid,
   Line,
   XAxis,
@@ -24,6 +27,7 @@ import { type DateRange } from '@/components/ui/calendar'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAdmin } from '@/contexts/AdminContext'
+import { useOpcoesCrm } from '@/hooks/useOpcoesCrm'
 import { FALLBACK_CURRENCY_VALUE, formatCurrency } from '@/lib/currency'
 import { createClient } from '@/lib/supabase-browser'
 import { cn } from '@/lib/utils'
@@ -49,11 +53,19 @@ interface PeriodoResumo {
   leadsComLembrete: number
 }
 
+interface Contagem {
+  nome: string
+  qtd: number
+}
+
 // Retorno de dashboard_resumo (numeric do Postgres pode vir como string).
 type ResumoDashboard = Omit<PeriodoResumo, 'valorEmProcesso' | 'valorVendido'> & {
   valorEmProcesso: number | string
   valorVendido: number | string
   dias: { dia: string; leads: number; valor: number | string }[]
+  // preset 'planilha' (ordenados por qtd desc)
+  procedimentos?: Contagem[]
+  motivos?: Contagem[]
 }
 
 function DashboardContent() {
@@ -70,6 +82,9 @@ function DashboardContent() {
     }
   })
   const [historico, setHistorico] = useState<HistoricoDia[]>([])
+  const opcoes = useOpcoesCrm()
+  const [procedimentos, setProcedimentos] = useState<Contagem[]>([])
+  const [motivos, setMotivos] = useState<Contagem[]>([])
   const [periodSummary, setPeriodSummary] = useState<PeriodoResumo>({
     total: 0,
     vendas: 0,
@@ -160,6 +175,8 @@ function DashboardContent() {
         })
 
         setHistorico(historicoFormatado)
+        setProcedimentos(resumo.procedimentos ?? [])
+        setMotivos(resumo.motivos ?? [])
         setPeriodSummary({
           total: resumo.total,
           vendas: resumo.vendas,
@@ -174,6 +191,8 @@ function DashboardContent() {
       } catch (error) {
         console.error('Erro ao carregar histórico de clientes:', error)
         setHistorico([])
+        setProcedimentos([])
+        setMotivos([])
         setPeriodSummary({
           total: 0,
           vendas: 0,
@@ -439,6 +458,23 @@ function DashboardContent() {
                     <Line type="monotone" dataKey="valor" stroke="hsl(var(--success))" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ChartCard>
+
+                {opcoes.procedimentos.length > 0 && (
+                  <ContagemChart
+                    title="Leads por procedimento"
+                    subtitle={periodoLabel}
+                    loading={historicoLoading}
+                    dados={procedimentos}
+                  />
+                )}
+                {opcoes.motivosNaoVenda.length > 0 && (
+                  <ContagemChart
+                    title="Motivos de não venda"
+                    subtitle={periodoLabel}
+                    loading={historicoLoading}
+                    dados={motivos}
+                  />
+                )}
               </div>
             )}
           </CardContent>
@@ -461,17 +497,68 @@ interface ChartCardProps {
   subtitle?: string
   loading?: boolean
   empty?: boolean
+  height?: number
   children: React.ReactElement
 }
 
-function ChartCard({ title, subtitle, loading, empty, children }: ChartCardProps) {
+// Barras horizontais (ranking); altura cresce com o nº de categorias.
+function ContagemChart({
+  title,
+  subtitle,
+  loading,
+  dados,
+}: {
+  title: string
+  subtitle?: string
+  loading?: boolean
+  dados: Contagem[]
+}) {
+  return (
+    <ChartCard
+      title={title}
+      subtitle={subtitle}
+      loading={loading}
+      empty={dados.length === 0}
+      height={Math.max(260, dados.length * 32 + 24)}
+    >
+      <BarChart data={dados} layout="vertical" margin={{ top: 4, right: 40, left: 8, bottom: 4 }} barCategoryGap={4}>
+        <XAxis type="number" hide allowDecimals={false} />
+        <YAxis
+          type="category"
+          dataKey="nome"
+          width={170}
+          fontSize={12}
+          stroke="var(--muted-foreground)"
+          tickLine={false}
+          axisLine={false}
+        />
+        <RechartsTooltip
+          cursor={{ fill: 'hsl(var(--muted) / 0.4)' }}
+          contentStyle={{
+            borderRadius: 12,
+            border: '1px solid hsl(var(--border))',
+            backgroundColor: 'hsl(var(--card))',
+            color: 'hsl(var(--foreground))',
+          }}
+          labelStyle={{ fontWeight: 600 }}
+          formatter={(valor: number) => [valor, 'Negociações']}
+        />
+        <Bar dataKey="qtd" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} maxBarSize={22}>
+          <LabelList dataKey="qtd" position="right" fontSize={12} fill="hsl(var(--foreground))" />
+        </Bar>
+      </BarChart>
+    </ChartCard>
+  )
+}
+
+function ChartCard({ title, subtitle, loading, empty, height, children }: ChartCardProps) {
   return (
  <Card className="bg-background/70">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg font-semibold text-foreground">{title}</CardTitle>
         {subtitle ? <CardDescription>{subtitle}</CardDescription> : null}
       </CardHeader>
-      <CardContent className="h-[260px]">
+      <CardContent className={height ? undefined : 'h-[260px]'} style={height ? { height } : undefined}>
         {loading ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" aria-label="Carregando gráfico" />
